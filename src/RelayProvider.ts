@@ -4,7 +4,11 @@ import log from 'loglevel';
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers';
 import { HttpProvider } from 'web3-core';
 import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts';
-import { _dumpRelayingResult, RelayClient } from './RelayClient';
+import {
+    _dumpRelayingResult,
+    RelayClient,
+    RelayingResult
+} from './RelayClient';
 import {
     EnvelopingTransactionDetails,
     EnvelopingConfig,
@@ -17,7 +21,9 @@ import { RelayEvent } from './RelayEvents';
 import { Address } from './types/Aliases';
 import { toBN, toChecksumAddress, toHex } from 'web3-utils';
 
+// @ts-ignore
 abiDecoder.addABI(IRelayHub.abi);
+// @ts-ignore
 abiDecoder.addABI(IWalletFactory.abi);
 
 export interface BaseTransactionReceipt {
@@ -30,11 +36,11 @@ export type JsonRpcCallback = (
     result?: JsonRpcResponse
 ) => void;
 
-interface ISendAsync {
+export interface ISendAsync {
     sendAsync?: any;
 }
 
-export class RelayProvider implements HttpProvider {
+export default class RelayProvider implements HttpProvider {
     protected readonly origProvider: HttpProvider & ISendAsync;
     private readonly origProviderSend: any;
     protected readonly config: EnvelopingConfig;
@@ -422,7 +428,7 @@ export class RelayProvider implements HttpProvider {
         );
 
         this.relayClient.relayTransaction(transactionDetails).then(
-            (relayingResult) => {
+            (relayingResult: RelayingResult) => {
                 if (
                     relayingResult.transaction !== undefined &&
                     relayingResult.transaction !== null

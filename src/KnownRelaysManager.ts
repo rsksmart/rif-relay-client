@@ -8,7 +8,7 @@ import {
     StakeUnlocked,
     ContractInteractor
 } from '@rsksmart/rif-relay-common';
-import RelayFailureInfo from './types/RelayFailureInfo';
+import { RelayFailureInfo } from './types/RelayFailureInfo';
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases';
 import {
     isInfoFromEvent,

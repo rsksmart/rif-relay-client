@@ -1,5 +1,4 @@
 import { PrefixedHexString } from 'ethereumjs-tx';
-
 export interface TmpRelayTransactionJsonRequest {
     relayWorker: string;
     data: PrefixedHexString;

@@ -21,32 +21,33 @@
   "dependencies": {
     "@rsksmart/rif-relay-common": "https://github.com/JONAF2103/rif-relay-common",
     "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts",
-    "ethereumjs-wallet": "^1.0.1",
+    "abi-decoder": "^2.3.0",
+    "axios": "^0.21.1",
     "eth-sig-util": "2.5.2",
+    "ethereum-cryptography": "^0.1.3",
     "ethereumjs-tx": "^2.1.2",
+    "ethereumjs-util": "^6.2.1",
+    "ethereumjs-wallet": "^1.0.1",
+    "loglevel": "^1.7.0",
     "web3": "1.2.6",
     "web3-core": "1.2.6",
-    "web3-utils": "1.2.6",
-    "loglevel": "^1.7.0",
-    "axios": "^0.21.1",
-    "web3-eth-contract": "1.2.6",
-    "ethereumjs-util": "^6.2.1",
     "web3-core-helpers": "1.2.6",
-    "ethereum-cryptography": "^0.1.3"
+    "web3-eth-contract": "1.2.6",
+    "web3-utils": "1.2.6"
   },
   "devDependencies": {
+    "@openzeppelin/test-helpers": "0.5.10",
     "@typescript-eslint/eslint-plugin": "^4.28.3",
     "@typescript-eslint/parser": "^4.28.3",
-    "@openzeppelin/test-helpers": "0.5.10",
     "eslint": "^7.30.0",
+    "husky": "^6.0.0",
+    "pinst": "^2.1.6",
+    "prettier": "2.3.0",
     "ts-loader": "^9.2.3",
     "ts-node": "8.6.2",
     "typescript": "^4.3.5",
     "webpack": "^5.43.0",
     "webpack-cli": "^4.7.2",
-    "webpack-node-externals": "^3.0.0",
-    "husky": "^6.0.0",
-    "pinst": "^2.1.6",
-    "prettier": "2.3.0"
+    "webpack-node-externals": "^3.0.0"
   }
 }

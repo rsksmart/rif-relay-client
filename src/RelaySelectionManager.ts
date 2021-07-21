@@ -13,7 +13,7 @@ import {
 } from '@rsksmart/rif-relay-common';
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo';
 
-interface RaceResult {
+export interface RaceResult {
     winner?: PartialRelayInfo;
     errors: Map<string, Error>;
 }

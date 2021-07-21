@@ -4,7 +4,7 @@ import {
     RelayRequest,
     EnvelopingTransactionDetails
 } from '@rsksmart/rif-relay-common';
-import RelayFailureInfo from './RelayFailureInfo';
+import { RelayFailureInfo } from './RelayFailureInfo';
 import { RelayRegisteredEventInfo } from './RelayRegisteredEventInfo';
 
 export type Address = string;

@@ -29,6 +29,7 @@ import {
     EnvelopingDependencies
 } from './Configurator';
 import { RelayInfo } from './types/RelayInfo';
+//@ts-ignore
 import { EventEmitter } from 'events';
 import {
     RelayEvent,

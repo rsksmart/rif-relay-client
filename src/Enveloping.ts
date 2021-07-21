@@ -39,7 +39,7 @@ export interface SignatureProvider {
     ) => boolean;
 }
 
-export class Enveloping {
+export default class Enveloping {
     config: EnvelopingConfig;
     relayWorkerAddress: Address;
     dependencies: EnvelopingDependencies;
