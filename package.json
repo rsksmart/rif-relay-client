@@ -6,7 +6,7 @@
   "scripts": {
     "build": "scripts/build",
     "dist": "scripts/dist",
-    "postinstall": "scripts/postinstall",
+    "_postinstall": "scripts/postinstall",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "prepublishOnly": "scripts/prepublishOnly",
