@@ -7,6 +7,11 @@ This project works as a dependency and needs to be installed in order to be used
 
 * Node version 12.18
 
+#### How to start
+
+To start working with this project you need to run `npm install` to install
+all the dependencies.
+
 #### How to use it
 
 You can use this dependency once you have it installed on your project. You have a few
