@@ -1,11 +1,11 @@
 import { PrefixedHexString } from 'ethereumjs-tx';
 import {
+    EnvelopingTransactionDetails,
     PingResponse,
-    RelayRequest,
-    EnvelopingTransactionDetails
+    RelayData,
+    RelayRequest
 } from '@rsksmart/rif-relay-common';
 import { RelayFailureInfo } from './RelayFailureInfo';
-import { RelayRegisteredEventInfo } from './RelayRegisteredEventInfo';
 
 export type Address = string;
 export type IntString = string;
@@ -22,11 +22,9 @@ export type AsyncDataCallback = (
     relayRequest: RelayRequest
 ) => Promise<PrefixedHexString>;
 
-export type RelayFilter = (
-    registeredEventInfo: RelayRegisteredEventInfo
-) => boolean;
+export type RelayFilter = (relayData: RelayData) => boolean;
 export type AsyncScoreCalculator = (
-    relay: RelayRegisteredEventInfo,
+    relay: RelayData,
     txDetails: EnvelopingTransactionDetails,
     failures: RelayFailureInfo[]
 ) => Promise<number>;

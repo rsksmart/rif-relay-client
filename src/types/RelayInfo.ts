@@ -1,17 +1,13 @@
-import { PingResponse } from '@rsksmart/rif-relay-common';
-import {
-    RelayInfoUrl,
-    RelayRegisteredEventInfo
-} from './RelayRegisteredEventInfo';
+import { PingResponse, RelayData } from '@rsksmart/rif-relay-common';
 
 // Well, I still don't like it
 // Some info is known from the event, some from ping
 export interface PartialRelayInfo {
-    relayInfo: RelayInfoUrl;
+    relayData: RelayData;
     pingResponse: PingResponse;
 }
 
 export interface RelayInfo {
     pingResponse: PingResponse;
-    relayInfo: RelayRegisteredEventInfo;
+    relayData: RelayData;
 }
