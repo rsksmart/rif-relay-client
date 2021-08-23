@@ -207,17 +207,13 @@ sentRelayTransaction.transaction?.hash(true).toString('hex'); //This is used to 
 
 #### How to develop
 
-If you need to modify resources inside this repository the first thing you need to do always is to make sure you have `postinstall` scripts enabled on the `package.json`. These
-are disabled by default due to distribution issues. (This will be solve in the future). This will enable husky and other checks,
-then run `npm install` to execute the post install hooks. After that you can just make your modifications
-and then run `npm run build` to validate them. After you are done with your changes you
-can publish them by creating a distributable version for the consumers.
+If you need to modify resources inside this repository the first thing you always need to make sure of is that `postinstall` scripts are enabled in the `package.json` file. These are disabled by default due to distribution issues (which will be solved in the future), but will enable husky and other tools.
+
+Then, run `npm install` to execute the post install hooks. After that, you can just make your modifications and then run `npm run build` to validate them. After you are done with your changes you can publish them by creating a distributable version.
 
 #### Enable postinstall scripts
 
-To enable `postinstall` scripts you need to modify the `package.json` file
-in the section `scripts` and change the line `"_postinstall": "scripts/postinstall",`
-to `"postinstall": "scripts/postinstall",`.
+To enable `postinstall` scripts you need to modify the `package.json` file, specifically the section `scripts` and change the line `"_postinstall": "scripts/postinstall",` to `"postinstall": "scripts/postinstall",`.
 
 #### Husky and linters
 
