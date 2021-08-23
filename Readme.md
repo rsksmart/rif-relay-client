@@ -203,8 +203,7 @@ sentRelayTransaction.transaction?.hash(true).toString('hex'); //This is used to 
 1. Run `npm run dist` to generate the distributable version.
 2. Commit and push the dist folder with the updated version to the repository on master.
 
-**IMPORTANT: when you publish a version postinstall scripts must be disabled. This is disabled by default, don't push
-any change on postinstall scripts section in the `package.json` file.**
+**IMPORTANT: when you publish a version postinstall scripts must be disabled. This is disabled by default, don't push any changes to the postinstall scripts section in the `package.json` file.**
 
 #### How to develop
 
