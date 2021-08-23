@@ -9,9 +9,7 @@ This project works as a dependency and needs to be installed in order to be used
 
 #### How to start
 
-To start working with this project you need to enable `postinstall` scripts, refer
-to section [Enable postinstall scripts](#enable-postinstall-scripts) to know how to do it. Then just run `npm install` to install
-all the dependencies.
+To start working with this project you need to enable `postinstall` scripts, refer to section [Enable postinstall scripts](#enable-postinstall-scripts) to know how to do it. Then just run `npm install` to install all dependencies.
 
 #### How to use it
 
