@@ -362,10 +362,16 @@ export default class Enveloping {
             console.log('tx hash: ' + hash);
             return { transaction };
         } catch (error) {
-            const reasonStr =
-                error instanceof Error ? error.message : JSON.stringify(error);
-            console.log(`GOT ERROR - Reason: ${reasonStr}`);
-            return { error };
+            if (error instanceof Error) {
+                const reasonStr =
+                    error instanceof Error
+                        ? error.message
+                        : JSON.stringify(error);
+                console.log(`GOT ERROR - Reason: ${reasonStr}`);
+                return { error };
+            } else {
+                console.error(error);
+            }
         }
     }
 

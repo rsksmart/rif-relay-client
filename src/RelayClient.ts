@@ -155,19 +155,23 @@ export class RelayClient {
             await this.contractInteractor.sendSignedTransaction(rawTx);
             return { hasReceipt: true };
         } catch (broadcastError) {
-            // don't display error for the known-good cases
-            if (
-                broadcastError?.message.match(
-                    /the tx doesn't have the correct nonce|known transaction/
-                ) != null
-            ) {
-                return {
-                    hasReceipt: false,
-                    wrongNonce: true,
-                    broadcastError
-                };
+            if (broadcastError instanceof Error) {
+                // don't display error for the known-good cases
+                if (
+                    broadcastError?.message.match(
+                        /the tx doesn't have the correct nonce|known transaction/
+                    ) != null
+                ) {
+                    return {
+                        hasReceipt: false,
+                        wrongNonce: true,
+                        broadcastError
+                    };
+                }
+                return { hasReceipt: false, broadcastError };
+            } else {
+                console.error(broadcastError);
             }
-            return { hasReceipt: false, broadcastError };
         }
     }
 
@@ -693,18 +697,22 @@ export class RelayClient {
                 httpRequest
             );
         } catch (error) {
-            if (
-                error?.message == null ||
-                error.message.indexOf('timeout') !== -1
-            ) {
-                this.knownRelaysManager.saveRelayFailure(
-                    new Date().getTime(),
-                    relayInfo.relayInfo.relayManager,
-                    relayInfo.relayInfo.relayUrl
-                );
+            if (error instanceof Error) {
+                if (
+                    error?.message == null ||
+                    error.message.indexOf('timeout') !== -1
+                ) {
+                    this.knownRelaysManager.saveRelayFailure(
+                        new Date().getTime(),
+                        relayInfo.relayInfo.relayManager,
+                        relayInfo.relayInfo.relayUrl
+                    );
+                }
+                log.info('relayTransaction: ', JSON.stringify(httpRequest));
+                return { error };
+            } else {
+                console.error(error);
             }
-            log.info('relayTransaction: ', JSON.stringify(httpRequest));
-            return { error };
         }
         const transaction = new Transaction(
             hexTransaction,
