@@ -710,8 +710,8 @@ export class RelayClient {
                 ) {
                     this.knownRelaysManager.saveRelayFailure(
                         new Date().getTime(),
-                        relayInfo.relayData.relayManager,
-                        relayInfo.relayData.relayUrl
+                        relayInfo.relayData.manager,
+                        relayInfo.relayData.url
                     );
                 }
                 log.info('relayTransaction: ', JSON.stringify(httpRequest));
