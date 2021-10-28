@@ -78,7 +78,7 @@ export class KnownRelaysManager {
         if (relayManagers.size === 0) {
             return [];
         }
-        const activeRelays = await this.contractInteractor.getActiveRelays(
+        const activeRelays = await this.contractInteractor.getActiveRelayInfo(
             relayManagers
         );
         return activeRelays.filter(this.relayFilter);

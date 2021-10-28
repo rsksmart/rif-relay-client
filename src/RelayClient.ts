@@ -353,9 +353,8 @@ export class RelayClient {
                 relayInfo: {
                     manager: '',
                     url: '',
-                    penalized: false,
                     registered: false,
-                    stakeAdded: false
+                    currentlyStaked: false
                 }
             },
             { ...transactionDetails, tokenAmount: '0' }
