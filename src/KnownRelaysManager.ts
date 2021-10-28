@@ -3,7 +3,7 @@ import {
     ContractInteractor,
     EnvelopingConfig,
     EnvelopingTransactionDetails,
-    RelayData
+    RelayManagerData
 } from '@rsksmart/rif-relay-common';
 import { RelayFailureInfo } from './types/RelayFailureInfo';
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases';
@@ -17,7 +17,7 @@ export const EmptyFilter: RelayFilter = (): boolean => {
  * Relays that failed to respond recently will be downgraded for some period of time.
  */
 export const DefaultRelayScore = async function (
-    relay: RelayData,
+    relay: RelayManagerData,
     txDetails: EnvelopingTransactionDetails,
     failures: RelayFailureInfo[]
 ): Promise<number> {
@@ -34,8 +34,8 @@ export class KnownRelaysManager {
     private relayFailures = new Map<string, RelayFailureInfo[]>();
 
     public relayLookupWindowParts: number;
-    public preferredRelayers: RelayData[] = [];
-    public allRelayers: RelayData[] = [];
+    public preferredRelayers: RelayManagerData[] = [];
+    public allRelayers: RelayManagerData[] = [];
 
     constructor(
         contractInteractor: ContractInteractor,
@@ -59,7 +59,7 @@ export class KnownRelaysManager {
             'KnownRelaysManager - Fetched recently active Relay Managers done'
         );
         this.preferredRelayers = this.config.preferredRelays.map((relayUrl) => {
-            const relayData: RelayData = Object.assign({} as any, {
+            const relayData: RelayManagerData = Object.assign({} as any, {
                 url: relayUrl
             });
             return relayData;
@@ -73,7 +73,7 @@ export class KnownRelaysManager {
 
     async getRelayDataForManagers(
         relayManagers: Set<Address>
-    ): Promise<RelayData[]> {
+    ): Promise<RelayManagerData[]> {
         // As 'topics' are used as 'filter', having an empty set results in querying all register events.
         if (relayManagers.size === 0) {
             return [];
@@ -196,8 +196,8 @@ export class KnownRelaysManager {
 
     async getRelaysSortedForTransaction(
         transactionDetails: EnvelopingTransactionDetails
-    ): Promise<RelayData[][]> {
-        const sortedRelays: RelayData[][] = [];
+    ): Promise<RelayManagerData[][]> {
+        const sortedRelays: RelayManagerData[][] = [];
         sortedRelays[0] = Array.from(this.preferredRelayers);
         sortedRelays[1] = await this._sortRelaysInternal(
             transactionDetails,
@@ -208,8 +208,8 @@ export class KnownRelaysManager {
 
     async _sortRelaysInternal(
         transactionDetails: EnvelopingTransactionDetails,
-        activeRelays: RelayData[]
-    ): Promise<RelayData[]> {
+        activeRelays: RelayManagerData[]
+    ): Promise<RelayManagerData[]> {
         const scores = new Map<string, number>();
         for (const activeRelay of activeRelays) {
             let score = 0;

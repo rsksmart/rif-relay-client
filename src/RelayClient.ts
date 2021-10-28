@@ -350,7 +350,7 @@ export class RelayClient {
                     ready: true,
                     version: ''
                 },
-                relayData: {
+                relayInfo: {
                     manager: '',
                     url: '',
                     penalized: false,
@@ -573,7 +573,7 @@ export class RelayClient {
             let relayingAttempt: RelayingAttempt | undefined;
             const activeRelay = await relaySelectionManager.selectNextRelay();
             if (activeRelay !== undefined && activeRelay !== null) {
-                this.emit(new NextRelayEvent(activeRelay.relayData.url));
+                this.emit(new NextRelayEvent(activeRelay.relayInfo.url));
 
                 if (estimateTokenGas) {
                     // Estimate the gas required to transfer the token
@@ -594,7 +594,7 @@ export class RelayClient {
                     relayingAttempt.transaction === null
                 ) {
                     relayingErrors.set(
-                        activeRelay.relayData.url,
+                        activeRelay.relayInfo.url,
                         relayingAttempt.error ??
                             new Error('No error reason was given')
                     );
@@ -696,10 +696,10 @@ export class RelayClient {
         }
 
         let hexTransaction: PrefixedHexString;
-        this.emit(new SendToRelayerEvent(relayInfo.relayData.url));
+        this.emit(new SendToRelayerEvent(relayInfo.relayInfo.url));
         try {
             hexTransaction = await this.httpClient.relayTransaction(
-                relayInfo.relayData.url,
+                relayInfo.relayInfo.url,
                 httpRequest
             );
         } catch (error) {
@@ -710,8 +710,8 @@ export class RelayClient {
                 ) {
                     this.knownRelaysManager.saveRelayFailure(
                         new Date().getTime(),
-                        relayInfo.relayData.manager,
-                        relayInfo.relayData.url
+                        relayInfo.relayInfo.manager,
+                        relayInfo.relayInfo.url
                     );
                 }
                 log.info('relayTransaction: ', JSON.stringify(httpRequest));
@@ -733,8 +733,8 @@ export class RelayClient {
             this.emit(new RelayerResponseEvent(false));
             this.knownRelaysManager.saveRelayFailure(
                 new Date().getTime(),
-                relayInfo.relayData.manager,
-                relayInfo.relayData.url
+                relayInfo.relayInfo.manager,
+                relayInfo.relayInfo.url
             );
             return {
                 error: new Error('Returned transaction did not pass validation')

@@ -1,9 +1,9 @@
-import { PingResponse, RelayData } from '@rsksmart/rif-relay-common';
+import { PingResponse, RelayManagerData } from '@rsksmart/rif-relay-common';
 export interface PartialRelayInfo {
-    relayData: RelayData;
+    relayInfo: RelayManagerData;
     pingResponse: PingResponse;
 }
 export interface RelayInfo {
     pingResponse: PingResponse;
-    relayData: RelayData;
+    relayInfo: RelayManagerData;
 }
