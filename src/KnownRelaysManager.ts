@@ -74,13 +74,13 @@ export class KnownRelaysManager {
     async getRelayDataForManagers(
         relayManagers: Set<Address>
     ): Promise<RelayManagerData[]> {
-        // As 'topics' are used as 'filter', having an empty set results in querying all register events.
         if (relayManagers.size === 0) {
             return [];
         }
         const activeRelays = await this.contractInteractor.getActiveRelayInfo(
             relayManagers
         );
+        // As 'topics' are used as 'filter', having an empty set results in querying all register events.
         return activeRelays.filter(this.relayFilter);
     }
 
