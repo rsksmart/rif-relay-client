@@ -18,8 +18,8 @@
   "author": "Relaying Services Team",
   "license": "MIT",
   "dependencies": {
-    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common",
-    "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts",
+    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common#feature/PP-43/refactor-register-relay-iter",
+    "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts#feature/PP-43/refactor-register-relay-iter",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
