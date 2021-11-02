@@ -2,9 +2,9 @@ import { PrefixedHexString } from 'ethereumjs-tx';
 import {
     EnvelopingTransactionDetails,
     PingResponse,
-    RelayManagerData,
     RelayRequest
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { RelayFailureInfo } from './RelayFailureInfo';
 
 export type Address = string;

@@ -1,7 +1,8 @@
 import { KnownRelaysManager } from './KnownRelaysManager';
 import HttpClient from './HttpClient';
 import { PingFilter } from './types/Aliases';
-import { EnvelopingConfig, EnvelopingTransactionDetails, RelayManagerData } from '@rsksmart/rif-relay-common';
+import { EnvelopingConfig, EnvelopingTransactionDetails } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo';
 export interface RaceResult {
     winner?: PartialRelayInfo;

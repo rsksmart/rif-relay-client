@@ -2,9 +2,9 @@ import log from 'loglevel';
 import {
     ContractInteractor,
     EnvelopingConfig,
-    EnvelopingTransactionDetails,
-    RelayManagerData
+    EnvelopingTransactionDetails
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { RelayFailureInfo } from './types/RelayFailureInfo';
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases';
 import { EventData } from 'web3-eth-contract';

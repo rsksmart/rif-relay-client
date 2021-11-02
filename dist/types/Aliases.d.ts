@@ -1,5 +1,6 @@
 import { PrefixedHexString } from 'ethereumjs-tx';
-import { EnvelopingTransactionDetails, PingResponse, RelayManagerData, RelayRequest } from '@rsksmart/rif-relay-common';
+import { EnvelopingTransactionDetails, PingResponse, RelayRequest } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { RelayFailureInfo } from './RelayFailureInfo';
 export declare type Address = string;
 export declare type IntString = string;

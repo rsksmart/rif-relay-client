@@ -5,9 +5,9 @@ import { PingFilter } from './types/Aliases';
 import {
     EnvelopingConfig,
     EnvelopingTransactionDetails,
-    RelayManagerData,
     replaceErrors
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo';
 
 export interface RaceResult {
