@@ -1,7 +1,8 @@
 import { KnownRelaysManager } from './KnownRelaysManager';
 import HttpClient from './HttpClient';
 import { PingFilter } from './types/Aliases';
-import { EnvelopingConfig, EnvelopingTransactionDetails, RelayData } from '@rsksmart/rif-relay-common';
+import { EnvelopingConfig, EnvelopingTransactionDetails } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo';
 export interface RaceResult {
     winner?: PartialRelayInfo;
@@ -22,20 +23,20 @@ export default class RelaySelectionManager {
      * @returns the first relay to respond to a ping message. Note: will never return the same relay twice.
      */
     selectNextRelay(): Promise<RelayInfo | undefined>;
-    _getPreferredRelaysNextSlice(index: number): RelayData[];
-    _nextRelayInternal(relays: RelayData[]): Promise<RelayInfo | undefined>;
+    _getPreferredRelaysNextSlice(index: number): RelayManagerData[];
+    _nextRelayInternal(relays: RelayManagerData[]): Promise<RelayInfo | undefined>;
     init(): Promise<this>;
-    relaysLeft(): RelayData[];
-    _getNextSlice(): RelayData[];
+    relaysLeft(): RelayManagerData[];
+    _getNextSlice(): RelayManagerData[];
     /**
      * @returns JSON response from the relay server, but adds the requested URL to it :'-(
      */
-    _getRelayAddressPing(relayData: RelayData): Promise<PartialRelayInfo>;
+    _getRelayAddressPing(relayInfo: RelayManagerData): Promise<PartialRelayInfo>;
     /**
      * From https://stackoverflow.com/a/37235207 (added types, modified to catch exceptions)
      * Accepts an array of promises.
      * Resolves once any promise resolves, ignores the rest. Exceptions returned separately.
      */
-    _raceToSuccess(relays: RelayData[]): Promise<RaceResult>;
+    _raceToSuccess(relays: RelayManagerData[]): Promise<RaceResult>;
     _handleRaceResults(raceResult: RaceResult): void;
 }
