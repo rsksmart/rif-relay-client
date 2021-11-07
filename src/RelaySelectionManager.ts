@@ -129,10 +129,13 @@ export default class RelaySelectionManager {
                 };
             } else {
                 throw new Error(
-                    'unexpected amount of active relays for manager address: ' +
-                        managerAddress
+                    `unexpected amount of active relays for manager address: ${managerAddress}`
                 );
             }
+        } else {
+            log.info(
+                `no race winner found for relays: ${JSON.stringify(relays)})`
+            );
         }
     }
 
