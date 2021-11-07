@@ -122,10 +122,17 @@ export default class RelaySelectionManager {
                 await this.knownRelaysManager.getRelayDataForManagers(
                     new Set([managerAddress])
                 );
-            return {
-                pingResponse: raceResult.winner.pingResponse,
-                relayInfo: activeRelays[0]
-            };
+            if (activeRelays.length == 1) {
+                return {
+                    pingResponse: raceResult.winner.pingResponse,
+                    relayInfo: activeRelays[0]
+                };
+            } else {
+                throw new Error(
+                    'unexpected amount of active relays for manager address: ' +
+                        managerAddress
+                );
+            }
         }
     }
 
