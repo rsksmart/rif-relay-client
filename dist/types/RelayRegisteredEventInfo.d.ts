@@ -4,4 +4,3 @@ export interface RelayInfoUrl {
 export interface RelayRegisteredEventInfo extends RelayInfoUrl {
     relayManager: string;
 }
-export declare function isInfoFromEvent(info: RelayInfoUrl): boolean;

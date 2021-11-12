@@ -1,20 +1,12 @@
 import log from 'loglevel';
 import {
-    addresses2topics,
-    EnvelopingTransactionDetails,
+    ContractInteractor,
     EnvelopingConfig,
-    RelayServerRegistered,
-    StakePenalized,
-    StakeUnlocked,
-    ContractInteractor
+    EnvelopingTransactionDetails
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { RelayFailureInfo } from './types/RelayFailureInfo';
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases';
-import {
-    isInfoFromEvent,
-    RelayInfoUrl,
-    RelayRegisteredEventInfo
-} from './types/RelayRegisteredEventInfo';
 import { EventData } from 'web3-eth-contract';
 
 export const EmptyFilter: RelayFilter = (): boolean => {
@@ -25,7 +17,7 @@ export const EmptyFilter: RelayFilter = (): boolean => {
  * Relays that failed to respond recently will be downgraded for some period of time.
  */
 export const DefaultRelayScore = async function (
-    relay: RelayRegisteredEventInfo,
+    relay: RelayManagerData,
     txDetails: EnvelopingTransactionDetails,
     failures: RelayFailureInfo[]
 ): Promise<number> {
@@ -42,8 +34,8 @@ export class KnownRelaysManager {
     private relayFailures = new Map<string, RelayFailureInfo[]>();
 
     public relayLookupWindowParts: number;
-    public preferredRelayers: RelayInfoUrl[] = [];
-    public allRelayers: RelayInfoUrl[] = [];
+    public preferredRelayers: RelayManagerData[] = [];
+    public allRelayers: RelayManagerData[] = [];
 
     constructor(
         contractInteractor: ContractInteractor,
@@ -67,67 +59,29 @@ export class KnownRelaysManager {
             'KnownRelaysManager - Fetched recently active Relay Managers done'
         );
         this.preferredRelayers = this.config.preferredRelays.map((relayUrl) => {
-            return { relayUrl };
+            const relayData: RelayManagerData = Object.assign({} as any, {
+                url: relayUrl
+            });
+            return relayData;
         });
-        this.allRelayers = await this.getRelayInfoForManagers(
+        this.allRelayers = await this.getRelayDataForManagers(
             recentlyActiveRelayManagers
         );
         log.debug('KnownRelaysManager - Get relay info for Managers done');
         log.debug('KnownRelaysManager - Refresh done');
     }
 
-    async getRelayInfoForManagers(
+    async getRelayDataForManagers(
         relayManagers: Set<Address>
-    ): Promise<RelayRegisteredEventInfo[]> {
-        // As 'topics' are used as 'filter', having an empty set results in querying all register events.
+    ): Promise<RelayManagerData[]> {
         if (relayManagers.size === 0) {
             return [];
         }
-        const topics = addresses2topics(Array.from(relayManagers));
-        const relayServerRegisteredEvents =
-            await this.contractInteractor.getPastEventsForHub(
-                topics,
-                { fromBlock: 1 },
-                [RelayServerRegistered]
-            );
-        const relayManagerExitEvents =
-            await this.contractInteractor.getPastEventsForStakeManagement(
-                [StakeUnlocked, StakePenalized],
-                topics,
-                { fromBlock: 1 }
-            );
-
-        log.info(
-            `== fetchRelaysAdded: found ${relayServerRegisteredEvents.length} unique RelayAdded events`
+        const activeRelays = await this.contractInteractor.getActiveRelayInfo(
+            relayManagers
         );
-
-        const mergedEvents = [
-            ...relayManagerExitEvents,
-            ...relayServerRegisteredEvents
-        ].sort((a, b) => {
-            const blockNumberA = a.blockNumber;
-            const blockNumberB = b.blockNumber;
-            const transactionIndexA = a.transactionIndex;
-            const transactionIndexB = b.transactionIndex;
-            if (blockNumberA === blockNumberB) {
-                return transactionIndexA - transactionIndexB;
-            }
-            return blockNumberA - blockNumberB;
-        });
-        const activeRelays = new Map<Address, RelayRegisteredEventInfo>();
-        mergedEvents.forEach((event) => {
-            const args = event.returnValues;
-            if (event.event === RelayServerRegistered) {
-                activeRelays.set(
-                    args.relayManager,
-                    args as RelayRegisteredEventInfo
-                );
-            } else {
-                activeRelays.delete(args.relayManager);
-            }
-        });
-        const origRelays = Array.from(activeRelays.values());
-        return origRelays.filter(this.relayFilter);
+        // As 'topics' are used as 'filter', having an empty set results in querying all register events.
+        return activeRelays.filter(this.relayFilter);
     }
 
     splitRange(
@@ -242,8 +196,8 @@ export class KnownRelaysManager {
 
     async getRelaysSortedForTransaction(
         transactionDetails: EnvelopingTransactionDetails
-    ): Promise<RelayInfoUrl[][]> {
-        const sortedRelays: RelayInfoUrl[][] = [];
+    ): Promise<RelayManagerData[][]> {
+        const sortedRelays: RelayManagerData[][] = [];
         sortedRelays[0] = Array.from(this.preferredRelayers);
         sortedRelays[1] = await this._sortRelaysInternal(
             transactionDetails,
@@ -254,29 +208,23 @@ export class KnownRelaysManager {
 
     async _sortRelaysInternal(
         transactionDetails: EnvelopingTransactionDetails,
-        activeRelays: RelayInfoUrl[]
-    ): Promise<RelayInfoUrl[]> {
+        activeRelays: RelayManagerData[]
+    ): Promise<RelayManagerData[]> {
         const scores = new Map<string, number>();
         for (const activeRelay of activeRelays) {
             let score = 0;
-            if (isInfoFromEvent(activeRelay)) {
-                const eventInfo = activeRelay as RelayRegisteredEventInfo;
-                score = await this.scoreCalculator(
-                    eventInfo,
-                    transactionDetails,
-                    this.relayFailures.get(activeRelay.relayUrl) ?? []
-                );
-                scores.set(eventInfo.relayManager, score);
-            }
+            score = await this.scoreCalculator(
+                activeRelay,
+                transactionDetails,
+                this.relayFailures.get(activeRelay.url) ?? []
+            );
+            scores.set(activeRelay.manager, score);
         }
-        return Array.from(activeRelays.values())
-            .filter(isInfoFromEvent)
-            .map((value) => value as RelayRegisteredEventInfo)
-            .sort((a, b) => {
-                const aScore = scores.get(a.relayManager) ?? 0;
-                const bScore = scores.get(b.relayManager) ?? 0;
-                return bScore - aScore;
-            });
+        return Array.from(activeRelays.values()).sort((a, b) => {
+            const aScore = scores.get(a.manager) ?? 0;
+            const bScore = scores.get(b.manager) ?? 0;
+            return bScore - aScore;
+        });
     }
 
     saveRelayFailure(
