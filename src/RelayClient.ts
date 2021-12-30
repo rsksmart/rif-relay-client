@@ -626,6 +626,7 @@ export class RelayClient {
         relayInfo: RelayInfo,
         transactionDetails: EnvelopingTransactionDetails
     ): Promise<RelayingAttempt> {
+        log.info("test");
         log.info(
             `attempting relay: ${JSON.stringify(
                 relayInfo
