@@ -651,7 +651,7 @@ export class RelayClient {
                 relayInfo,
                 transactionDetails
             );
-            log.info(`httpRequest: ${JSON.stringify(httpRequest)}`)
+            log.info(`httpRequest:`, httpRequest)
             this.emit(new ValidateRequestEvent());
             acceptCallResult =
                 await this.contractInteractor.validateAcceptRelayCall(
