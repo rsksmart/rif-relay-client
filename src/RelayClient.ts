@@ -628,7 +628,7 @@ export class RelayClient {
         relayInfo: RelayInfo,
         transactionDetails: EnvelopingTransactionDetails
     ): Promise<RelayingAttempt> {
-        log.info("test");
+        log.info("*** TEST ***");
         log.info(
             `attempting relay: ${JSON.stringify(
                 relayInfo
@@ -653,7 +653,7 @@ export class RelayClient {
                 relayInfo,
                 transactionDetails
             );
-            log.info(`httpRequest:`, httpRequest)
+            log.info(`httpRequest: ${JSON.stringify(httpRequest)}`)
             this.emit(new ValidateRequestEvent());
             acceptCallResult =
                 await this.contractInteractor.validateAcceptRelayCall(
