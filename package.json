@@ -27,7 +27,7 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-common": "0.0.2-alpha.5",
+    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common#PP-108/collector-contract",
     "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts#PP-108/collector-contract",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
