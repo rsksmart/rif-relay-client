@@ -663,10 +663,7 @@ export class RelayClient {
                     toBN(transactionDetails.gasPrice)
                 )
             );
-            log.info(
-                'RequestFees: max possible cost in tRIFWei',
-                tRifValueWei
-            );
+            log.info('RequestFees: max possible cost in tRIFWei', tRifValueWei);
             // FIXME: We should add some additional charge here, instead of using just the tx estimation
             transactionDetails = {
                 ...transactionDetails,
