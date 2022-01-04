@@ -201,7 +201,7 @@ export class RelayClient {
     /**
      * Can be used to get an estimate of the maximum possible gas to be used by the transaction by using
      * a linear fit.
-     * It has the advangate of not requiring the user to sign the transaction in the relay calls
+     * It has the advantage of not requiring the user to sign the transaction in the relay calls
      * If the transaction details are for a deploy, it won't use a linear fit
      * @param transactionDetails
      * @param relayWorker
@@ -624,6 +624,16 @@ export class RelayClient {
         return `0x${gasPrice.toString(16)}`;
     }
 
+    async getMaxPossibleGas(
+        relayInfo: RelayInfo,
+        transactionDetails: EnvelopingTransactionDetails
+    ) {
+        return await this.estimateMaxPossibleRelayGas(
+            transactionDetails,
+            relayInfo.pingResponse.relayWorkerAddress
+        );
+    }
+
     async _attemptRelay(
         relayInfo: RelayInfo,
         transactionDetails: EnvelopingTransactionDetails
@@ -633,6 +643,43 @@ export class RelayClient {
                 relayInfo
             )} transaction: ${JSON.stringify(transactionDetails)}`
         );
+        if ([undefined, null, '0'].includes(transactionDetails.tokenAmount)) {
+            // FIXME: We should allow for sponsored transactions also
+            log.debug('Calculating maxPossibleGas...');
+
+            const txDetailsClone: EnvelopingTransactionDetails = {
+                ...transactionDetails,
+                // a dump value, just to allow the correct estimation, including the token transfer
+                tokenAmount: web3.utils.toWei('1').toString()
+            };
+            const maxPossibleGas = await await this.estimateMaxPossibleRelayGas(
+                txDetailsClone,
+                relayInfo.pingResponse.relayWorkerAddress
+            );
+            log.debug('maxPossibleGas', maxPossibleGas);
+            const tRifValueWei = getTRifWei(
+                costInWei(
+                    toBN(maxPossibleGas),
+                    toBN(transactionDetails.gasPrice)
+                )
+            );
+            log.info(
+                'RequestFees: max possible cost in tRIFWei',
+                tRifValueWei
+            );
+            // FIXME: We should add some additional charge here, instead of using just the tx estimation
+            transactionDetails = {
+                ...transactionDetails,
+                tokenAmount: tRifValueWei
+            };
+            transactionDetails.tokenGas = (
+                await this.estimateTokenTransferGas(
+                    transactionDetails,
+                    relayInfo.pingResponse.relayWorkerAddress
+                )
+            ).toString();
+        }
+
         let httpRequest: RelayTransactionRequest | DeployTransactionRequest;
         let acceptCallResult;
 
@@ -671,6 +718,9 @@ export class RelayClient {
                 };
             }
         }
+
+        // We don't need to check the user balance with a call to 'erc20.balanceOf'
+        // because the same check is performed when RelayVerifier is called
 
         if (acceptCallResult.reverted) {
             const message = 'local view call reverted';
@@ -953,4 +1003,22 @@ export function _dumpRelayingResult(relayingResult: RelayingResult): string {
         });
     }
     return str;
+}
+
+/*
+ * For the moment we hard-coded the trif-rbtc conversion (extracted from the original dapp)
+ */
+function costInWei(maxPossibleGas: BN, gasPrice: BN) {
+    return maxPossibleGas.mul(gasPrice);
+}
+
+function getTRifWei(costInWei: BN) {
+    const tRifPriceInRBTC = 0.000005739;
+    const ritTokenDecimals = 18;
+
+    const costInRBTC = web3.utils.fromWei(costInWei.toString());
+    const costInTrif = parseFloat(costInRBTC) / tRifPriceInRBTC;
+    const costInTrifFixed = costInTrif.toFixed(ritTokenDecimals);
+    const costInTrifAsWei = web3.utils.toWei(costInTrifFixed);
+    return costInTrifAsWei;
 }

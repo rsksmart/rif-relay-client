@@ -63,7 +63,7 @@ export declare class RelayClient {
     /**
      * Can be used to get an estimate of the maximum possible gas to be used by the transaction by using
      * a linear fit.
-     * It has the advangate of not requiring the user to sign the transaction in the relay calls
+     * It has the advantage of not requiring the user to sign the transaction in the relay calls
      * If the transaction details are for a deploy, it won't use a linear fit
      * @param transactionDetails
      * @param relayWorker
@@ -83,6 +83,7 @@ export declare class RelayClient {
     estimateTokenTransferGas(transactionDetails: EnvelopingTransactionDetails, relayWorker: Address): Promise<number>;
     relayTransaction(transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult>;
     _calculateGasPrice(): Promise<PrefixedHexString>;
+    getMaxPossibleGas(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<number>;
     _attemptRelay(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<RelayingAttempt>;
     _prepareDeployHttpRequest(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<DeployTransactionRequest>;
     _prepareRelayHttpRequest(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<RelayTransactionRequest>;
