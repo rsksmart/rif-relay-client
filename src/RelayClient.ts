@@ -646,10 +646,12 @@ export class RelayClient {
                 );
             httpRequest = deployRequest;
         } else {
+            log.info("****************+")
             httpRequest = await this._prepareRelayHttpRequest(
                 relayInfo,
                 transactionDetails
             );
+            log.info(httpRequest)
             this.emit(new ValidateRequestEvent());
             acceptCallResult =
                 await this.contractInteractor.validateAcceptRelayCall(
