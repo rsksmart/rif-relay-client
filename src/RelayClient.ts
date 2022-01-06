@@ -643,8 +643,7 @@ export class RelayClient {
                 relayInfo
             )} transaction: ${JSON.stringify(transactionDetails)}`
         );
-        if ([undefined, null, '0'].includes(transactionDetails.tokenAmount)) {
-            // FIXME: We should allow for sponsored transactions also
+        if ([undefined, null].includes(transactionDetails.tokenAmount)) {
             log.debug('Calculating maxPossibleGas...');
 
             const txDetailsClone: EnvelopingTransactionDetails = {
@@ -652,7 +651,7 @@ export class RelayClient {
                 // a dump value, just to allow the correct estimation, including the token transfer
                 tokenAmount: web3.utils.toWei('1').toString()
             };
-            const maxPossibleGas = await await this.estimateMaxPossibleRelayGas(
+            const maxPossibleGas = await this.estimateMaxPossibleRelayGas(
                 txDetailsClone,
                 relayInfo.pingResponse.relayWorkerAddress
             );
