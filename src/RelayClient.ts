@@ -910,7 +910,10 @@ export class RelayClient {
                 tokenAmount: transactionDetails.tokenAmount ?? '0x00',
                 tokenGas: transactionDetails.tokenGas ?? '0x00',
                 tokenContract:
-                    transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+                    transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
+                collectorContract:
+                    transactionDetails.collectorContract ??
+                    constants.ZERO_ADDRESS
             },
             relayData: {
                 gasPrice,
