@@ -63,7 +63,7 @@ export declare class RelayClient {
     /**
      * Can be used to get an estimate of the maximum possible gas to be used by the transaction by using
      * a linear fit.
-     * It has the advangate of not requiring the user to sign the transaction in the relay calls
+     * It has the advantage of not requiring the user to sign the transaction in the relay calls
      * If the transaction details are for a deploy, it won't use a linear fit
      * @param transactionDetails
      * @param relayWorker
