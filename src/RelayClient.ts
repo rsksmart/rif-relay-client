@@ -43,6 +43,7 @@ import {
     ValidateRequestEvent
 } from './RelayEvents';
 import { toBN, toHex } from 'web3-utils';
+import { getGasCostInWei, getTRifWei } from './Conversions';
 
 export const GasPricePingFilter: PingFilter = (
     pingResponse,
@@ -624,16 +625,6 @@ export class RelayClient {
         return `0x${gasPrice.toString(16)}`;
     }
 
-    async getMaxPossibleGas(
-        relayInfo: RelayInfo,
-        transactionDetails: EnvelopingTransactionDetails
-    ) {
-        return await this.estimateMaxPossibleRelayGas(
-            transactionDetails,
-            relayInfo.pingResponse.relayWorkerAddress
-        );
-    }
-
     async _attemptRelay(
         relayInfo: RelayInfo,
         transactionDetails: EnvelopingTransactionDetails
@@ -657,7 +648,7 @@ export class RelayClient {
             );
             log.debug('maxPossibleGas', maxPossibleGas);
             const tRifValueWei = getTRifWei(
-                costInWei(
+                getGasCostInWei(
                     toBN(maxPossibleGas),
                     toBN(transactionDetails.gasPrice)
                 )
@@ -1002,22 +993,4 @@ export function _dumpRelayingResult(relayingResult: RelayingResult): string {
         });
     }
     return str;
-}
-
-/*
- * For the moment we hard-coded the trif-rbtc conversion (extracted from the original dapp)
- */
-function costInWei(maxPossibleGas: BN, gasPrice: BN) {
-    return maxPossibleGas.mul(gasPrice);
-}
-
-function getTRifWei(costInWei: BN) {
-    const tRifPriceInRBTC = 0.000005739;
-    const ritTokenDecimals = 18;
-
-    const costInRBTC = web3.utils.fromWei(costInWei.toString());
-    const costInTrif = parseFloat(costInRBTC) / tRifPriceInRBTC;
-    const costInTrifFixed = costInTrif.toFixed(ritTokenDecimals);
-    const costInTrifAsWei = web3.utils.toWei(costInTrifFixed);
-    return costInTrifAsWei;
 }

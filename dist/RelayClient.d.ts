@@ -83,7 +83,6 @@ export declare class RelayClient {
     estimateTokenTransferGas(transactionDetails: EnvelopingTransactionDetails, relayWorker: Address): Promise<number>;
     relayTransaction(transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult>;
     _calculateGasPrice(): Promise<PrefixedHexString>;
-    getMaxPossibleGas(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<number>;
     _attemptRelay(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<RelayingAttempt>;
     _prepareDeployHttpRequest(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<DeployTransactionRequest>;
     _prepareRelayHttpRequest(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<RelayTransactionRequest>;
