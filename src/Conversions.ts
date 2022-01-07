@@ -4,7 +4,10 @@
 export function costInWei(maxPossibleGas: BN, gasPrice: BN) {
     return maxPossibleGas.mul(gasPrice);
 }
-
+/**
+ * TODO: Hard-coded values: for testing purposes only!
+ This is specific for the tRIF token.
+ */
 export function getTRifWei(costInWei: BN) {
     const tRifPriceInRBTC = 0.000005739;
     const ritTokenDecimals = 18;
