@@ -52,7 +52,7 @@ export default class Enveloping {
      * @param  gasPrice - optional: if not set, the gasPrice is calculated internally
      * @return a relay request structure.
      */
-    createRelayRequest(from: Address, to: Address, forwarder: Address, data: PrefixedHexString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasLimit?: IntString, gasPrice?: IntString): Promise<RelayRequest>;
+    createRelayRequest(from: Address, to: Address, forwarder: Address, data: PrefixedHexString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasLimit?: IntString, gasPrice?: IntString, collectorContract?: Address): Promise<RelayRequest>;
     /**
      * signs a deploy request and verifies if it's correct.
      * @param signatureProvider - provider provided by the developer
