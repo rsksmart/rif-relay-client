@@ -471,6 +471,19 @@ export class RelayClient {
             }
 
             if (tokenOrigin !== constants.ZERO_ADDRESS) {
+                const tokenRecipient = isZeroAddress(
+                    transactionDetails.collectorContract
+                )
+                    ? relayWorker
+                    : transactionDetails.collectorContract;
+                const transferParams = [
+                    tokenRecipient,
+                    transactionDetails.tokenAmount ?? '0'
+                ];
+                log.debug(
+                    'estimateTokenTransferGas: transfer parameters [recipient, amount]',
+                    transferParams
+                );
                 const encodedFunction =
                     this.contractInteractor.web3.eth.abi.encodeFunctionCall(
                         {
@@ -487,9 +500,8 @@ export class RelayClient {
                                 }
                             ]
                         },
-                        [relayWorker, transactionDetails.tokenAmount ?? '0']
+                        transferParams
                     );
-
                 gasCost = await this.contractInteractor.estimateGas({
                     from: tokenOrigin, // token holder is the smart wallet
                     to: tokenContract,
@@ -983,4 +995,8 @@ export function _dumpRelayingResult(relayingResult: RelayingResult): string {
         });
     }
     return str;
+}
+
+function isZeroAddress(addr: string) {
+    return addr === constants.ZERO_ADDRESS;
 }
