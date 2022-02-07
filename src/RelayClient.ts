@@ -1008,5 +1008,5 @@ export function _dumpRelayingResult(relayingResult: RelayingResult): string {
 }
 
 function isZeroAddress(addr: string) {
-    return addr === `0x${'0'.repeat(40)}`;
+    return addr === constants.ZERO_ADDRESS;
 }
