@@ -174,7 +174,8 @@ export default class Enveloping {
         tokenAmount: IntString,
         tokenGas: IntString,
         gasLimit?: IntString,
-        gasPrice?: IntString
+        gasPrice?: IntString,
+        collectorContract?: Address
     ): Promise<RelayRequest> {
         let gasToSend = gasLimit;
         const gasPriceToSend = gasPrice ?? (await web3.eth.getGasPrice());
@@ -200,6 +201,7 @@ export default class Enveloping {
                 gas: gasToSend,
                 nonce: (await this.getSenderNonce(forwarder)).toString(),
                 tokenContract: tokenContract,
+                collectorContract: collectorContract ?? zeroAddr,
                 tokenAmount: tokenAmount,
                 tokenGas: tokenGas
             },
