@@ -478,11 +478,12 @@ export class RelayClient {
             }
 
             if (tokenOrigin !== constants.ZERO_ADDRESS) {
-                const tokenRecipient = isZeroAddress(
-                    transactionDetails.collectorContract
-                )
-                    ? relayWorker
-                    : transactionDetails.collectorContract;
+                const tokenRecipient =
+                    [null, undefined].includes(
+                        transactionDetails.collectorContract
+                    ) || isZeroAddress(transactionDetails.collectorContract)
+                        ? relayWorker
+                        : transactionDetails.collectorContract;
                 const transferParams = [
                     tokenRecipient,
                     transactionDetails.tokenAmount ?? '0'
