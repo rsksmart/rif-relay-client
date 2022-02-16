@@ -41,7 +41,6 @@ import {
     ValidateRequestEvent
 } from './RelayEvents';
 import { toBN, toHex } from 'web3-utils';
-import { getGasCostInWei, getTRifWei } from './Conversions';
 
 export const GasPricePingFilter: PingFilter = (
     pingResponse,
@@ -471,11 +470,12 @@ export class RelayClient {
             }
 
             if (tokenOrigin !== constants.ZERO_ADDRESS) {
-                const tokenRecipient = isZeroAddress(
-                    transactionDetails.collectorContract
-                )
-                    ? relayWorker
-                    : transactionDetails.collectorContract;
+                const tokenRecipient =
+                    [null, undefined].includes(
+                        transactionDetails.collectorContract
+                    ) || isZeroAddress(transactionDetails.collectorContract)
+                        ? relayWorker
+                        : transactionDetails.collectorContract;
                 const transferParams = [
                     tokenRecipient,
                     transactionDetails.tokenAmount ?? '0'
@@ -644,38 +644,6 @@ export class RelayClient {
                 relayInfo
             )} transaction: ${JSON.stringify(transactionDetails)}`
         );
-        if ([undefined, null].includes(transactionDetails.tokenAmount)) {
-            log.debug('Calculating maxPossibleGas...');
-
-            const txDetailsClone: EnvelopingTransactionDetails = {
-                ...transactionDetails,
-                // a dump value, just to allow the correct estimation, including the token transfer
-                tokenAmount: web3.utils.toWei('1').toString()
-            };
-            const maxPossibleGas = await this.estimateMaxPossibleRelayGas(
-                txDetailsClone,
-                relayInfo.pingResponse.relayWorkerAddress
-            );
-            log.debug('maxPossibleGas', maxPossibleGas);
-            const tRifValueWei = getTRifWei(
-                getGasCostInWei(
-                    toBN(maxPossibleGas),
-                    toBN(transactionDetails.gasPrice)
-                )
-            );
-            log.info('RequestFees: max possible cost in tRIFWei', tRifValueWei);
-            // FIXME: We should add some additional charge here, instead of using just the tx estimation
-            transactionDetails = {
-                ...transactionDetails,
-                tokenAmount: tRifValueWei
-            };
-            transactionDetails.tokenGas = (
-                await this.estimateTokenTransferGas(
-                    transactionDetails,
-                    relayInfo.pingResponse.relayWorkerAddress
-                )
-            ).toString();
-        }
 
         let httpRequest: RelayTransactionRequest | DeployTransactionRequest;
         let acceptCallResult;
