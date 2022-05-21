@@ -1,7 +1,7 @@
 name: CI for RIF-Relay-Client
 on: [push]
 jobs:
-    checks:
+    linting:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
