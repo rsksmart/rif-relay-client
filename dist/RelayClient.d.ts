@@ -81,7 +81,7 @@ export declare class RelayClient {
     calculateSmartWalletRelayGas(transactionDetails: EnvelopingTransactionDetails, relayWorker: string): Promise<number>;
     _prepareFactoryGasEstimationRequest(transactionDetails: EnvelopingTransactionDetails, relayWorker: string): Promise<DeployTransactionRequest>;
     estimateTokenTransferGas(transactionDetails: EnvelopingTransactionDetails, relayWorker: Address): Promise<number>;
-    getHexInternalCallCost(transactionDetails: EnvelopingTransactionDetails): Promise<string>;
+    getInternalCallCost(transactionDetails: EnvelopingTransactionDetails): Promise<number>;
     relayTransaction(transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult>;
     _calculateGasPrice(): Promise<PrefixedHexString>;
     _attemptRelay(relayInfo: RelayInfo, transactionDetails: EnvelopingTransactionDetails): Promise<RelayingAttempt>;
