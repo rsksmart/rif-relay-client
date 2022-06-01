@@ -516,6 +516,12 @@ export class RelayClient {
         return internalCallCost;
     }
 
+    getInternalCallCost(transactionDetails: EnvelopingTransactionDetails) {
+        return this.contractInteractor.estimateDestinationContractCallGas(
+            this.getEstimateGasParams(transactionDetails)
+        );
+    }
+
     async relayTransaction(
         transactionDetails: EnvelopingTransactionDetails
     ): Promise<RelayingResult> {
@@ -544,10 +550,10 @@ export class RelayClient {
             transactionDetails.gas === undefined ||
             transactionDetails.gas == null
         ) {
-            const internalCallCost =
-                await this.contractInteractor.estimateDestinationContractCallGas(
-                    this.getEstimateGasParams(transactionDetails)
-                );
+            const internalCallCost = await this.getInternalCallCost(
+                transactionDetails
+            );
+
             transactionDetails.gas = toHex(internalCallCost);
         }
         log.debug(
