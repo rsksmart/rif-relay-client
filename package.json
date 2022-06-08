@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-relay-client",
-  "version": "0.0.2-alpha-0",
+  "version": "0.0.2-alpha-1",
   "description": "This project contains all the client code for the rif relay system.",
   "main": "dist/index.js",
   "scripts": {
@@ -17,8 +17,7 @@
   "author": "Relaying Services Team",
   "license": "MIT",
   "dependencies": {
-    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common",
-    "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts",
+    "@rsksmart/rif-relay-common": "0.0.2-alpha-2",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
