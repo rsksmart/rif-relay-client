@@ -1,5 +1,5 @@
 #!/bin/bash
 
-husky install
+patch-package
 
-npm run build
+husky install
