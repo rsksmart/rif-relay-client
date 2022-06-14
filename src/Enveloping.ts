@@ -7,7 +7,7 @@ import {
     RelayTransactionRequest,
     constants,
     EnvelopingConfig,
-    getDomainSeparatorHash,
+    // getDomainSeparatorHash,
     TypedDeployRequestData,
     TypedRequestData
 } from '@rsksmart/rif-relay-common';
@@ -112,10 +112,10 @@ export default class Enveloping {
                 relayWorker: this.relayWorkerAddress,
                 callForwarder: this.config.smartWalletFactoryAddress,
                 callVerifier: this.config.deployVerifierAddress,
-                domainSeparator: getDomainSeparatorHash(
-                    this.config.smartWalletFactoryAddress,
-                    this.config.chainId
-                )
+                // domainSeparator: getDomainSeparatorHash(
+                //     this.config.smartWalletFactoryAddress,
+                //     this.config.chainId
+                // )
             }
         };
 
@@ -208,10 +208,10 @@ export default class Enveloping {
                 relayWorker: this.relayWorkerAddress,
                 callForwarder: forwarder,
                 callVerifier: this.config.relayVerifierAddress,
-                domainSeparator: getDomainSeparatorHash(
-                    forwarder,
-                    this.config.chainId
-                )
+                // domainSeparator: getDomainSeparatorHash(
+                //     forwarder,
+                //     this.config.chainId
+                // )
             }
         };
 
