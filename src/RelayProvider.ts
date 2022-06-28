@@ -433,69 +433,12 @@ export default class RelayProvider implements HttpProvider {
                     relayingResult.transaction !== undefined &&
                     relayingResult.transaction !== null
                 ) {
-                    const txHash =
-                        '0x' +
-                        relayingResult.transaction.hash(true).toString('hex');
-                    const { retries, initialBackoff } = transactionDetails;
-                    this.relayClient
-                        .getTransactionReceipt(txHash, retries, initialBackoff)
-                        .then(
-                            (receipt) => {
-                                const relayStatus =
-                                    this._getRelayStatus(receipt);
-
-                                if (
-                                    relayingResult.transaction === undefined ||
-                                    relayingResult.transaction === null
-                                ) {
-                                    // Imposible scenario, but we addded it so the linter does not complain since it wont allow using ! keyword
-                                    callback(
-                                        new Error(
-                                            `Unknown Runtime error while processing result of txHash: ${txHash}`
-                                        )
-                                    );
-                                } else {
-                                    if (relayStatus.transactionRelayed) {
-                                        const jsonRpcSendResult =
-                                            this._convertTransactionToRpcSendResponse(
-                                                relayingResult.transaction,
-                                                payload
-                                            );
-                                        callback(null, jsonRpcSendResult);
-                                    } else if (
-                                        relayStatus.relayRevertedOnRecipient
-                                    ) {
-                                        callback(
-                                            new Error(
-                                                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-                                            )
-                                        );
-                                    } else {
-                                        const jsonRpcSendResult =
-                                            this._convertTransactionToRpcSendResponse(
-                                                relayingResult.transaction,
-                                                payload
-                                            );
-                                        callback(null, jsonRpcSendResult);
-                                    }
-                                }
-                            },
-                            (error) => {
-                                const reasonStr =
-                                    error instanceof Error
-                                        ? error.message
-                                        : JSON.stringify(error);
-                                log.info(
-                                    'Error while fetching transaction receipt',
-                                    error
-                                );
-                                callback(
-                                    new Error(
-                                        `Rejected relayTransaction call - Reason: ${reasonStr}`
-                                    )
-                                );
-                            }
+                    const jsonRpcSendResult =
+                        this._convertTransactionToRpcSendResponse(
+                            relayingResult.transaction,
+                            payload
                         );
+                    callback(null, jsonRpcSendResult);
                 } else {
                     const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
                         relayingResult
