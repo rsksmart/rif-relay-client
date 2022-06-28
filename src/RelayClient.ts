@@ -14,8 +14,7 @@ import {
     EnvelopingConfig,
     decodeRevertReason,
     calculateDeployTransactionMaxPossibleGas,
-    estimateMaxPossibleRelayCallWithLinearFit,
-    getDomainSeparatorHash
+    estimateMaxPossibleRelayCallWithLinearFit
 } from '@rsksmart/rif-relay-common';
 import { Address, PingFilter } from './types/Aliases';
 import HttpClient from './HttpClient';
@@ -423,10 +422,6 @@ export class RelayClient {
                 gasPrice,
                 callVerifier:
                     transactionDetails.callVerifier ?? constants.ZERO_ADDRESS,
-                domainSeparator: getDomainSeparatorHash(
-                    callForwarder,
-                    this.accountManager.chainId
-                ),
                 callForwarder: callForwarder,
                 relayWorker: relayWorker
             }
@@ -799,10 +794,6 @@ export class RelayClient {
             relayData: {
                 gasPrice,
                 callVerifier,
-                domainSeparator: getDomainSeparatorHash(
-                    forwarderAddress,
-                    this.accountManager.chainId
-                ),
                 callForwarder: forwarderAddress,
                 relayWorker
             }
@@ -875,10 +866,6 @@ export class RelayClient {
             relayData: {
                 gasPrice,
                 callVerifier,
-                domainSeparator: getDomainSeparatorHash(
-                    forwarderAddress,
-                    this.accountManager.chainId
-                ),
                 callForwarder: forwarderAddress,
                 relayWorker
             }

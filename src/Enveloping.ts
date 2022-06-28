@@ -7,7 +7,6 @@ import {
     RelayTransactionRequest,
     constants,
     EnvelopingConfig,
-    getDomainSeparatorHash,
     TypedDeployRequestData,
     TypedRequestData
 } from '@rsksmart/rif-relay-common';
@@ -111,11 +110,7 @@ export default class Enveloping {
                 gasPrice: gasPrice ?? (await web3.eth.getGasPrice()),
                 relayWorker: this.relayWorkerAddress,
                 callForwarder: this.config.smartWalletFactoryAddress,
-                callVerifier: this.config.deployVerifierAddress,
-                domainSeparator: getDomainSeparatorHash(
-                    this.config.smartWalletFactoryAddress,
-                    this.config.chainId
-                )
+                callVerifier: this.config.deployVerifierAddress
             }
         };
 
@@ -207,11 +202,7 @@ export default class Enveloping {
                 gasPrice: gasPriceToSend,
                 relayWorker: this.relayWorkerAddress,
                 callForwarder: forwarder,
-                callVerifier: this.config.relayVerifierAddress,
-                domainSeparator: getDomainSeparatorHash(
-                    forwarder,
-                    this.config.chainId
-                )
+                callVerifier: this.config.relayVerifierAddress
             }
         };
 
