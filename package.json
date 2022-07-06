@@ -1,11 +1,12 @@
 {
   "name": "@rsksmart/rif-relay-client",
-  "version": "0.0.2-alpha.2",
+  "version": "0.0.2-alpha.3",
   "description": "This project contains all the client code for the rif relay system.",
   "main": "dist/index.js",
   "scripts": {
     "prepare": "scripts/prepare",
     "build": "scripts/build",
+    "prepack": "npmignore --auto",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "prettier:fix": "npx prettier --write --ignore-unknown .",
@@ -16,9 +17,18 @@
   },
   "author": "Relaying Services Team",
   "license": "MIT",
+  "publishConfig": {
+    "ignore": [
+      "!dist",
+      "!build",
+      "src",
+      "test",
+      ".github"
+    ]
+  },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.2",
-    "@rsksmart/rif-relay-common": "0.0.2-alpha.3",
+    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.4",
+    "@rsksmart/rif-relay-common": "0.0.2-alpha.4",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
@@ -27,6 +37,7 @@
     "ethereumjs-util": "~6.2.1",
     "ethereumjs-wallet": "~1.0.1",
     "loglevel": "~1.7.0",
+    "npmignore": "^0.3.0",
     "web3": "1.2.6",
     "web3-core": "1.2.6",
     "web3-core-helpers": "1.2.6",
