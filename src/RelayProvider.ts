@@ -366,8 +366,7 @@ export default class RelayProvider implements HttpProvider {
 
     _ethSendTransaction(
         payload: JsonRpcPayload,
-        callback: JsonRpcCallback,
-        nonBlock?: boolean
+        callback: JsonRpcCallback
     ): void {
         log.info('calling sendAsync' + JSON.stringify(payload));
         log.debug('Relay Provider - _ethSendTransaction called');
@@ -434,14 +433,7 @@ export default class RelayProvider implements HttpProvider {
                     relayingResult.transaction !== undefined &&
                     relayingResult.transaction !== null
                 ) {
-                    if (nonBlock) {
-                        const jsonRpcSendResult =
-                            this._convertTransactionToRpcSendResponse(
-                                relayingResult.transaction,
-                                payload
-                            );
-                        callback(null, jsonRpcSendResult);
-                    } else {
+                    if (transactionDetails.waitForTransactionReceipt) {
                         const txHash =
                             '0x' +
                             relayingResult.transaction
@@ -512,6 +504,13 @@ export default class RelayProvider implements HttpProvider {
                                     );
                                 }
                             );
+                    } else {
+                        const jsonRpcSendResult =
+                            this._convertTransactionToRpcSendResponse(
+                                relayingResult.transaction,
+                                payload
+                            );
+                        callback(null, jsonRpcSendResult);
                     }
                 } else {
                     const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
