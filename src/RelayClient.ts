@@ -2,9 +2,6 @@ import log from 'loglevel';
 import { HttpProvider, TransactionReceipt } from 'web3-core';
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx';
 import {
-    constants,
-    DeployRequest,
-    RelayRequest,
     DeployTransactionRequest,
     RelayMetadata,
     RelayTransactionRequest,
@@ -16,6 +13,11 @@ import {
     calculateDeployTransactionMaxPossibleGas,
     estimateMaxPossibleRelayCallWithLinearFit
 } from '@rsksmart/rif-relay-common';
+import {
+    constants,
+    DeployRequest,
+    RelayRequest
+} from '@rsksmart/rif-relay-contracts';
 import { Address, PingFilter } from './types/Aliases';
 import HttpClient from './HttpClient';
 import RelaySelectionManager from './RelaySelectionManager';
@@ -211,7 +213,6 @@ export class RelayClient {
         relayWorker: Address
     ): Promise<number> {
         const trxDetails = { ...transactionDetails };
-
         trxDetails.gasPrice =
             trxDetails.forceGasPrice ?? (await this._calculateGasPrice());
         let maxPossibleGas: number;
@@ -276,7 +277,6 @@ export class RelayClient {
         relayWorker: Address
     ): Promise<number> {
         const trxDetails = { ...transactionDetails };
-
         trxDetails.gasPrice =
             trxDetails.forceGasPrice ?? (await this._calculateGasPrice());
         let maxPossibleGas: BN;
@@ -291,6 +291,7 @@ export class RelayClient {
         let deployCallEstimate = 0;
 
         if (isSmartWalletDeploy) {
+            console.log('si llegue aca bien y sin novedad2');
             trxDetails.gas = '0x00';
             const testRequest = await this._prepareFactoryGasEstimationRequest(
                 trxDetails,
@@ -304,6 +305,7 @@ export class RelayClient {
                 trxDetails.tokenGas
             );
         } else {
+            console.log('si llegue aca bien y sin novedad3');
             const estimated =
                 (await this.calculateSmartWalletRelayGas(
                     trxDetails,
@@ -386,7 +388,7 @@ export class RelayClient {
         ) {
             throw new Error('Request type is not for SmartWallet deploy');
         }
-
+        console.log(' si estamos pasando x aca ');
         const callForwarder = this.resolveForwarder(transactionDetails);
         const senderNonce = await this.contractInteractor.getFactoryNonce(
             callForwarder,

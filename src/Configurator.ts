@@ -1,11 +1,11 @@
 import { HttpProvider } from 'web3-core';
 import {
-    constants,
     defaultEnvironment,
     ContractInteractor,
     Web3Provider,
     EnvelopingConfig
 } from '@rsksmart/rif-relay-common';
+import { constants } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
 import HttpClient from './HttpClient';
 import HttpWrapper from './HttpWrapper';
@@ -53,6 +53,9 @@ const defaultEnvelopingConfig: EnvelopingConfig = {
 export function configure(
     partialConfig: Partial<EnvelopingConfig>
 ): EnvelopingConfig {
+    console.log('-------------------------------');
+    console.log(constants);
+    console.log('-------------------------------');
     return Object.assign(
         {},
         defaultEnvelopingConfig,

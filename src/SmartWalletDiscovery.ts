@@ -1,7 +1,7 @@
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet';
 import Web3 from 'web3';
 import ethUtils, { BN } from 'ethereumjs-util';
-import { constants } from '@rsksmart/rif-relay-common';
+import { constants } from '@rsksmart/rif-relay-contracts';
 import { toChecksumAddress } from 'web3-utils';
 import { HttpProvider, IpcProvider, WebsocketProvider } from 'web3-core';
 import { ISmartWalletFactory } from '@rsksmart/rif-relay-contracts';

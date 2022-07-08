@@ -1,16 +1,17 @@
 import HttpClient from './HttpClient';
 import {
-    DeployRequest,
-    RelayRequest,
     DeployTransactionRequest,
     RelayMetadata,
     RelayTransactionRequest,
+    EnvelopingConfig
+} from '@rsksmart/rif-relay-common';
+import {
+    DeployRequest,
+    RelayRequest,
     constants,
-    EnvelopingConfig,
     TypedDeployRequestData,
     TypedRequestData
-} from '@rsksmart/rif-relay-common';
-
+} from '@rsksmart/rif-relay-contracts';
 import HttpWrapper from './HttpWrapper';
 import { HttpProvider } from 'web3-core';
 import { RelayingAttempt } from './RelayClient';
