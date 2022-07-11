@@ -2,7 +2,7 @@
 import abiDecoder from 'abi-decoder';
 import log from 'loglevel';
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers';
-import { HttpProvider } from 'web3-core';
+import { HttpProvider, TransactionReceipt } from 'web3-core';
 import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts';
 import {
     _dumpRelayingResult,
@@ -169,7 +169,7 @@ export default class RelayProvider implements HttpProvider {
      */
     async deploySmartWallet(
         transactionDetails: EnvelopingTransactionDetails
-    ): Promise<string> {
+    ): Promise<RelayingResult> {
         log.debug('Relay Provider - Deploying Smart wallet');
         let isSmartWalletDeployValue = transactionDetails.isSmartWalletDeploy;
         let relayHubValue = transactionDetails.relayHub;
@@ -235,35 +235,7 @@ export default class RelayProvider implements HttpProvider {
             );
         }
 
-        try {
-            log.debug('Relay Provider - Relaying transaction started');
-            const relayingResult = await this.relayClient.relayTransaction(
-                transactionDetails
-            );
-            if (relayingResult.transaction != null) {
-                const txHash: string = relayingResult.transaction
-                    .hash(true)
-                    .toString('hex');
-                const hash = `0x${txHash}`;
-                log.debug(
-                    `Relay Provider - Transaction relay done, txHash: ${hash}`
-                );
-                return hash;
-            } else {
-                const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
-                    relayingResult
-                )}`;
-                log.error(message);
-                throw new Error(message);
-            }
-        } catch (error) {
-            const reasonStr =
-                error instanceof Error ? error.message : JSON.stringify(error);
-            log.info('Rejected deploy wallet call', error);
-            throw new Error(
-                `Rejected deploy wallet call - Reason: ${reasonStr}`
-            );
-        }
+        return this.executeRelayTransaction(transactionDetails);
     }
 
     /**
@@ -364,10 +336,10 @@ export default class RelayProvider implements HttpProvider {
         );
     }
 
-    _ethSendTransaction(
+    async _ethSendTransaction(
         payload: JsonRpcPayload,
         callback: JsonRpcCallback
-    ): void {
+    ): Promise<void> {
         log.info('calling sendAsync' + JSON.stringify(payload));
         log.debug('Relay Provider - _ethSendTransaction called');
         let transactionDetails: EnvelopingTransactionDetails =
@@ -427,131 +399,93 @@ export default class RelayProvider implements HttpProvider {
             `Relay Provider - callForwarder: ${transactionDetails.callForwarder}`
         );
 
-        this.relayClient.relayTransaction(transactionDetails).then(
-            (relayingResult: RelayingResult) => {
-                if (
-                    relayingResult.transaction !== undefined &&
-                    relayingResult.transaction !== null
-                ) {
-                    if (transactionDetails.waitForTransactionReceipt) {
-                        const txHash =
-                            '0x' +
-                            relayingResult.transaction
-                                .hash(true)
-                                .toString('hex');
-                        const { retries, initialBackoff } = transactionDetails;
-                        this.relayClient
-                            .getTransactionReceipt(
-                                txHash,
-                                retries,
-                                initialBackoff
-                            )
-                            .then(
-                                (receipt) => {
-                                    const relayStatus =
-                                        this._getRelayStatus(receipt);
-
-                                    if (
-                                        relayingResult.transaction ===
-                                            undefined ||
-                                        relayingResult.transaction === null
-                                    ) {
-                                        // Imposible scenario, but we addded it so the linter does not complain since it wont allow using ! keyword
-                                        callback(
-                                            new Error(
-                                                `Unknown Runtime error while processing result of txHash: ${txHash}`
-                                            )
-                                        );
-                                    } else {
-                                        if (relayStatus.transactionRelayed) {
-                                            const jsonRpcSendResult =
-                                                this._convertTransactionToRpcSendResponse(
-                                                    relayingResult.transaction,
-                                                    payload
-                                                );
-                                            callback(null, jsonRpcSendResult);
-                                        } else if (
-                                            relayStatus.relayRevertedOnRecipient
-                                        ) {
-                                            callback(
-                                                new Error(
-                                                    `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-                                                )
-                                            );
-                                        } else {
-                                            const jsonRpcSendResult =
-                                                this._convertTransactionToRpcSendResponse(
-                                                    relayingResult.transaction,
-                                                    payload
-                                                );
-                                            callback(null, jsonRpcSendResult);
-                                        }
-                                    }
-                                },
-                                (error) => {
-                                    const reasonStr =
-                                        error instanceof Error
-                                            ? error.message
-                                            : JSON.stringify(error);
-                                    log.info(
-                                        'Error while fetching transaction receipt',
-                                        error
-                                    );
-                                    callback(
-                                        new Error(
-                                            `Rejected relayTransaction call - Reason: ${reasonStr}`
-                                        )
-                                    );
-                                }
-                            );
-                    } else {
-                        const jsonRpcSendResult =
-                            this._convertTransactionToRpcSendResponse(
-                                relayingResult.transaction,
-                                payload
-                            );
-                        callback(null, jsonRpcSendResult);
-                    }
-                } else {
-                    const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
-                        relayingResult
-                    )}`;
-                    log.error(message);
-                    callback(new Error(message));
-                }
-            },
-            (reason: any) => {
-                const reasonStr =
-                    reason instanceof Error
-                        ? reason.message
-                        : JSON.stringify(reason);
-                log.info('Rejected relayTransaction call', reason);
-                callback(
-                    new Error(
-                        `Rejected relayTransaction call - Reason: ${reasonStr}`
-                    )
-                );
-            }
+        const relayingResult: RelayingResult =
+            await this.executeRelayTransaction(transactionDetails);
+        const jsonRpcSendResult = this._convertTransactionToRpcSendResponse(
+            relayingResult,
+            payload
         );
+        callback(null, jsonRpcSendResult);
+    }
+
+    async processTransactionReceipt(
+        txHash: string,
+        retries: number,
+        initialBackoff: number
+    ): Promise<TransactionReceipt> {
+        const receipt: TransactionReceipt =
+            await this.relayClient.getTransactionReceipt(
+                txHash,
+                retries,
+                initialBackoff
+            );
+        const relayStatus = this._getRelayStatus(receipt);
+        if (relayStatus.relayRevertedOnRecipient) {
+            throw new Error(
+                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
+            );
+        }
+        return receipt;
+    }
+
+    async executeRelayTransaction(
+        transactionDetails: EnvelopingTransactionDetails
+    ): Promise<RelayingResult> {
+        try {
+            log.debug('Relay Provider - Relaying transaction started');
+            const relayingResult = await this.relayClient.relayTransaction(
+                transactionDetails
+            );
+            if (relayingResult.transaction != null) {
+                const txHash: string = relayingResult.transaction
+                    .hash(true)
+                    .toString('hex');
+                const hash = `0x${txHash}`;
+                log.debug(
+                    `Relay Provider - Transaction relay done, txHash: ${hash}`
+                );
+                if (transactionDetails.waitForTransactionReceipt) {
+                    const { retries, initialBackoff } = transactionDetails;
+                    const receipt: TransactionReceipt =
+                        await this.processTransactionReceipt(
+                            txHash,
+                            retries,
+                            initialBackoff
+                        );
+                    relayingResult.receipt = receipt;
+                }
+                return relayingResult;
+            } else {
+                const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
+                    relayingResult
+                )}`;
+                log.error(message);
+                throw new Error(message);
+            }
+        } catch (error) {
+            const reasonStr =
+                error instanceof Error ? error.message : JSON.stringify(error);
+            log.info('Rejected deploy wallet call', error);
+            throw new Error(
+                `Rejected deploy wallet call - Reason: ${reasonStr}`
+            );
+        }
     }
 
     _convertTransactionToRpcSendResponse(
-        transaction: Transaction,
+        transaction: RelayingResult,
         request: JsonRpcPayload
     ): JsonRpcResponse {
-        const txHash: string = transaction.hash(true).toString('hex');
-        const hash = `0x${txHash}`;
         const id =
             (typeof request.id === 'string'
                 ? parseInt(request.id)
                 : request.id) ?? -1;
         log.debug('Relay Provider - rpc message sent, jsonRpcResult');
-        log.debug('Relay Provider - txHash: ' + hash);
         log.debug('Relay Provider - id: ' + id.toString());
         return {
             jsonrpc: '2.0',
             id,
-            result: hash
+            result: transaction
         };
     }
 
