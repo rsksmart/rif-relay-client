@@ -336,10 +336,10 @@ export default class RelayProvider implements HttpProvider {
         );
     }
 
-    async _ethSendTransaction(
+    _ethSendTransaction(
         payload: JsonRpcPayload,
         callback: JsonRpcCallback
-    ): Promise<void> {
+    ): void {
         log.info('calling sendAsync' + JSON.stringify(payload));
         log.debug('Relay Provider - _ethSendTransaction called');
         let transactionDetails: EnvelopingTransactionDetails =
@@ -399,13 +399,16 @@ export default class RelayProvider implements HttpProvider {
             `Relay Provider - callForwarder: ${transactionDetails.callForwarder}`
         );
 
-        const relayingResult: RelayingResult =
-            await this.executeRelayTransaction(transactionDetails);
-        const jsonRpcSendResult = this._convertTransactionToRpcSendResponse(
-            relayingResult,
-            payload
+        this.executeRelayTransaction(transactionDetails).then(
+            (relayingResult: RelayingResult) => {
+                const jsonRpcSendResult =
+                    this._convertTransactionToRpcSendResponse(
+                        relayingResult,
+                        payload
+                    );
+                callback(null, jsonRpcSendResult);
+            }
         );
-        callback(null, jsonRpcSendResult);
     }
 
     async processTransactionReceipt(
