@@ -3,11 +3,7 @@ import abiDecoder from 'abi-decoder';
 import log from 'loglevel';
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers';
 import { HttpProvider } from 'web3-core';
-import {
-    IRelayHub,
-    IWalletFactory,
-    constants
-} from '@rsksmart/rif-relay-contracts';
+import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts';
 import {
     _dumpRelayingResult,
     RelayClient,
@@ -15,7 +11,8 @@ import {
 } from './RelayClient';
 import {
     EnvelopingTransactionDetails,
-    EnvelopingConfig
+    EnvelopingConfig,
+    constants
 } from '@rsksmart/rif-relay-common';
 import { configure, EnvelopingDependencies } from './Configurator';
 import { AccountKeypair } from './AccountManager';

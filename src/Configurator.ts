@@ -3,9 +3,9 @@ import {
     defaultEnvironment,
     ContractInteractor,
     Web3Provider,
-    EnvelopingConfig
+    EnvelopingConfig,
+    constants
 } from '@rsksmart/rif-relay-common';
-import { constants } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
 import HttpClient from './HttpClient';
 import HttpWrapper from './HttpWrapper';

@@ -11,13 +11,10 @@ import {
     EnvelopingConfig,
     decodeRevertReason,
     calculateDeployTransactionMaxPossibleGas,
-    estimateMaxPossibleRelayCallWithLinearFit
+    estimateMaxPossibleRelayCallWithLinearFit,
+    constants
 } from '@rsksmart/rif-relay-common';
-import {
-    constants,
-    DeployRequest,
-    RelayRequest
-} from '@rsksmart/rif-relay-contracts';
+import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import { Address, PingFilter } from './types/Aliases';
 import HttpClient from './HttpClient';
 import RelaySelectionManager from './RelaySelectionManager';

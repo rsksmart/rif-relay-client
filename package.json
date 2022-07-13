@@ -27,8 +27,8 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.4",
-    "@rsksmart/rif-relay-common": "0.0.2-alpha.5",
+    "@rsksmart/rif-relay-contracts": "https://github.com/rsksmart/rif-relay-contracts#feature/PP-45",
+    "@rsksmart/rif-relay-common": "https://github.com/rsksmart/rif-relay-common#feature/PP-45",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
@@ -47,15 +47,12 @@
   "devDependencies": {
     "@openzeppelin/test-helpers": "0.5.10",
     "@types/chai": "^4.3.1",
-    "@types/chai-as-promised": "^7.1.5",
     "@types/eth-sig-util": "2.1.0",
     "@types/mocha": "^9.1.1",
     "@types/node": "^18.0.0",
-    "@types/web3": "^1.2.2",
     "@typescript-eslint/eslint-plugin": "~4.28.3",
     "@typescript-eslint/parser": "~4.28.3",
     "chai": "^4.3.6",
-    "chai-as-promised": "^7.1.1",
     "eslint": "~7.30.0",
     "husky": "~6.0.0",
     "mocha": "^10.0.0",
