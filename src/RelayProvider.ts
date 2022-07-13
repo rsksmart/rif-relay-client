@@ -15,7 +15,6 @@ import {
     constants
 } from '@rsksmart/rif-relay-common';
 import { configure, EnvelopingDependencies } from './Configurator';
-import { Transaction } from 'ethereumjs-tx';
 import { AccountKeypair } from './AccountManager';
 import { RelayEvent } from './RelayEvents';
 import { Address } from './types/Aliases';
