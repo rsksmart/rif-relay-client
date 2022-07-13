@@ -22,7 +22,7 @@
     "types": [
       "node",
       "mocha",
-      "web3"
+      "chai"
     ],
     "lib": [
       "es2018",

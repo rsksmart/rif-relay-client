@@ -3,12 +3,12 @@ import {
     DeployTransactionRequest,
     RelayMetadata,
     RelayTransactionRequest,
-    EnvelopingConfig
+    EnvelopingConfig,
+    constants
 } from '@rsksmart/rif-relay-common';
 import {
     DeployRequest,
     RelayRequest,
-    constants,
     TypedDeployRequestData,
     TypedRequestData
 } from '@rsksmart/rif-relay-contracts';
