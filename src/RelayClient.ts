@@ -65,6 +65,7 @@ export interface RelayingAttempt {
 
 export interface RelayingResult {
     transaction?: Transaction;
+    receipt?: TransactionReceipt;
     pingErrors: Map<string, Error>;
     relayingErrors: Map<string, Error>;
 }
