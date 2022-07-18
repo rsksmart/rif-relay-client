@@ -53,9 +53,6 @@ const defaultEnvelopingConfig: EnvelopingConfig = {
 export function configure(
     partialConfig: Partial<EnvelopingConfig>
 ): EnvelopingConfig {
-    console.log('-------------------------------');
-    console.log(constants);
-    console.log('-------------------------------');
     return Object.assign(
         {},
         defaultEnvelopingConfig,

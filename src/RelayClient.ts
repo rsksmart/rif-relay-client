@@ -289,7 +289,6 @@ export class RelayClient {
         let deployCallEstimate = 0;
 
         if (isSmartWalletDeploy) {
-            console.log('si llegue aca bien y sin novedad2');
             trxDetails.gas = '0x00';
             const testRequest = await this._prepareFactoryGasEstimationRequest(
                 trxDetails,
@@ -303,7 +302,6 @@ export class RelayClient {
                 trxDetails.tokenGas
             );
         } else {
-            console.log('si llegue aca bien y sin novedad3');
             const estimated =
                 (await this.calculateSmartWalletRelayGas(
                     trxDetails,
@@ -386,7 +384,6 @@ export class RelayClient {
         ) {
             throw new Error('Request type is not for SmartWallet deploy');
         }
-        console.log(' si estamos pasando x aca ');
         const callForwarder = this.resolveForwarder(transactionDetails);
         const senderNonce = await this.contractInteractor.getFactoryNonce(
             callForwarder,
