@@ -27,8 +27,8 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "https://github.com/rsksmart/rif-relay-contracts#feature/PP-45",
-    "@rsksmart/rif-relay-common": "https://github.com/rsksmart/rif-relay-common#feature/PP-45",
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-45",
+    "@rsksmart/rif-relay-common": "github:rsksmart/rif-relay-common#feature/PP-45",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "0.5.10",
+    "@openeth/truffle-typings": "0.0.6",
     "@types/chai": "^4.3.1",
     "@types/eth-sig-util": "2.1.0",
     "@types/mocha": "^9.1.1",
