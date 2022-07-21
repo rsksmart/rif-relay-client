@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-relay-client",
-  "version": "0.0.2-alpha.3",
+  "version": "0.0.2-alpha.4",
   "description": "This project contains all the client code for the rif relay system.",
   "main": "dist/index.js",
   "scripts": {
@@ -45,8 +45,8 @@
     "web3-utils": "1.2.6"
   },
   "devDependencies": {
-    "@openzeppelin/test-helpers": "0.5.10",
     "@openeth/truffle-typings": "0.0.6",
+    "@openzeppelin/test-helpers": "0.5.10",
     "@types/chai": "^4.3.1",
     "@types/eth-sig-util": "2.1.0",
     "@types/mocha": "^9.1.1",
