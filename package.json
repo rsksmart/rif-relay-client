@@ -27,8 +27,8 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.4",
-    "@rsksmart/rif-relay-common": "0.0.2-alpha.5",
+    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common#PP-94/revenue-sharing-model",
+    "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts#PP-94/revenue-sharing-model",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
