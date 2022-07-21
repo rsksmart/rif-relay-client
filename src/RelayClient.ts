@@ -12,7 +12,8 @@ import {
     decodeRevertReason,
     calculateDeployTransactionMaxPossibleGas,
     estimateMaxPossibleRelayCallWithLinearFit,
-    constants
+    constants,
+    suffixData
 } from '@rsksmart/rif-relay-common';
 import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import { Address, PingFilter } from './types/Aliases';
@@ -920,6 +921,43 @@ export class RelayClient {
             transactionHash,
             retries,
             initialBackoff
+        );
+    }
+
+    async validateSmartWallet(
+        transactionDetails: EnvelopingTransactionDetails
+    ): Promise<void> {
+        const forwarderAddress = this.resolveForwarder(transactionDetails);
+        const senderNonce: string =
+            await this.contractInteractor.getSenderNonce(forwarderAddress);
+
+        const relayRequest: RelayRequest = {
+            request: {
+                relayHub: constants.ZERO_ADDRESS,
+                to: transactionDetails.to,
+                data: transactionDetails.data,
+                from: transactionDetails.from,
+                value: '0',
+                nonce: senderNonce,
+                gas: '0',
+                tokenAmount: '0x00',
+                tokenGas: '0x00',
+                tokenContract: constants.ZERO_ADDRESS
+            },
+            relayData: {
+                gasPrice: '0',
+                callVerifier: constants.ZERO_ADDRESS,
+                callForwarder: forwarderAddress,
+                relayWorker: constants.ZERO_ADDRESS
+            }
+        };
+        this.emit(new SignRequestEvent());
+        const signature = await this.accountManager.sign(relayRequest);
+        const suffix = suffixData(relayRequest, this.accountManager.chainId);
+        await this.contractInteractor.verifyForwarder(
+            suffix,
+            relayRequest,
+            signature
         );
     }
 }
