@@ -1,14 +1,16 @@
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet';
 import {
-    DeployRequest,
-    RelayRequest,
     getEip712Signature,
     isSameAddress,
-    EnvelopingConfig,
+    EnvelopingConfig
+} from '@rsksmart/rif-relay-common';
+import {
+    DeployRequest,
+    RelayRequest,
     TypedDeployRequestData,
     TypedRequestData
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 import sigUtil from 'eth-sig-util';
 import { Address } from './types/Aliases';
 import { PrefixedHexString } from 'ethereumjs-tx';
