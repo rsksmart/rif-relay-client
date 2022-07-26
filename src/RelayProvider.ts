@@ -19,6 +19,7 @@ import { AccountKeypair } from './AccountManager';
 import { RelayEvent } from './RelayEvents';
 import { Address } from './types/Aliases';
 import { toBN, toChecksumAddress, toHex } from 'web3-utils';
+import { Transaction } from 'ethereumjs-tx';
 
 // @ts-ignore
 abiDecoder.addABI(IRelayHub.abi);
@@ -37,6 +38,10 @@ export type JsonRpcCallback = (
 
 export interface ISendAsync {
     sendAsync?: any;
+}
+
+export interface JsonRpcResponseRelay extends JsonRpcResponse {
+    relayingResult?: RelayingResult;
 }
 
 export default class RelayProvider implements HttpProvider {
@@ -237,6 +242,73 @@ export default class RelayProvider implements HttpProvider {
         return this.executeRelayTransaction(transactionDetails);
     }
 
+    async processTransactionReceipt(
+        txHash: string,
+        retries: number,
+        initialBackoff: number
+    ): Promise<TransactionReceipt> {
+        const receipt: TransactionReceipt =
+            await this.relayClient.getTransactionReceipt(
+                txHash,
+                retries,
+                initialBackoff
+            );
+        const relayStatus = this._getRelayStatus(receipt);
+        if (relayStatus.relayRevertedOnRecipient) {
+            throw new Error(
+                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
+            );
+        }
+        return receipt;
+    }
+
+    async executeRelayTransaction(
+        transactionDetails: EnvelopingTransactionDetails
+    ): Promise<RelayingResult> {
+        try {
+            log.debug('Relay Provider - Relaying transaction started');
+            const relayingResult = await this.relayClient.relayTransaction(
+                transactionDetails
+            );
+            if (
+                relayingResult.transaction !== undefined &&
+                relayingResult.transaction !== null
+            ) {
+                const txHash: string = relayingResult.transaction
+                    .hash(true)
+                    .toString('hex');
+                const hash = `0x${txHash}`;
+                log.debug(
+                    `Relay Provider - Transaction relay done, txHash: ${hash}`
+                );
+                if (!transactionDetails.ignoreTransactionReceipt) {
+                    const { retries, initialBackoff } = transactionDetails;
+                    const receipt: TransactionReceipt =
+                        await this.processTransactionReceipt(
+                            txHash,
+                            retries,
+                            initialBackoff
+                        );
+                    relayingResult.receipt = receipt;
+                }
+                return relayingResult;
+            } else {
+                const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
+                    relayingResult
+                )}`;
+                log.error(message);
+                throw new Error(message);
+            }
+        } catch (error) {
+            const reasonStr =
+                error instanceof Error ? error.message : JSON.stringify(error);
+            log.info('Rejected relayTransaction call', error);
+            throw new Error(
+                `Rejected relayTransaction call - Reason: ${reasonStr}`
+            );
+        }
+    }
+
     /**
      * @param ownerEOA EOA of the Smart Wallet onwer
      * @param recoverer Address of a recoverer account, can be smart contract. It's used in gasless tokens, can be address(0) if desired
@@ -400,94 +472,72 @@ export default class RelayProvider implements HttpProvider {
 
         this.executeRelayTransaction(transactionDetails).then(
             (relayingResult: RelayingResult) => {
-                const jsonRpcSendResult =
-                    this._convertTransactionToRpcSendResponse(
-                        relayingResult,
-                        payload
+                const relayStatus = this._getRelayStatus(
+                    relayingResult.receipt
+                );
+                const txHash: string =
+                    '0x' +
+                    relayingResult.transaction.hash(true).toString('hex');
+                if (
+                    relayingResult.transaction === undefined ||
+                    relayingResult.transaction === null
+                ) {
+                    // Imposible scenario, but we addded it so the linter does not complain since it wont allow using ! keyword
+                    callback(
+                        new Error(
+                            `Unknown Runtime error while processing result of txHash: ${txHash}`
+                        )
                     );
-                callback(null, jsonRpcSendResult);
+                } else {
+                    if (relayStatus.transactionRelayed) {
+                        const jsonRpcSendResult =
+                            this._convertTransactionToRpcSendResponse(
+                                relayingResult,
+                                payload
+                            );
+                        callback(null, jsonRpcSendResult);
+                    } else if (relayStatus.relayRevertedOnRecipient) {
+                        callback(
+                            new Error(
+                                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
+                            )
+                        );
+                    } else {
+                        const jsonRpcSendResult =
+                            this._convertTransactionToRpcSendResponse(
+                                relayingResult,
+                                payload
+                            );
+                        callback(null, jsonRpcSendResult);
+                    }
+                }
+            },
+            (error) => {
+                callback(new Error(error));
             }
         );
     }
 
-    async processTransactionReceipt(
-        txHash: string,
-        retries: number,
-        initialBackoff: number
-    ): Promise<TransactionReceipt> {
-        const receipt: TransactionReceipt =
-            await this.relayClient.getTransactionReceipt(
-                txHash,
-                retries,
-                initialBackoff
-            );
-        const relayStatus = this._getRelayStatus(receipt);
-        if (relayStatus.relayRevertedOnRecipient) {
-            throw new Error(
-                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-            );
-        }
-        return receipt;
-    }
-
-    async executeRelayTransaction(
-        transactionDetails: EnvelopingTransactionDetails
-    ): Promise<RelayingResult> {
-        try {
-            log.debug('Relay Provider - Relaying transaction started');
-            const relayingResult = await this.relayClient.relayTransaction(
-                transactionDetails
-            );
-            if (relayingResult.transaction != null) {
-                const txHash: string = relayingResult.transaction
-                    .hash(true)
-                    .toString('hex');
-                const hash = `0x${txHash}`;
-                log.debug(
-                    `Relay Provider - Transaction relay done, txHash: ${hash}`
-                );
-                if (transactionDetails.waitForTransactionReceipt) {
-                    const { retries, initialBackoff } = transactionDetails;
-                    const receipt: TransactionReceipt =
-                        await this.processTransactionReceipt(
-                            txHash,
-                            retries,
-                            initialBackoff
-                        );
-                    relayingResult.receipt = receipt;
-                }
-                return relayingResult;
-            } else {
-                const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
-                    relayingResult
-                )}`;
-                log.error(message);
-                throw new Error(message);
-            }
-        } catch (error) {
-            const reasonStr =
-                error instanceof Error ? error.message : JSON.stringify(error);
-            log.info('Rejected deploy wallet call', error);
-            throw new Error(
-                `Rejected deploy wallet call - Reason: ${reasonStr}`
-            );
-        }
-    }
-
     _convertTransactionToRpcSendResponse(
-        transaction: RelayingResult,
+        relayingResult: RelayingResult,
         request: JsonRpcPayload
-    ): JsonRpcResponse {
+    ): JsonRpcResponseRelay {
+        const txHash: string = relayingResult.transaction
+            .hash(true)
+            .toString('hex');
+        const hash = `0x${txHash}`;
         const id =
             (typeof request.id === 'string'
                 ? parseInt(request.id)
                 : request.id) ?? -1;
         log.debug('Relay Provider - rpc message sent, jsonRpcResult');
+        log.debug('Relay Provider - txHash: ' + hash);
         log.debug('Relay Provider - id: ' + id.toString());
         return {
             jsonrpc: '2.0',
             id,
-            result: transaction
+            result: hash,
+            relayingResult
         };
     }
 
