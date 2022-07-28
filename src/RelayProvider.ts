@@ -2,7 +2,7 @@
 import abiDecoder from 'abi-decoder';
 import log from 'loglevel';
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers';
-import { HttpProvider } from 'web3-core';
+import { HttpProvider, TransactionReceipt } from 'web3-core';
 import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts';
 import {
     _dumpRelayingResult,
