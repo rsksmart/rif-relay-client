@@ -19,7 +19,6 @@ import { AccountKeypair } from './AccountManager';
 import { RelayEvent } from './RelayEvents';
 import { Address } from './types/Aliases';
 import { toBN, toChecksumAddress, toHex } from 'web3-utils';
-import { Transaction } from 'ethereumjs-tx';
 
 // @ts-ignore
 abiDecoder.addABI(IRelayHub.abi);
@@ -242,7 +241,7 @@ export default class RelayProvider implements HttpProvider {
         return this.executeRelayTransaction(transactionDetails);
     }
 
-    async processTransactionReceipt(
+    private async processTransactionReceipt(
         txHash: string,
         retries: number,
         initialBackoff: number
