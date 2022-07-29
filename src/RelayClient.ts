@@ -2,9 +2,6 @@ import log from 'loglevel';
 import { HttpProvider, TransactionReceipt } from 'web3-core';
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx';
 import {
-    constants,
-    DeployRequest,
-    RelayRequest,
     DeployTransactionRequest,
     RelayMetadata,
     RelayTransactionRequest,
@@ -14,8 +11,10 @@ import {
     EnvelopingConfig,
     decodeRevertReason,
     calculateDeployTransactionMaxPossibleGas,
-    estimateMaxPossibleRelayCallWithLinearFit
+    estimateMaxPossibleRelayCallWithLinearFit,
+    constants
 } from '@rsksmart/rif-relay-common';
+import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import { Address, PingFilter } from './types/Aliases';
 import HttpClient from './HttpClient';
 import RelaySelectionManager from './RelaySelectionManager';
@@ -212,7 +211,6 @@ export class RelayClient {
         relayWorker: Address
     ): Promise<number> {
         const trxDetails = { ...transactionDetails };
-
         trxDetails.gasPrice =
             trxDetails.forceGasPrice ?? (await this._calculateGasPrice());
         let maxPossibleGas: number;
@@ -277,7 +275,6 @@ export class RelayClient {
         relayWorker: Address
     ): Promise<number> {
         const trxDetails = { ...transactionDetails };
-
         trxDetails.gasPrice =
             trxDetails.forceGasPrice ?? (await this._calculateGasPrice());
         let maxPossibleGas: BN;
@@ -387,7 +384,6 @@ export class RelayClient {
         ) {
             throw new Error('Request type is not for SmartWallet deploy');
         }
-
         const callForwarder = this.resolveForwarder(transactionDetails);
         const senderNonce = await this.contractInteractor.getFactoryNonce(
             callForwarder,

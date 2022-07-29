@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-relay-client",
-  "version": "0.0.2-alpha.4",
+  "version": "0.0.2-alpha.7",
   "description": "This project contains all the client code for the rif relay system.",
   "main": "dist/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "prettier:fix": "npx prettier --write --ignore-unknown .",
     "prettier": "npx prettier --check .",
-    "test": "#test_suite_to_be_added",
+    "test": "npx mocha -r ts-node/register test/**/*.test.ts",
     "dist": "scripts/dist",
     "prepublishOnly": "scripts/prepublishOnly"
   },
@@ -27,8 +27,8 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.4",
-    "@rsksmart/rif-relay-common": "0.0.2-alpha.5",
+    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.10",
+    "@rsksmart/rif-relay-common": "0.0.2-alpha.8",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
@@ -46,11 +46,17 @@
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "0.5.10",
+    "@openeth/truffle-typings": "0.0.6",
+    "@types/chai": "^4.3.1",
     "@types/eth-sig-util": "2.1.0",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.0.0",
     "@typescript-eslint/eslint-plugin": "~4.28.3",
     "@typescript-eslint/parser": "~4.28.3",
+    "chai": "^4.3.6",
     "eslint": "~7.30.0",
     "husky": "~6.0.0",
+    "mocha": "^10.0.0",
     "prettier": "2.3.0",
     "ts-loader": "~9.2.3",
     "ts-node": "8.6.2",
