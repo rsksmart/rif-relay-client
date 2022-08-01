@@ -134,14 +134,10 @@ describe('RelayClient', () => {
         });
 
         it('should fail if tansactionDetails is null', async () => {
-            const error = new TypeError(
+            await assert.isRejected(
+                relayClient.validateSmartWallet(null),
                 "Cannot read properties of null (reading 'callForwarder')"
             );
-            try {
-                await relayClient.validateSmartWallet(null);
-            } catch (e) {
-                assert.equal(e.toString(), `${error.name}: ${error.message}`);
-            }
         });
     });
 });
