@@ -1,6 +1,8 @@
 import log from 'loglevel';
 import { HttpProvider, TransactionReceipt } from 'web3-core';
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx';
+import { TypedDataUtils } from 'eth-sig-util';
+import { bufferToHex } from 'ethereumjs-util';
 import {
     DeployTransactionRequest,
     RelayMetadata,
@@ -12,10 +14,14 @@ import {
     decodeRevertReason,
     calculateDeployTransactionMaxPossibleGas,
     estimateMaxPossibleRelayCallWithLinearFit,
-    constants,
-    suffixData
+    constants
 } from '@rsksmart/rif-relay-common';
-import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
+import {
+    DeployRequest,
+    ForwardRequestType,
+    RelayRequest,
+    TypedRequestData
+} from '@rsksmart/rif-relay-contracts';
 import { Address, PingFilter } from './types/Aliases';
 import HttpClient from './HttpClient';
 import RelaySelectionManager from './RelaySelectionManager';
@@ -953,12 +959,34 @@ export class RelayClient {
         };
         this.emit(new SignRequestEvent());
         const signature = await this.accountManager.sign(relayRequest);
-        const suffix = suffixData(relayRequest, this.accountManager.chainId);
+        const suffix = this.suffixData(
+            relayRequest,
+            this.accountManager.chainId
+        );
         await this.contractInteractor.verifyForwarder(
             suffix,
             relayRequest,
             signature
         );
+    }
+
+    private suffixData(relayRequest: RelayRequest, chainId: number) {
+        const cloneRequest = { ...relayRequest };
+        const signedData = new TypedRequestData(
+            chainId,
+            relayRequest.relayData.callForwarder,
+            cloneRequest as RelayRequest
+        );
+
+        const suffixData = bufferToHex(
+            TypedDataUtils.encodeData(
+                signedData.primaryType,
+                signedData.message,
+                signedData.types
+            ).slice((1 + ForwardRequestType.length) * 32)
+        );
+
+        return suffixData;
     }
 }
 

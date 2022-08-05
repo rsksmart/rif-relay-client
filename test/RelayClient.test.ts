@@ -109,28 +109,15 @@ describe('RelayClient', () => {
     });
 
     describe('validateSmartWallet', () => {
-        it('should use resolveForwarder once with same transactionDetail', async () => {
+        it('should use verifyForwarder', async () => {
             const spyCall = spy(relayClient, 'resolveForwarder');
             await relayClient.validateSmartWallet(fakeTransactionDetails);
             assert.isTrue(
                 spyCall.calledOnceWithExactly(fakeTransactionDetails),
                 'Was not called once'
             );
-        });
-
-        it('should use contractInteractor.getSenderNonce once', async () => {
-            await relayClient.validateSmartWallet(fakeTransactionDetails);
-            expect(fakeContractInteractor.getSenderNonce).to.have.been.called;
-        });
-
-        it('should use accountManager.sign once', async () => {
-            await relayClient.validateSmartWallet(fakeTransactionDetails);
-            expect(fakeAccountManager.sign).to.have.been.called;
-        });
-
-        it('should use contractInteractor.verifyForwarder once', async () => {
-            await relayClient.validateSmartWallet(fakeTransactionDetails);
-            expect(fakeContractInteractor.verifyForwarder).to.have.been.called;
+            expect(fakeContractInteractor.verifyForwarder).to.have.been
+                .calledOnce;
         });
 
         it('should fail if tansactionDetails is null', async () => {
