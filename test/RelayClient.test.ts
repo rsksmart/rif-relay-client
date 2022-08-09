@@ -120,6 +120,39 @@ describe('RelayClient', () => {
                 .calledOnce;
         });
 
+        it('should fail if EOA is not the owner', async () => {
+            const error = new TypeError(
+                'VM Exception while processing transaction: revert Not the owner of the SmartWallet'
+            );
+            fakeContractInteractor.verifyForwarder.throws(error);
+            await assert.isRejected(
+                relayClient.validateSmartWallet(fakeTransactionDetails),
+                error.message
+            );
+        });
+
+        it('should fail if nonce mismatch', async () => {
+            const error = new TypeError(
+                'VM Exception while processing transaction: revert nonce mismatch'
+            );
+            fakeContractInteractor.verifyForwarder.throws(error);
+            await assert.isRejected(
+                relayClient.validateSmartWallet(fakeTransactionDetails),
+                error.message
+            );
+        });
+
+        it('should fail if signature mismatch', async () => {
+            const error = new TypeError(
+                'VM Exception while processing transaction: revert Signature mismatch'
+            );
+            fakeContractInteractor.verifyForwarder.throws(error);
+            await assert.isRejected(
+                relayClient.validateSmartWallet(fakeTransactionDetails),
+                error.message
+            );
+        });
+
         it('should fail if tansactionDetails is null', async () => {
             await assert.isRejected(
                 relayClient.validateSmartWallet(null),
