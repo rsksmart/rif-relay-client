@@ -70,24 +70,25 @@ export async function resolveConfiguration(
     partialConfig: Partial<EnvelopingConfig>
 ): Promise<EnvelopingConfig> {
     // @ts-ignore
-    if (provider.send == null && provider.sendAsync == null) {
+    console.log('Configurator73');
+    if (provider?.send == null /*&& provider.sendAsync == null*/) {
         throw new Error('First param is not a web3 provider');
     }
-
+    console.log('Configurator77');
     if (partialConfig.relayHubAddress != null) {
         throw new Error('Resolve cannot override passed values');
     }
-
+    console.log('Configurator81');
     const contractInteractor = new ContractInteractor(
         provider,
         defaultEnvelopingConfig
     );
-
+    console.log('Configurator86');
     const [chainId, forwarderAddress] = await Promise.all([
         partialConfig.chainId ?? contractInteractor.getAsyncChainId(),
         partialConfig.forwarderAddress ?? ''
     ]);
-
+    console.log('Configurator91');
     const isMetamask: boolean = (provider as any).isMetaMask;
 
     // provide defaults valid for metamask (unless explicitly specified values)
@@ -97,13 +98,14 @@ export async function resolveConfiguration(
     const jsonStringifyRequest =
         partialConfig.jsonStringifyRequest ??
         (isMetamask ? true : defaultEnvelopingConfig.jsonStringifyRequest);
-
+    console.log('Configurator101');
     const resolvedConfig = {
         forwarderAddress,
         chainId,
         methodSuffix,
         jsonStringifyRequest
     };
+    console.log('Configurator108');
     return {
         ...defaultEnvelopingConfig,
         ...partialConfig,
