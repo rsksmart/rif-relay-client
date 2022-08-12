@@ -471,9 +471,6 @@ export default class RelayProvider implements HttpProvider {
 
         this.executeRelayTransaction(transactionDetails).then(
             (relayingResult: RelayingResult) => {
-                const relayStatus = this._getRelayStatus(
-                    relayingResult.receipt
-                );
                 const txHash: string =
                     '0x' +
                     relayingResult.transaction.hash(true).toString('hex');
@@ -488,27 +485,31 @@ export default class RelayProvider implements HttpProvider {
                         )
                     );
                 } else {
-                    if (relayStatus.transactionRelayed) {
-                        const jsonRpcSendResult =
-                            this._convertTransactionToRpcSendResponse(
-                                relayingResult,
-                                payload
-                            );
-                        callback(null, jsonRpcSendResult);
-                    } else if (relayStatus.relayRevertedOnRecipient) {
-                        callback(
-                            new Error(
-                                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-                            )
+                    if (relayingResult.receipt) {
+                        const relayStatus = this._getRelayStatus(
+                            relayingResult.receipt
                         );
-                    } else {
-                        const jsonRpcSendResult =
-                            this._convertTransactionToRpcSendResponse(
-                                relayingResult,
-                                payload
+                        if (relayStatus.transactionRelayed) {
+                            const jsonRpcSendResult =
+                                this._convertTransactionToRpcSendResponse(
+                                    relayingResult,
+                                    payload
+                                );
+                            callback(null, jsonRpcSendResult);
+                        } else if (relayStatus.relayRevertedOnRecipient) {
+                            callback(
+                                new Error(
+                                    `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
+                                )
                             );
-                        callback(null, jsonRpcSendResult);
+                        }
                     }
+                    const jsonRpcSendResult =
+                        this._convertTransactionToRpcSendResponse(
+                            relayingResult,
+                            payload
+                        );
+                    callback(null, jsonRpcSendResult);
                 }
             },
             (error) => {
