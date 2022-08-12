@@ -72,7 +72,7 @@ export async function resolveConfiguration(
     if (provider?.send == null) {
         throw new Error('First param is not a web3 provider');
     }
-    
+
     if (partialConfig?.relayHubAddress != null) {
         throw new Error('Resolve cannot override passed values');
     }
