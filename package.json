@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@rsksmart/rif-relay-contracts": "0.0.2-alpha.10",
-    "@rsksmart/rif-relay-common": "0.0.2-alpha.8",
+    "@rsksmart/rif-relay-common": "0.0.2-alpha.10",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "eth-sig-util": "2.5.2",
