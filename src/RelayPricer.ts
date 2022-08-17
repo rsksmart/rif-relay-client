@@ -26,6 +26,9 @@ export default class RelayPricer {
         const intermediary = intermediaryPair ? intermediaryPair : 'USD';
         const price1 = await this.sourceApi.query(pair1, intermediary);
         const price2 = await this.sourceApi.query(pair2, intermediary);
+        if (price1 === 0 || price2 === 0) {
+            throw new Error('price cannot be zero');
+        }
         return price1 / price2;
     }
 }
