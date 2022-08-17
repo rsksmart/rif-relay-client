@@ -29,7 +29,8 @@ export default class RelayedTransactionValidator {
      */
     validateRelayResponse(
         request: RelayTransactionRequest | DeployTransactionRequest,
-        returnedTx: PrefixedHexString
+        returnedTx: PrefixedHexString,
+        relayWorker: string
     ): boolean {
         const transaction = new Transaction(
             returnedTx,
@@ -73,7 +74,7 @@ export default class RelayedTransactionValidator {
                 this.config.relayHubAddress
             ) &&
             relayRequestAbiEncode === bufferToHex(transaction.data) &&
-            isSameAddress(request.relayRequest.relayData.relayWorker, signer)
+            isSameAddress(relayWorker, signer)
         ) {
             log.info('validateRelayResponse - valid transaction response');
 
@@ -101,7 +102,7 @@ export default class RelayedTransactionValidator {
                 'validateRelayResponse: req',
                 relayRequestAbiEncode,
                 this.config.relayHubAddress,
-                request.relayRequest.relayData.relayWorker
+                request.relayRequest.relayData.feesReceiver
             );
             console.error(
                 'validateRelayResponse: rsp',
