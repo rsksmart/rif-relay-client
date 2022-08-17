@@ -69,5 +69,18 @@ describe('RelayPricer', () => {
                 error.message
             );
         });
+
+        it('should fail if pair conversion is 0', async () => {
+            fakeSourceApi.query
+                .withArgs(pair1, intermediaryPair)
+                .returns(Promise.resolve(0));
+            fakeSourceApi.query
+                .withArgs(pair2, intermediaryPair)
+                .returns(Promise.resolve(fakePrice2));
+            await assert.isRejected(
+                pricer.getPrice(pair1, pair2),
+                'price cannot be zero'
+            );
+        });
     });
 });
