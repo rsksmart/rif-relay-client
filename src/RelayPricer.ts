@@ -19,16 +19,24 @@ export default class RelayPricer {
     }
 
     async getPrice(
-        pair1: string,
-        pair2: string,
-        intermediaryPair?: string
+        sourceCurrency: string,
+        targetCurrency: string,
+        intermediateCurrency?: string
     ): Promise<number> {
-        const intermediary = intermediaryPair ? intermediaryPair : 'USD';
-        const price1 = await this.sourceApi.query(pair1, intermediary);
-        const price2 = await this.sourceApi.query(pair2, intermediary);
-        if (price1 === 0 || price2 === 0) {
+        const intermediary = intermediateCurrency
+            ? intermediateCurrency
+            : 'USD';
+        const sourcePrice = await this.sourceApi.query(
+            sourceCurrency,
+            intermediary
+        );
+        const targetPrice = await this.sourceApi.query(
+            targetCurrency,
+            intermediary
+        );
+        if (sourcePrice === 0 || targetPrice === 0) {
             throw new Error('price cannot be zero');
         }
-        return price1 / price2;
+        return sourcePrice / targetPrice;
     }
 }
