@@ -15,9 +15,9 @@ describe('RelayPricer', () => {
         const fakePrice2 = 0.0775886924643371;
         const fakePriceConversion1 = 300892.2291221775;
         const fakePriceConversion2 = 0.0000033234490731694805;
-        const pair1 = 'RBTC';
-        const pair2 = 'RIF';
-        const intermediaryPair = 'USD';
+        const sourceCurrency = 'RBTC';
+        const targetCurrency = 'RIF';
+        const intermediateCurrency = 'USD';
 
         beforeEach(() => {
             fakeSourceApi = stubInterface<SourceApi>();
@@ -30,55 +30,55 @@ describe('RelayPricer', () => {
             );
         });
 
-        it('should return pair1 conversion price', async () => {
+        it('should return source currency conversion price', async () => {
             fakeSourceApi.query
-                .withArgs(pair1, intermediaryPair)
+                .withArgs(sourceCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice1));
             fakeSourceApi.query
-                .withArgs(pair2, intermediaryPair)
+                .withArgs(targetCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice2));
-            const price = await pricer.getPrice(pair1, pair2);
+            const price = await pricer.getPrice(sourceCurrency, targetCurrency);
             assert.equal(fakePriceConversion1, price, 'price is not the same');
         });
 
-        it('should return pair2 conversion price', async () => {
+        it('should return target currency conversion price', async () => {
             fakeSourceApi.query
-                .withArgs(pair1, intermediaryPair)
+                .withArgs(sourceCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice1));
             fakeSourceApi.query
-                .withArgs(pair2, intermediaryPair)
+                .withArgs(targetCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice2));
-            const price = await pricer.getPrice(pair2, pair1);
+            const price = await pricer.getPrice(targetCurrency, sourceCurrency);
             assert.equal(fakePriceConversion2, price, 'price is not the same');
         });
 
-        it('should fail if input pair is not valid', async () => {
+        it('should fail if source currency is not valid', async () => {
             const error = new Error('Input not available');
             fakeSourceApi.query.throws(error);
             await assert.isRejected(
-                pricer.getPrice(pair1, 'NA', intermediaryPair),
+                pricer.getPrice(sourceCurrency, 'NA', intermediateCurrency),
                 error.message
             );
         });
 
-        it('should fail if intermediary pair is not valid', async () => {
+        it('should fail if intermediate currency is not valid', async () => {
             const error = new Error('Output not available');
             fakeSourceApi.query.throws(error);
             await assert.isRejected(
-                pricer.getPrice(pair1, pair2, 'NA'),
+                pricer.getPrice(sourceCurrency, targetCurrency, 'NA'),
                 error.message
             );
         });
 
-        it('should fail if pair conversion is 0', async () => {
+        it('should fail if currency conversion is 0', async () => {
             fakeSourceApi.query
-                .withArgs(pair1, intermediaryPair)
+                .withArgs(sourceCurrency, intermediateCurrency)
                 .returns(Promise.resolve(0));
             fakeSourceApi.query
-                .withArgs(pair2, intermediaryPair)
+                .withArgs(targetCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice2));
             await assert.isRejected(
-                pricer.getPrice(pair1, pair2),
+                pricer.getPrice(sourceCurrency, targetCurrency),
                 'price cannot be zero'
             );
         });
