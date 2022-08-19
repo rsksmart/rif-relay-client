@@ -8,17 +8,17 @@ import { SourceApi } from '../src/types/RelayPricer';
 chai.use(chaiAsPromised);
 
 describe('RelayPricer', () => {
-    describe('getPrice', async () => {
-        let fakeSourceApi: StubbedInstance<SourceApi>;
-        let pricer: RelayPricer;
-        const fakePrice1 = 23345.834630269488;
-        const fakePrice2 = 0.0775886924643371;
-        const fakePriceConversion1 = 300892.2291221775;
-        const fakePriceConversion2 = 0.0000033234490731694805;
-        const sourceCurrency = 'RBTC';
-        const targetCurrency = 'RIF';
-        const intermediateCurrency = 'USD';
+    let fakeSourceApi: StubbedInstance<SourceApi>;
+    let pricer: RelayPricer;
+    const fakePrice1 = 23345.834630269488;
+    const fakePrice2 = 0.0775886924643371;
+    const fakePriceConversion1 = 300892.2291221775;
+    const fakePriceConversion2 = 0.0000033234490731694805;
+    const sourceCurrency = 'RBTC';
+    const targetCurrency = 'RIF';
+    const intermediateCurrency = 'USD';
 
+    describe('getPrice', async () => {
         beforeEach(() => {
             fakeSourceApi = stubInterface<SourceApi>();
             pricer = new RelayPricer(fakeSourceApi);
