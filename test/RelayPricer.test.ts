@@ -3,6 +3,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { StubbedInstance, stubInterface } from 'ts-sinon';
 
 import { RelayPricer } from '../src';
+import CoinBase from '../src/api/CoinBase';
 import { SourceApi } from '../src/types/RelayPricer';
 
 chai.use(chaiAsPromised);
@@ -10,13 +11,22 @@ chai.use(chaiAsPromised);
 describe('RelayPricer', () => {
     let fakeSourceApi: StubbedInstance<SourceApi>;
     let pricer: RelayPricer;
-    const fakePrice1 = 23345.834630269488;
-    const fakePrice2 = 0.0775886924643371;
-    const fakePriceConversion1 = 300892.2291221775;
-    const fakePriceConversion2 = 0.0000033234490731694805;
-    const sourceCurrency = 'RBTC';
-    const targetCurrency = 'RIF';
-    const intermediateCurrency = 'USD';
+    const FAKE_PRICE_1 = 23345.834630269488;
+    const FAKE_PRICE_2 = 0.0775886924643371;
+    const FAKE_PRICE_CONVERSION_1 = 300892.2291221775;
+    const FAKE_PRICE_CONVERSION_2 = 0.0000033234490731694805;
+    const SOURCE_CURRENCY = 'RBTC';
+    const TARGET_CURRENCY = 'RIF';
+    const INTERMEDIATE_CURRENCY = 'USD';
+
+    function buildFakePrices(price1: number, price2: number) {
+        fakeSourceApi.query
+            .withArgs(SOURCE_CURRENCY, INTERMEDIATE_CURRENCY)
+            .returns(Promise.resolve(price1));
+        fakeSourceApi.query
+            .withArgs(TARGET_CURRENCY, INTERMEDIATE_CURRENCY)
+            .returns(Promise.resolve(price2));
+    }
 
     describe('getPrice', async () => {
         beforeEach(() => {
@@ -24,38 +34,44 @@ describe('RelayPricer', () => {
             pricer = new RelayPricer(fakeSourceApi);
         });
 
-        it('should fail if receive wrong SourceApi(constructor)', async () => {
-            expect(() => new RelayPricer('test')).to.throw(
-                'Source api not provided'
+        it('should initiate sourceApi', async () => {
+            const coinBase = new CoinBase();
+            const pricer = new RelayPricer(coinBase);
+            expect(pricer).to.be.instanceOf(RelayPricer);
+            expect(pricer).to.have.property('sourceApi', coinBase);
+        });
+
+        it('should return source currency conversion price', async () => {
+            buildFakePrices(FAKE_PRICE_1, FAKE_PRICE_2);
+            const price = await pricer.getPrice(
+                SOURCE_CURRENCY,
+                TARGET_CURRENCY
+            );
+            assert.equal(
+                FAKE_PRICE_CONVERSION_1,
+                price,
+                'price is not the same'
             );
         });
 
-        function fakePrices() {
-            fakeSourceApi.query
-                .withArgs(sourceCurrency, intermediateCurrency)
-                .returns(Promise.resolve(fakePrice1));
-            fakeSourceApi.query
-                .withArgs(targetCurrency, intermediateCurrency)
-                .returns(Promise.resolve(fakePrice2));
-        }
-
-        it('should return source currency conversion price', async () => {
-            fakePrices();
-            const price = await pricer.getPrice(sourceCurrency, targetCurrency);
-            assert.equal(fakePriceConversion1, price, 'price is not the same');
-        });
-
         it('should return target currency conversion price', async () => {
-            fakePrices();
-            const price = await pricer.getPrice(targetCurrency, sourceCurrency);
-            assert.equal(fakePriceConversion2, price, 'price is not the same');
+            buildFakePrices(FAKE_PRICE_1, FAKE_PRICE_2);
+            const price = await pricer.getPrice(
+                TARGET_CURRENCY,
+                SOURCE_CURRENCY
+            );
+            assert.equal(
+                FAKE_PRICE_CONVERSION_2,
+                price,
+                'price is not the same'
+            );
         });
 
         it('should fail if source currency is not valid', async () => {
             const error = new Error('Input not available');
             fakeSourceApi.query.throws(error);
             await assert.isRejected(
-                pricer.getPrice(sourceCurrency, 'NA', intermediateCurrency),
+                pricer.getPrice(SOURCE_CURRENCY, 'NA', INTERMEDIATE_CURRENCY),
                 error.message
             );
         });
@@ -64,33 +80,23 @@ describe('RelayPricer', () => {
             const error = new Error('Output not available');
             fakeSourceApi.query.throws(error);
             await assert.isRejected(
-                pricer.getPrice(sourceCurrency, targetCurrency, 'NA'),
+                pricer.getPrice(SOURCE_CURRENCY, TARGET_CURRENCY, 'NA'),
                 error.message
             );
         });
 
         it('should fail if target currency conversion is 0', async () => {
-            fakeSourceApi.query
-                .withArgs(sourceCurrency, intermediateCurrency)
-                .returns(Promise.resolve(fakePrice1));
-            fakeSourceApi.query
-                .withArgs(targetCurrency, intermediateCurrency)
-                .returns(Promise.resolve(0));
+            buildFakePrices(FAKE_PRICE_1, 0);
             await assert.isRejected(
-                pricer.getPrice(sourceCurrency, targetCurrency),
+                pricer.getPrice(SOURCE_CURRENCY, TARGET_CURRENCY),
                 'price cannot be zero'
             );
         });
 
         it('should fail if source currency conversion is 0', async () => {
-            fakeSourceApi.query
-                .withArgs(sourceCurrency, intermediateCurrency)
-                .returns(Promise.resolve(0));
-            fakeSourceApi.query
-                .withArgs(targetCurrency, intermediateCurrency)
-                .returns(Promise.resolve(fakePrice2));
+            buildFakePrices(0, FAKE_PRICE_2);
             await assert.isRejected(
-                pricer.getPrice(sourceCurrency, targetCurrency),
+                pricer.getPrice(SOURCE_CURRENCY, TARGET_CURRENCY),
                 'price cannot be zero'
             );
         });

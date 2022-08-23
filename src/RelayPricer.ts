@@ -1,21 +1,10 @@
-import CoinBase from './api/CoinBase';
 import { SourceApi } from './types/RelayPricer';
 
 export default class RelayPricer {
     private readonly sourceApi: SourceApi;
 
-    constructor(sourceApi: SourceApi | string) {
-        if (typeof sourceApi === 'string' || sourceApi instanceof String) {
-            switch (sourceApi as string) {
-                case 'coinbase':
-                    this.sourceApi = new CoinBase();
-                    break;
-                default:
-                    throw new Error('Source api not provided');
-            }
-        } else {
-            this.sourceApi = sourceApi as SourceApi;
-        }
+    constructor(sourceApi: SourceApi) {
+        this.sourceApi = sourceApi;
     }
 
     async getPrice(
