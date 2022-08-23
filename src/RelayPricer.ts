@@ -26,14 +26,11 @@ export default class RelayPricer {
         const intermediary = intermediateCurrency
             ? intermediateCurrency
             : 'USD';
-        const sourcePrice = await this.sourceApi.query(
-            sourceCurrency,
-            intermediary
-        );
-        const targetPrice = await this.sourceApi.query(
-            targetCurrency,
-            intermediary
-        );
+
+        const [sourcePrice, targetPrice] = await Promise.all([
+            this.sourceApi.query(sourceCurrency, intermediary),
+            this.sourceApi.query(targetCurrency, intermediary)
+        ]);
         if (sourcePrice === 0 || targetPrice === 0) {
             throw new Error('price cannot be zero');
         }
