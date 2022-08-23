@@ -24,30 +24,29 @@ describe('RelayPricer', () => {
             pricer = new RelayPricer(fakeSourceApi);
         });
 
-        it('should fail if receive wrong SourceApi', async () => {
+        it('should fail if receive wrong SourceApi(constructor)', async () => {
             expect(() => new RelayPricer('test')).to.throw(
                 'Source api not provided'
             );
         });
 
-        it('should return source currency conversion price', async () => {
+        function fakePrices() {
             fakeSourceApi.query
                 .withArgs(sourceCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice1));
             fakeSourceApi.query
                 .withArgs(targetCurrency, intermediateCurrency)
                 .returns(Promise.resolve(fakePrice2));
+        }
+
+        it('should return source currency conversion price', async () => {
+            fakePrices();
             const price = await pricer.getPrice(sourceCurrency, targetCurrency);
             assert.equal(fakePriceConversion1, price, 'price is not the same');
         });
 
         it('should return target currency conversion price', async () => {
-            fakeSourceApi.query
-                .withArgs(sourceCurrency, intermediateCurrency)
-                .returns(Promise.resolve(fakePrice1));
-            fakeSourceApi.query
-                .withArgs(targetCurrency, intermediateCurrency)
-                .returns(Promise.resolve(fakePrice2));
+            fakePrices();
             const price = await pricer.getPrice(targetCurrency, sourceCurrency);
             assert.equal(fakePriceConversion2, price, 'price is not the same');
         });
@@ -70,7 +69,20 @@ describe('RelayPricer', () => {
             );
         });
 
-        it('should fail if currency conversion is 0', async () => {
+        it('should fail if target currency conversion is 0', async () => {
+            fakeSourceApi.query
+                .withArgs(sourceCurrency, intermediateCurrency)
+                .returns(Promise.resolve(fakePrice1));
+            fakeSourceApi.query
+                .withArgs(targetCurrency, intermediateCurrency)
+                .returns(Promise.resolve(0));
+            await assert.isRejected(
+                pricer.getPrice(sourceCurrency, targetCurrency),
+                'price cannot be zero'
+            );
+        });
+
+        it('should fail if source currency conversion is 0', async () => {
             fakeSourceApi.query
                 .withArgs(sourceCurrency, intermediateCurrency)
                 .returns(Promise.resolve(0));
