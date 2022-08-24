@@ -1,31 +1,31 @@
 import chai, { assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { StubbedInstance, stubInterface } from 'ts-sinon';
+import BigNumber from 'bignumber.js';
 
 import { RelayPricer } from '../src';
-import CoinBase from '../src/api/CoinBase';
-import { SourceApi } from '../src/types/RelayPricer';
+import { SourceApi } from '../src/types/SourceApi';
 
 chai.use(chaiAsPromised);
 
 describe('RelayPricer', () => {
     let fakeSourceApi: StubbedInstance<SourceApi>;
     let pricer: RelayPricer;
-    const FAKE_PRICE_1 = 23345.834630269488;
-    const FAKE_PRICE_2 = 0.0775886924643371;
-    const FAKE_PRICE_CONVERSION_1 = 300892.2291221775;
-    const FAKE_PRICE_CONVERSION_2 = 0.0000033234490731694805;
-    const SOURCE_CURRENCY = 'RBTC';
-    const TARGET_CURRENCY = 'RIF';
-    const INTERMEDIATE_CURRENCY = 'USD';
+    const xRateRbtcUsd = new BigNumber('23345.834630269488');
+    const xRateRifUsd = new BigNumber('0.0775886924643371');
+    const xRateRbtcRif = xRateRbtcUsd.dividedBy(xRateRifUsd);
+    const xRateRifRbtc = xRateRifUsd.dividedBy(xRateRbtcUsd);
+    const sourceCurrency = 'RBTC';
+    const targetCurrency = 'RIF';
+    const intermediateCurrency = 'USD';
 
-    function buildFakePrices(price1: number, price2: number) {
+    function buildExchangeRate(rate1: BigNumber, rate2: BigNumber) {
         fakeSourceApi.query
-            .withArgs(SOURCE_CURRENCY, INTERMEDIATE_CURRENCY)
-            .returns(Promise.resolve(price1));
+            .withArgs(sourceCurrency, intermediateCurrency)
+            .returns(Promise.resolve(rate1));
         fakeSourceApi.query
-            .withArgs(TARGET_CURRENCY, INTERMEDIATE_CURRENCY)
-            .returns(Promise.resolve(price2));
+            .withArgs(targetCurrency, intermediateCurrency)
+            .returns(Promise.resolve(rate2));
     }
 
     describe('getPrice', async () => {
@@ -35,69 +35,82 @@ describe('RelayPricer', () => {
         });
 
         it('should initiate sourceApi', async () => {
-            const coinBase = new CoinBase();
-            const pricer = new RelayPricer(coinBase);
+            const pricer = new RelayPricer(fakeSourceApi);
             expect(pricer).to.be.instanceOf(RelayPricer);
-            expect(pricer).to.have.property('sourceApi', coinBase);
+            expect(pricer).to.have.property('sourceApi', fakeSourceApi);
         });
 
-        it('should return source currency conversion price', async () => {
-            buildFakePrices(FAKE_PRICE_1, FAKE_PRICE_2);
-            const price = await pricer.getPrice(
-                SOURCE_CURRENCY,
-                TARGET_CURRENCY
+        it('should fail if sourceApi is null', async () => {
+            expect(() => new RelayPricer(null)).to.throw(
+                'RelayPricer should be initialized with SourceApi'
+            );
+        });
+
+        it('should return source exchange rate', async () => {
+            buildExchangeRate(xRateRbtcUsd, xRateRifUsd);
+            const price = await pricer.getExchangeRate(
+                sourceCurrency,
+                targetCurrency
             );
             assert.equal(
-                FAKE_PRICE_CONVERSION_1,
-                price,
+                xRateRbtcRif.toString(),
+                price.toString(),
                 'price is not the same'
             );
         });
 
-        it('should return target currency conversion price', async () => {
-            buildFakePrices(FAKE_PRICE_1, FAKE_PRICE_2);
-            const price = await pricer.getPrice(
-                TARGET_CURRENCY,
-                SOURCE_CURRENCY
+        it('should return target exchange rate', async () => {
+            buildExchangeRate(xRateRbtcUsd, xRateRifUsd);
+            const price = await pricer.getExchangeRate(
+                targetCurrency,
+                sourceCurrency
             );
             assert.equal(
-                FAKE_PRICE_CONVERSION_2,
-                price,
+                xRateRifRbtc.toString(),
+                price.toString(),
                 'price is not the same'
             );
         });
 
         it('should fail if source currency is not valid', async () => {
-            const error = new Error('Input not available');
+            const error = new Error(
+                `Coinbase API does not recognise given currency ${sourceCurrency}`
+            );
             fakeSourceApi.query.throws(error);
             await assert.isRejected(
-                pricer.getPrice(SOURCE_CURRENCY, 'NA', INTERMEDIATE_CURRENCY),
+                pricer.getExchangeRate(
+                    sourceCurrency,
+                    'NA',
+                    intermediateCurrency
+                ),
                 error.message
             );
         });
 
         it('should fail if intermediate currency is not valid', async () => {
-            const error = new Error('Output not available');
+            const error = new Error(
+                `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
+            );
             fakeSourceApi.query.throws(error);
             await assert.isRejected(
-                pricer.getPrice(SOURCE_CURRENCY, TARGET_CURRENCY, 'NA'),
+                pricer.getExchangeRate(sourceCurrency, targetCurrency, 'NA'),
                 error.message
             );
         });
 
-        it('should fail if target currency conversion is 0', async () => {
-            buildFakePrices(FAKE_PRICE_1, 0);
+        it('should fail if target exchange rate is 0', async () => {
+            buildExchangeRate(xRateRbtcUsd, new BigNumber(0));
             await assert.isRejected(
-                pricer.getPrice(SOURCE_CURRENCY, TARGET_CURRENCY),
-                'price cannot be zero'
+                pricer.getExchangeRate(sourceCurrency, targetCurrency),
+                'Source/Target exchange rate cannot be zero'
             );
         });
 
-        it('should fail if source currency conversion is 0', async () => {
-            buildFakePrices(0, FAKE_PRICE_2);
+        it('should fail if source exchange rate is 0', async () => {
+            buildExchangeRate(new BigNumber(0), xRateRifUsd);
             await assert.isRejected(
-                pricer.getPrice(SOURCE_CURRENCY, TARGET_CURRENCY),
-                'price cannot be zero'
+                pricer.getExchangeRate(sourceCurrency, targetCurrency),
+                'Source/Target exchange rate cannot be zero'
             );
         });
     });

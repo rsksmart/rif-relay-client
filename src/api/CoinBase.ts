@@ -1,26 +1,46 @@
-import { CoinBaseResponse, SourceApi } from '../types/RelayPricer';
+import { SourceApi } from '../types/SourceApi';
 import fetch, { Response } from 'node-fetch';
+import BigNumber from 'bignumber.js';
 
-export default class CoinBase implements SourceApi {
-    // we should get this address from config file or enviroments
-    private readonly URL: string = 'https://api.coinbase.com/v2/exchange-rates';
+const URL = 'https://api.coinbase.com/v2/exchange-rates';
 
-    async query(input: string, output: string): Promise<number> {
-        const upperCaseOutput = output.toUpperCase();
+export type CoinBaseResponse = {
+    data: {
+        currency: string;
+        rates: Record<string, string>;
+    };
+};
+
+export class CoinBase implements SourceApi {
+    async query(
+        sourceCurrency: string,
+        targetCurrency: string
+    ): Promise<BigNumber> {
+        const upperCaseTargetCurrency = targetCurrency.toUpperCase();
         const response: Response = await fetch(
-            `${this.URL}?currency=${input}`,
+            `${URL}?currency=${sourceCurrency}`,
             {
                 method: 'get'
             }
         );
 
-        if (response.status === 200) {
-            const result: CoinBaseResponse = await response.json();
-            if (!(upperCaseOutput in result.data.rates)) {
-                throw new Error('Output not available');
-            }
-            return Number(result.data.rates[upperCaseOutput]);
+        if (!response.ok) {
+            throw new Error(
+                `Coinbase API does not recognise given currency ${sourceCurrency}`
+            );
         }
-        throw new Error('Input not available');
+
+        const {
+            data: { rates }
+        }: CoinBaseResponse = await response.json();
+        const conversionRate = rates[upperCaseTargetCurrency];
+
+        if (!conversionRate) {
+            throw new Error(
+                `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
+            );
+        }
+
+        return new BigNumber(conversionRate);
     }
 }
