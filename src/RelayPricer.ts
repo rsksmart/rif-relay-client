@@ -1,28 +1,38 @@
-import { SourceApi } from './types/RelayPricer';
+import BigNumber from 'bignumber.js';
+
+import { SourceApi } from './types/SourceApi';
+
+const INTERMEDIATE_CURRENCY = 'USD';
 
 export default class RelayPricer {
     private readonly sourceApi: SourceApi;
 
     constructor(sourceApi: SourceApi) {
+        if (!sourceApi) {
+            throw Error('RelayPricer should be initialized with SourceApi');
+        }
         this.sourceApi = sourceApi;
     }
 
-    async getPrice(
+    async getExchangeRate(
         sourceCurrency: string,
         targetCurrency: string,
         intermediateCurrency?: string
-    ): Promise<number> {
+    ): Promise<BigNumber> {
         const intermediary = intermediateCurrency
             ? intermediateCurrency
-            : 'USD';
+            : INTERMEDIATE_CURRENCY;
 
-        const [sourcePrice, targetPrice] = await Promise.all([
+        const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
             this.sourceApi.query(sourceCurrency, intermediary),
             this.sourceApi.query(targetCurrency, intermediary)
         ]);
-        if (sourcePrice === 0 || targetPrice === 0) {
-            throw new Error('price cannot be zero');
+        if (
+            sourceExchangeRate.isEqualTo(0) ||
+            targetExchangeRate.isEqualTo(0)
+        ) {
+            throw Error('Source/Target exchange rate cannot be zero');
         }
-        return sourcePrice / targetPrice;
+        return sourceExchangeRate.dividedBy(targetExchangeRate);
     }
 }

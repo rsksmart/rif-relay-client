@@ -40,7 +40,7 @@ const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000;
 const DEFAULT_CHAIN_ID = 33;
 
 describe('RelayClient', () => {
-    const fakeDefaultConfig: EnvelopingConfig = {
+    const defaultConfig: EnvelopingConfig = {
         preferredRelays: [],
         onlyPreferredRelays: false,
         relayLookupWindowParts: 1,
@@ -62,58 +62,55 @@ describe('RelayClient', () => {
         clientId: '1'
     };
     let fakeContractInteractor: SinonStubbedInstance<ContractInteractor>;
-    let fakeAccountManager: SinonStubbedInstance<AccountManager>;
-    let mockDependencies: EnvelopingDependencies;
-    const fakeTransactionDetails: EnvelopingTransactionDetails = {
-        from: 'fake_address1',
+    const transactionDetails: EnvelopingTransactionDetails = {
+        from: 'address1',
         to: constants.ZERO_ADDRESS,
-        callForwarder: 'fake_address2',
+        callForwarder: 'address2',
         data: '0x'
     };
     let relayClient: RelayClient;
-    let mockHttpProvider: HttpProvider;
 
     before(() => {
         fakeContractInteractor = createStubInstance(ContractInteractor, {
             getSenderNonce: Promise.resolve('fake_nonce'),
             verifyForwarder: Promise.resolve(undefined)
         });
-        fakeAccountManager = createStubInstance(AccountManager, {
+        const fakeAccountManager = createStubInstance(AccountManager, {
             sign: Promise.resolve('fake_signature')
         });
-        mockDependencies = {
-            httpClient: new HttpClient(new HttpWrapper(), fakeDefaultConfig),
+        const mockDependencies: EnvelopingDependencies = {
+            httpClient: new HttpClient(new HttpWrapper(), defaultConfig),
             contractInteractor: fakeContractInteractor,
             knownRelaysManager: new KnownRelaysManager(
                 fakeContractInteractor,
-                fakeDefaultConfig,
+                defaultConfig,
                 EmptyFilter
             ),
             accountManager: fakeAccountManager,
             transactionValidator: new RelayedTransactionValidator(
                 fakeContractInteractor,
-                fakeDefaultConfig
+                defaultConfig
             ),
             pingFilter: GasPricePingFilter,
             relayFilter: EmptyFilter,
             scoreCalculator: DefaultRelayScore,
-            config: fakeDefaultConfig
+            config: defaultConfig
         };
         replace(
             configurator,
             'getDependencies',
             fake.returns(mockDependencies)
         );
-        mockHttpProvider = stubInterface<HttpProvider>();
-        relayClient = new RelayClient(mockHttpProvider, fakeDefaultConfig);
+        const mockHttpProvider = stubInterface<HttpProvider>();
+        relayClient = new RelayClient(mockHttpProvider, defaultConfig);
     });
 
     describe('validateSmartWallet', () => {
         it('should use verifyForwarder', async () => {
             const spyCall = spy(relayClient, 'resolveForwarder');
-            await relayClient.validateSmartWallet(fakeTransactionDetails);
+            await relayClient.validateSmartWallet(transactionDetails);
             assert.isTrue(
-                spyCall.calledOnceWithExactly(fakeTransactionDetails),
+                spyCall.calledOnceWithExactly(transactionDetails),
                 'Was not called once'
             );
             expect(fakeContractInteractor.verifyForwarder).to.have.been
@@ -126,7 +123,7 @@ describe('RelayClient', () => {
             );
             fakeContractInteractor.verifyForwarder.throws(error);
             await assert.isRejected(
-                relayClient.validateSmartWallet(fakeTransactionDetails),
+                relayClient.validateSmartWallet(transactionDetails),
                 error.message
             );
         });
@@ -137,7 +134,7 @@ describe('RelayClient', () => {
             );
             fakeContractInteractor.verifyForwarder.throws(error);
             await assert.isRejected(
-                relayClient.validateSmartWallet(fakeTransactionDetails),
+                relayClient.validateSmartWallet(transactionDetails),
                 error.message
             );
         });
@@ -148,7 +145,7 @@ describe('RelayClient', () => {
             );
             fakeContractInteractor.verifyForwarder.throws(error);
             await assert.isRejected(
-                relayClient.validateSmartWallet(fakeTransactionDetails),
+                relayClient.validateSmartWallet(transactionDetails),
                 error.message
             );
         });
