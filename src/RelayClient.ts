@@ -203,13 +203,12 @@ export class RelayClient {
      * It has the advantage of not requiring the user to sign the transaction in the relay calls
      * If the transaction details are for a deploy, it won't use a linear fit
      * @param transactionDetails
-     * @param relayWorker
      * @returns maxPossibleGas: The maximum expected gas to be used by the transaction
      */
     async estimateMaxPossibleRelayGasWithLinearFit(
         transactionDetails: EnvelopingTransactionDetails
     ): Promise<number> {
-        const { collectorAddress, relayWorkerAddress } =
+        const { feesReceiver, relayWorkerAddress } =
             await this.getPingResponse();
         const trxDetails = { ...transactionDetails };
         trxDetails.gasPrice =
@@ -232,7 +231,7 @@ export class RelayClient {
             trxDetails.gas = '0x00';
             const testRequest = await this._prepareFactoryGasEstimationRequest(
                 trxDetails,
-                collectorAddress
+                feesReceiver
             );
             deployCallEstimate =
                 (await this.calculateDeployCallGas(
@@ -266,13 +265,12 @@ export class RelayClient {
     /**
      * Can be used to get an estimate of the maximum possible gas to be used by the transaction
      * @param transactionDetails
-     * @param feesReceiver
      * @returns maxPossibleGas: The maximum expected gas to be used by the transaction
      */
     async estimateMaxPossibleRelayGas(
         transactionDetails: EnvelopingTransactionDetails
     ): Promise<number> {
-        const { collectorAddress, relayWorkerAddress } =
+        const { feesReceiver, relayWorkerAddress } =
             await this.getPingResponse();
         const trxDetails = { ...transactionDetails };
         trxDetails.gasPrice =
@@ -290,7 +288,7 @@ export class RelayClient {
             trxDetails.gas = '0x00';
             const testRequest = await this._prepareFactoryGasEstimationRequest(
                 trxDetails,
-                collectorAddress
+                feesReceiver
             );
             deployCallEstimate =
                 (await this.calculateDeployCallGas(
@@ -345,6 +343,7 @@ export class RelayClient {
                     relayWorkerAddress: relayWorker,
                     relayManagerAddress: constants.ZERO_ADDRESS,
                     relayHubAddress: constants.ZERO_ADDRESS,
+                    feesReceiver: constants.ZERO_ADDRESS,
                     minGasPrice: '0',
                     ready: true,
                     version: ''
@@ -445,7 +444,7 @@ export class RelayClient {
     async estimateTokenTransferGas(
         transactionDetails: EnvelopingTransactionDetails
     ): Promise<number> {
-        const { collectorAddress } = await this.getPingResponse();
+        const { feesReceiver } = await this.getPingResponse();
         let gasCost = 0;
         const tokenContract =
             transactionDetails.tokenContract ?? constants.ZERO_ADDRESS;
@@ -474,7 +473,7 @@ export class RelayClient {
 
             if (tokenOrigin !== constants.ZERO_ADDRESS) {
                 const transferParams = [
-                    collectorAddress,
+                    feesReceiver,
                     transactionDetails.tokenAmount ?? '0'
                 ];
                 log.debug(
@@ -773,11 +772,10 @@ export class RelayClient {
                 forwarderAddress,
                 transactionDetails.from
             );
-        log.info({ senderNonce });
         const callVerifier =
             transactionDetails.callVerifier ??
             this.config.deployVerifierAddress;
-        const { relayWorkerAddress, collectorAddress } = relayInfo.pingResponse;
+        const { relayWorkerAddress, feesReceiver } = relayInfo.pingResponse;
         const gasPriceHex = transactionDetails.gasPrice;
         if (gasPriceHex == null) {
             throw new Error(
@@ -811,7 +809,7 @@ export class RelayClient {
                 gasPrice,
                 callVerifier,
                 callForwarder: forwarderAddress,
-                feesReceiver: collectorAddress
+                feesReceiver
             }
         };
         this.emit(new SignRequestEvent());
@@ -867,7 +865,7 @@ export class RelayClient {
         const gasPrice = parseInt(gasPriceHex, 16).toString();
         const value = transactionDetails.value ?? '0';
 
-        const feesReceiver = relayInfo.pingResponse.collectorAddress;
+        const { feesReceiver } = relayInfo.pingResponse;
         const relayRequest: RelayRequest = {
             request: {
                 relayHub: transactionDetails.relayHub ?? constants.ZERO_ADDRESS,
