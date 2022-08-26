@@ -1,4 +1,4 @@
-import { SourceApi } from '../types/SourceApi';
+import { ExchangeApi } from '../types/ExchangeApi';
 import fetch, { Response } from 'node-fetch';
 import BigNumber from 'bignumber.js';
 
@@ -11,7 +11,7 @@ export type CoinBaseResponse = {
     };
 };
 
-export class CoinBase implements SourceApi {
+export class CoinBase implements ExchangeApi {
     async query(
         sourceCurrency: string,
         targetCurrency: string

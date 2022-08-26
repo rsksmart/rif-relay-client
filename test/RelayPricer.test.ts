@@ -4,12 +4,12 @@ import { StubbedInstance, stubInterface } from 'ts-sinon';
 import BigNumber from 'bignumber.js';
 
 import { RelayPricer } from '../src';
-import { SourceApi } from '../src/types/SourceApi';
+import { ExchangeApi } from '../src/types/ExchangeApi';
 
 chai.use(chaiAsPromised);
 
 describe('RelayPricer', () => {
-    let fakeSourceApi: StubbedInstance<SourceApi>;
+    let fakeSourceApi: StubbedInstance<ExchangeApi>;
     let pricer: RelayPricer;
     const xRateRbtcUsd = new BigNumber('23345.834630269488');
     const xRateRifUsd = new BigNumber('0.0775886924643371');
@@ -29,8 +29,10 @@ describe('RelayPricer', () => {
     }
 
     describe('getPrice', async () => {
+        const conversionError = `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`;
+
         beforeEach(() => {
-            fakeSourceApi = stubInterface<SourceApi>();
+            fakeSourceApi = stubInterface<ExchangeApi>();
             pricer = new RelayPricer(fakeSourceApi);
         });
 
@@ -102,7 +104,7 @@ describe('RelayPricer', () => {
             buildExchangeRate(xRateRbtcUsd, new BigNumber(0));
             await assert.isRejected(
                 pricer.getExchangeRate(sourceCurrency, targetCurrency),
-                'Source/Target exchange rate cannot be zero'
+                conversionError
             );
         });
 
@@ -110,7 +112,7 @@ describe('RelayPricer', () => {
             buildExchangeRate(new BigNumber(0), xRateRifUsd);
             await assert.isRejected(
                 pricer.getExchangeRate(sourceCurrency, targetCurrency),
-                'Source/Target exchange rate cannot be zero'
+                conversionError
             );
         });
     });
