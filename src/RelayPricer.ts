@@ -1,13 +1,13 @@
 import BigNumber from 'bignumber.js';
 
-import { SourceApi } from './types/SourceApi';
+import { ExchangeApi } from './types/ExchangeApi';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
 export default class RelayPricer {
-    private readonly sourceApi: SourceApi;
+    private readonly sourceApi: ExchangeApi;
 
-    constructor(sourceApi: SourceApi) {
+    constructor(sourceApi: ExchangeApi) {
         if (!sourceApi) {
             throw Error('RelayPricer should be initialized with SourceApi');
         }
@@ -31,7 +31,9 @@ export default class RelayPricer {
             sourceExchangeRate.isEqualTo(0) ||
             targetExchangeRate.isEqualTo(0)
         ) {
-            throw Error('Source/Target exchange rate cannot be zero');
+            throw Error(
+                `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`
+            );
         }
         return sourceExchangeRate.dividedBy(targetExchangeRate);
     }

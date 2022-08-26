@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-export interface SourceApi {
+export interface ExchangeApi {
     query(sourceCurrency: string, targetCurrency: string): Promise<BigNumber>;
 }
