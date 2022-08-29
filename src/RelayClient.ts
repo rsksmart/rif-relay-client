@@ -207,7 +207,7 @@ export class RelayClient {
     /**
      * Can be used to get an estimate of the maximum possible gas to be used by the transaction by using
      * a linear fit.
-     * It has the advangate of not requiring the user to sign the transaction in the relay calls
+     * It has the advantage of not requiring the user to sign the transaction in the relay calls
      * If the transaction details are for a deploy, it won't use a linear fit
      * @param transactionDetails
      * @param relayWorker
@@ -477,6 +477,20 @@ export class RelayClient {
             }
 
             if (tokenOrigin !== constants.ZERO_ADDRESS) {
+                const tokenRecipient =
+                    [null, undefined].includes(
+                        transactionDetails.collectorContract
+                    ) || isZeroAddress(transactionDetails.collectorContract)
+                        ? relayWorker
+                        : transactionDetails.collectorContract;
+                const transferParams = [
+                    tokenRecipient,
+                    transactionDetails.tokenAmount ?? '0'
+                ];
+                log.debug(
+                    'estimateTokenTransferGas: transfer parameters [recipient, amount]',
+                    transferParams
+                );
                 const encodedFunction =
                     this.contractInteractor.web3.eth.abi.encodeFunctionCall(
                         {
@@ -493,9 +507,8 @@ export class RelayClient {
                                 }
                             ]
                         },
-                        [relayWorker, transactionDetails.tokenAmount ?? '0']
+                        transferParams
                     );
-
                 gasCost = await this.contractInteractor.estimateGas({
                     from: tokenOrigin, // token holder is the smart wallet
                     to: tokenContract,
@@ -638,6 +651,7 @@ export class RelayClient {
                 relayInfo
             )} transaction: ${JSON.stringify(transactionDetails)}`
         );
+
         let httpRequest: RelayTransactionRequest | DeployTransactionRequest;
         let acceptCallResult;
 
@@ -676,6 +690,9 @@ export class RelayClient {
                 };
             }
         }
+
+        // We don't need to check the user balance with a call to 'erc20.balanceOf'
+        // because the same check is performed when RelayVerifier is called
 
         if (acceptCallResult.reverted) {
             const message = 'local view call reverted';
@@ -865,7 +882,10 @@ export class RelayClient {
                 tokenAmount: transactionDetails.tokenAmount ?? '0x00',
                 tokenGas: transactionDetails.tokenGas ?? '0x00',
                 tokenContract:
-                    transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+                    transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
+                collectorContract:
+                    transactionDetails.collectorContract ??
+                    constants.ZERO_ADDRESS
             },
             relayData: {
                 gasPrice,
@@ -1009,4 +1029,8 @@ export function _dumpRelayingResult(relayingResult: RelayingResult): string {
         });
     }
     return str;
+}
+
+function isZeroAddress(addr: string) {
+    return addr === constants.ZERO_ADDRESS;
 }
