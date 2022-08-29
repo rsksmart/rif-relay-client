@@ -1,31 +1,40 @@
-import CoinBase from './api/CoinBase';
-import { SourceApi } from './types/RelayPricer';
+import BigNumber from 'bignumber.js';
+
+import { ExchangeApi } from './types/ExchangeApi';
+
+const INTERMEDIATE_CURRENCY = 'USD';
 
 export default class RelayPricer {
-    private readonly sourceApi: SourceApi;
+    private readonly sourceApi: ExchangeApi;
 
-    constructor(sourceApi: SourceApi | string) {
-        if (typeof sourceApi === 'string' || sourceApi instanceof String) {
-            switch (sourceApi as string) {
-                case 'coinbase':
-                    this.sourceApi = new CoinBase();
-                    break;
-                default:
-                    throw new Error('Source api not provided');
-            }
-        } else {
-            this.sourceApi = sourceApi as SourceApi;
+    constructor(sourceApi: ExchangeApi) {
+        if (!sourceApi) {
+            throw Error('RelayPricer should be initialized with SourceApi');
         }
+        this.sourceApi = sourceApi;
     }
 
-    async getPrice(
-        pair1: string,
-        pair2: string,
-        intermediaryPair?: string
-    ): Promise<number> {
-        const intermediary = intermediaryPair ? intermediaryPair : 'USD';
-        const price1 = await this.sourceApi.query(pair1, intermediary);
-        const price2 = await this.sourceApi.query(pair2, intermediary);
-        return price1 / price2;
+    async getExchangeRate(
+        sourceCurrency: string,
+        targetCurrency: string,
+        intermediateCurrency?: string
+    ): Promise<BigNumber> {
+        const intermediary = intermediateCurrency
+            ? intermediateCurrency
+            : INTERMEDIATE_CURRENCY;
+
+        const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
+            this.sourceApi.query(sourceCurrency, intermediary),
+            this.sourceApi.query(targetCurrency, intermediary)
+        ]);
+        if (
+            sourceExchangeRate.isEqualTo(0) ||
+            targetExchangeRate.isEqualTo(0)
+        ) {
+            throw Error(
+                `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`
+            );
+        }
+        return sourceExchangeRate.dividedBy(targetExchangeRate);
     }
 }
