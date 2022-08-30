@@ -28,12 +28,18 @@ describe('RelayPricer', () => {
             .returns(Promise.resolve(rate2));
     }
 
-    describe('getPrice', async () => {
+    describe('getExchangeRate', async () => {
         const conversionError = `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`;
 
         beforeEach(() => {
             fakeSourceApi = stubInterface<ExchangeApi>();
             pricer = new RelayPricer(fakeSourceApi);
+            fakeSourceApi.getApiTokenName
+                .withArgs(sourceCurrency)
+                .returns(sourceCurrency);
+            fakeSourceApi.getApiTokenName
+                .withArgs(targetCurrency)
+                .returns(targetCurrency);
         });
 
         it('should initiate sourceApi', async () => {

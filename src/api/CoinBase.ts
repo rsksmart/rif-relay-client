@@ -11,7 +11,24 @@ export type CoinBaseResponse = {
     };
 };
 
+const CURRENCY_MAPPING: Record<string, string> = {
+    RIF: 'RIF',
+    RBTC: 'RBTC',
+    TKN: 'RIF'
+};
+
 export class CoinBase implements ExchangeApi {
+    getApiTokenName(tokenSymbol: string): string {
+        if (!tokenSymbol) {
+            throw Error('ExchangeApi cannot map a token with a null value');
+        }
+        const resultMapping = CURRENCY_MAPPING[tokenSymbol];
+        if (resultMapping) {
+            return resultMapping;
+        }
+        return tokenSymbol;
+    }
+
     async query(
         sourceCurrency: string,
         targetCurrency: string
@@ -25,7 +42,7 @@ export class CoinBase implements ExchangeApi {
         );
 
         if (!response.ok) {
-            throw new Error(
+            throw Error(
                 `Coinbase API does not recognise given currency ${sourceCurrency}`
             );
         }
@@ -36,7 +53,7 @@ export class CoinBase implements ExchangeApi {
         const conversionRate = rates[upperCaseTargetCurrency];
 
         if (!conversionRate) {
-            throw new Error(
+            throw Error(
                 `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
             );
         }

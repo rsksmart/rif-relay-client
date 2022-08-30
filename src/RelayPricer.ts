@@ -19,13 +19,16 @@ export default class RelayPricer {
         targetCurrency: string,
         intermediateCurrency?: string
     ): Promise<BigNumber> {
+        const source = this.sourceApi.getApiTokenName(sourceCurrency);
+        const target = this.sourceApi.getApiTokenName(targetCurrency);
+
         const intermediary = intermediateCurrency
             ? intermediateCurrency
             : INTERMEDIATE_CURRENCY;
 
         const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
-            this.sourceApi.query(sourceCurrency, intermediary),
-            this.sourceApi.query(targetCurrency, intermediary)
+            this.sourceApi.query(source, intermediary),
+            this.sourceApi.query(target, intermediary)
         ]);
         if (
             sourceExchangeRate.isEqualTo(0) ||

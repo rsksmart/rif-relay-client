@@ -1,4 +1,4 @@
-import chai, { assert } from 'chai';
+import { use, assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { SinonStub, stub } from 'sinon';
 import * as fetchModule from 'node-fetch';
@@ -6,7 +6,7 @@ import { Response } from 'node-fetch';
 
 import { CoinBase, CoinBaseResponse } from '../../src/api/CoinBase';
 
-chai.use(chaiAsPromised);
+use(chaiAsPromised);
 
 describe('CoinBase', () => {
     let coinBase: CoinBase;
@@ -15,6 +15,26 @@ describe('CoinBase', () => {
     const xRateRifUsd = '0.07770028890144696';
     let fakeResponse: Response;
     let fakeFetch: SinonStub;
+
+    beforeEach(() => {
+        coinBase = new CoinBase();
+    });
+
+    describe('getApiTokenName', () => {
+        it('should return mapped token name', () => {
+            assert.equal(coinBase.getApiTokenName('TKN'), sourceCurrency);
+        });
+
+        it('should return received parameter', () => {
+            assert.equal(coinBase.getApiTokenName('NA'), 'NA');
+        });
+
+        it('should fail if token symbol is null', () => {
+            expect(() => coinBase.getApiTokenName(null)).to.throw(
+                'ExchangeApi cannot map a token with a null value'
+            );
+        });
+    });
 
     describe('query', () => {
         beforeEach(() => {
@@ -26,7 +46,6 @@ describe('CoinBase', () => {
                     }
                 }
             };
-            coinBase = new CoinBase();
             fakeResponse = new Response(JSON.stringify(coinBaseResponse), {
                 status: 200
             });
