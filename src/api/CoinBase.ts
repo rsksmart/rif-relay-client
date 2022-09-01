@@ -2,7 +2,7 @@ import fetch, { Response } from 'node-fetch';
 import BigNumber from 'bignumber.js';
 import { BaseExchangeApi, ExchangeApi } from '../types/ExchangeApi';
 
-const URL = 'https://ap.coinbase.com/v2/exchange-rates';
+const URL = 'https://api.coinbase.com/v2/exchange-rates';
 
 export type CoinBaseResponse = {
     data: {
