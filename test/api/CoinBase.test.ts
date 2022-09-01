@@ -22,21 +22,33 @@ describe('CoinBase', () => {
 
     describe('getApiTokenName', () => {
         it('should return mapped token name', () => {
-            assert.equal(coinBase.getApiTokenName('TKN'), sourceCurrency);
+            assert.equal(coinBase.getApiTokenName('RIF'), sourceCurrency);
         });
 
-        it('should return received parameter', () => {
-            assert.equal(coinBase.getApiTokenName('NA'), 'NA');
+        it('should return mapped token(lowercase) name', () => {
+            assert.equal(coinBase.getApiTokenName('rif'), sourceCurrency);
+        });
+
+        it('should fail if token symbol is not mapped', () => {
+            expect(() => coinBase.getApiTokenName('btc')).to.throw(
+                'Token BTC is not internally mapped in CoinBase API'
+            );
         });
 
         it('should fail if token symbol is null', () => {
             expect(() => coinBase.getApiTokenName(null)).to.throw(
-                'ExchangeApi cannot map a token with a null value'
+                'CoinBase API cannot map a token with a null/empty value'
+            );
+        });
+
+        it('should fail if token symbol is empty', () => {
+            expect(() => coinBase.getApiTokenName('')).to.throw(
+                'CoinBase API cannot map a token with a null/empty value'
             );
         });
     });
 
-    describe('query', () => {
+    describe('queryExchangeRate', () => {
         beforeEach(() => {
             const coinBaseResponse: CoinBaseResponse = {
                 data: {
@@ -58,27 +70,46 @@ describe('CoinBase', () => {
             fakeFetch.restore();
         });
 
-        it('should return conversion', async () => {
+        it('should return exchange rate RIF/USD', async () => {
             await assert.eventually.equal(
-                coinBase.query(sourceCurrency, targetCurrency),
+                coinBase.queryExchangeRate(sourceCurrency, targetCurrency),
                 xRateRifUsd,
-                'Conversion is no the same'
+                'Exchange rate is no the same'
+            );
+        });
+
+        it('should return exchange rate rif/usd', async () => {
+            await assert.eventually.equal(
+                coinBase.queryExchangeRate(
+                    sourceCurrency.toLowerCase(),
+                    targetCurrency.toLowerCase()
+                ),
+                xRateRifUsd,
+                'Exchange rate is no the same'
             );
         });
 
         it('should fail if rate does not exist', async () => {
             await assert.isRejected(
-                coinBase.query(sourceCurrency, 'NA'),
+                coinBase.queryExchangeRate(sourceCurrency, 'NA'),
                 `Exchange rate for currency pair ${sourceCurrency}/NA is not available`
             );
         });
 
-        it('should fail if token/coin does not exist', async () => {
-            fakeResponse = new Response(undefined, { status: 400 });
+        it('should fail if API returns handled error message', async () => {
+            const errorString = JSON.stringify({
+                errors: [
+                    {
+                        id: 'not_found',
+                        message: 'Currency is invalid'
+                    }
+                ]
+            });
+            fakeResponse = new Response(errorString, { status: 400 });
             fakeFetch.returns(Promise.resolve(fakeResponse));
             await assert.isRejected(
-                coinBase.query('NA', targetCurrency),
-                'Coinbase API does not recognise given currency NA'
+                coinBase.queryExchangeRate('NA', targetCurrency),
+                'CoinBase API status 400/Bad Request/Currency is invalid'
             );
         });
     });

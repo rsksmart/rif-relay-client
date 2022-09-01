@@ -1,4 +1,5 @@
 import chai, { assert, expect } from 'chai';
+import { stub } from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
 import { StubbedInstance, stubInterface } from 'ts-sinon';
 import BigNumber from 'bignumber.js';
@@ -9,49 +10,69 @@ import { ExchangeApi } from '../src/types/ExchangeApi';
 chai.use(chaiAsPromised);
 
 describe('RelayPricer', () => {
-    let fakeSourceApi: StubbedInstance<ExchangeApi>;
     let pricer: RelayPricer;
     const xRateRbtcUsd = new BigNumber('23345.834630269488');
     const xRateRifUsd = new BigNumber('0.0775886924643371');
     const xRateRbtcRif = xRateRbtcUsd.dividedBy(xRateRifUsd);
     const xRateRifRbtc = xRateRifUsd.dividedBy(xRateRbtcUsd);
-    const sourceCurrency = 'RBTC';
-    const targetCurrency = 'RIF';
+    const sourceCurrency = 'RIF';
+    const targetCurrency = 'RBTC';
     const intermediateCurrency = 'USD';
 
-    function buildExchangeRate(rate1: BigNumber, rate2: BigNumber) {
-        fakeSourceApi.query
-            .withArgs(sourceCurrency, intermediateCurrency)
-            .returns(Promise.resolve(rate1));
-        fakeSourceApi.query
-            .withArgs(targetCurrency, intermediateCurrency)
-            .returns(Promise.resolve(rate2));
-    }
+    beforeEach(() => {
+        pricer = new RelayPricer();
+    });
 
-    describe('getExchangeRate', async () => {
+    describe('findAvailableApi', () => {
+        it('should return available api', () => {
+            const availableApi = pricer.findAvailableApi(sourceCurrency);
+            assert.containsAllKeys(availableApi, ['api', 'tokens']);
+        });
+
+        it('should fail is there is no available api', () => {
+            expect(() => pricer.findAvailableApi(targetCurrency)).to.throw(
+                `There is no available API for token ${targetCurrency}`
+            );
+        });
+
+        it('should fail token is null', () => {
+            expect(() => pricer.findAvailableApi(null)).to.throw(
+                `There is no available API for token ${null}`
+            );
+        });
+
+        it('should fail token is empty', () => {
+            expect(() => pricer.findAvailableApi('')).to.throw(
+                'There is no available API for token'
+            );
+        });
+    });
+
+    describe('getExchangeRate', () => {
+        let fakeSourceApi: StubbedInstance<ExchangeApi>;
         const conversionError = `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`;
+
+        function buildExchangeRate(rate1: BigNumber, rate2: BigNumber) {
+            fakeSourceApi.queryExchangeRate
+                .withArgs(sourceCurrency, intermediateCurrency)
+                .returns(Promise.resolve(rate1));
+            fakeSourceApi.queryExchangeRate
+                .withArgs(targetCurrency, intermediateCurrency)
+                .returns(Promise.resolve(rate2));
+        }
 
         beforeEach(() => {
             fakeSourceApi = stubInterface<ExchangeApi>();
-            pricer = new RelayPricer(fakeSourceApi);
+            stub(pricer, 'findAvailableApi').returns({
+                api: fakeSourceApi,
+                tokens: []
+            });
             fakeSourceApi.getApiTokenName
                 .withArgs(sourceCurrency)
                 .returns(sourceCurrency);
             fakeSourceApi.getApiTokenName
                 .withArgs(targetCurrency)
                 .returns(targetCurrency);
-        });
-
-        it('should initiate sourceApi', async () => {
-            const pricer = new RelayPricer(fakeSourceApi);
-            expect(pricer).to.be.instanceOf(RelayPricer);
-            expect(pricer).to.have.property('sourceApi', fakeSourceApi);
-        });
-
-        it('should fail if sourceApi is null', async () => {
-            expect(() => new RelayPricer(null)).to.throw(
-                'RelayPricer should be initialized with SourceApi'
-            );
         });
 
         it('should return source exchange rate', async () => {
@@ -84,7 +105,7 @@ describe('RelayPricer', () => {
             const error = new Error(
                 `Coinbase API does not recognise given currency ${sourceCurrency}`
             );
-            fakeSourceApi.query.throws(error);
+            fakeSourceApi.queryExchangeRate.throws(error);
             await assert.isRejected(
                 pricer.getExchangeRate(
                     sourceCurrency,
@@ -99,7 +120,7 @@ describe('RelayPricer', () => {
             const error = new Error(
                 `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
             );
-            fakeSourceApi.query.throws(error);
+            fakeSourceApi.queryExchangeRate.throws(error);
             await assert.isRejected(
                 pricer.getExchangeRate(sourceCurrency, targetCurrency, 'NA'),
                 error.message

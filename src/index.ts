@@ -6,7 +6,6 @@ import RelayedTransactionValidator from './RelayedTransactionValidator';
 import RelayProvider from './RelayProvider';
 import RelaySelectionManager from './RelaySelectionManager';
 import RelayPricer from './RelayPricer';
-import { CoinBase } from './api/CoinBase';
 
 export * from './types/Aliases';
 export * from './types/RelayFailureInfo';
@@ -32,6 +31,5 @@ export {
     RelayedTransactionValidator,
     RelayProvider,
     RelaySelectionManager,
-    RelayPricer,
-    CoinBase
+    RelayPricer
 };

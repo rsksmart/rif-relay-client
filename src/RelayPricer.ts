@@ -1,17 +1,38 @@
 import BigNumber from 'bignumber.js';
-
+import { CoinBase } from './api/CoinBase';
+import { TestExchange } from './api/TestExchange';
 import { ExchangeApi } from './types/ExchangeApi';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
-export default class RelayPricer {
-    private readonly sourceApi: ExchangeApi;
+const coinbase = new CoinBase();
+const testExchange = new TestExchange();
 
-    constructor(sourceApi: ExchangeApi) {
-        if (!sourceApi) {
-            throw Error('RelayPricer should be initialized with SourceApi');
+type AvailableApi = {
+    api: ExchangeApi;
+    tokens: Array<string>;
+};
+
+const EXCHANGE_APIS: Array<AvailableApi> = [
+    {
+        api: coinbase,
+        tokens: ['RIF']
+    },
+    {
+        api: testExchange,
+        tokens: ['TKN']
+    }
+];
+
+export default class RelayPricer {
+    findAvailableApi(token: string): AvailableApi {
+        const availableApi = EXCHANGE_APIS.find((x) =>
+            x.tokens.includes(token)
+        );
+        if (!availableApi) {
+            throw Error(`There is no available API for token ${token}`);
         }
-        this.sourceApi = sourceApi;
+        return availableApi;
     }
 
     async getExchangeRate(
@@ -19,16 +40,18 @@ export default class RelayPricer {
         targetCurrency: string,
         intermediateCurrency?: string
     ): Promise<BigNumber> {
-        const source = this.sourceApi.getApiTokenName(sourceCurrency);
-        const target = this.sourceApi.getApiTokenName(targetCurrency);
+        const { api: sourceApi } = this.findAvailableApi(sourceCurrency);
+
+        const source = sourceApi.getApiTokenName(sourceCurrency);
+        const target = sourceApi.getApiTokenName(targetCurrency);
 
         const intermediary = intermediateCurrency
             ? intermediateCurrency
             : INTERMEDIATE_CURRENCY;
 
         const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
-            this.sourceApi.query(source, intermediary),
-            this.sourceApi.query(target, intermediary)
+            sourceApi.queryExchangeRate(source, intermediary),
+            sourceApi.queryExchangeRate(target, intermediary)
         ]);
         if (
             sourceExchangeRate.isEqualTo(0) ||

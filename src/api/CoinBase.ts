@@ -1,8 +1,9 @@
-import { ExchangeApi } from '../types/ExchangeApi';
 import fetch, { Response } from 'node-fetch';
 import BigNumber from 'bignumber.js';
+import { ExchangeApi } from '../types/ExchangeApi';
+import { getApiTokenName } from './Utils';
 
-const URL = 'https://api.coinbase.com/v2/exchange-rates';
+const URL = 'https://ap.coinbase.com/v2/exchange-rates';
 
 export type CoinBaseResponse = {
     data: {
@@ -11,25 +12,26 @@ export type CoinBaseResponse = {
     };
 };
 
+type CoinBaseError = {
+    id: string;
+    message: string;
+};
+
+export type CoinBaseErrorResponse = {
+    errors: Array<CoinBaseError>;
+};
+
 const CURRENCY_MAPPING: Record<string, string> = {
     RIF: 'RIF',
-    RBTC: 'RBTC',
-    TKN: 'RIF'
+    RBTC: 'RBTC'
 };
 
 export class CoinBase implements ExchangeApi {
     getApiTokenName(tokenSymbol: string): string {
-        if (!tokenSymbol) {
-            throw Error('ExchangeApi cannot map a token with a null value');
-        }
-        const resultMapping = CURRENCY_MAPPING[tokenSymbol];
-        if (resultMapping) {
-            return resultMapping;
-        }
-        return tokenSymbol;
+        return getApiTokenName('CoinBase', tokenSymbol, CURRENCY_MAPPING);
     }
 
-    async query(
+    async queryExchangeRate(
         sourceCurrency: string,
         targetCurrency: string
     ): Promise<BigNumber> {
@@ -42,8 +44,11 @@ export class CoinBase implements ExchangeApi {
         );
 
         if (!response.ok) {
+            const {
+                errors: [error]
+            }: CoinBaseErrorResponse = await response.json();
             throw Error(
-                `Coinbase API does not recognise given currency ${sourceCurrency}`
+                `CoinBase API status ${response.status}/${response.statusText}/${error.message}`
             );
         }
 
