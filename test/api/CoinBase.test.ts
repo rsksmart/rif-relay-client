@@ -4,7 +4,7 @@ import { SinonStub, stub } from 'sinon';
 import * as fetchModule from 'node-fetch';
 import { Response } from 'node-fetch';
 
-import { CoinBase, CoinBaseResponse } from '../../src/api/CoinBase';
+import CoinBase, { CoinBaseResponse } from '../../src/api/CoinBase';
 
 use(chaiAsPromised);
 

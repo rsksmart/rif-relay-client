@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
-import { BaseExchangeApi, ExchangeApi } from '../types/ExchangeApi';
+import ExchangeApi from '../types/ExchangeApi';
+import BaseExchangeApi from './BaseExchangeApi';
 
 type RateRecord = Record<string, string>;
 
@@ -17,7 +18,10 @@ const CURRENCY_MAPPING: Record<string, string> = {
     RBTC: 'RBTC'
 };
 
-export class TestExchange extends BaseExchangeApi implements ExchangeApi {
+export default class TestExchange
+    extends BaseExchangeApi
+    implements ExchangeApi
+{
     constructor() {
         super('TestExchange', CURRENCY_MAPPING);
     }

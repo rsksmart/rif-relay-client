@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
-import { CoinBase } from './api/CoinBase';
-import { TestExchange } from './api/TestExchange';
-import { ExchangeApi } from './types/ExchangeApi';
+import CoinBase from './api/CoinBase';
+import TestExchange from './api/TestExchange';
+import ExchangeApi from './types/ExchangeApi';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 

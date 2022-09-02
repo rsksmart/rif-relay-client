@@ -4,8 +4,8 @@ import chaiAsPromised from 'chai-as-promised';
 import { StubbedInstance, stubInterface } from 'ts-sinon';
 import BigNumber from 'bignumber.js';
 
-import { RelayPricer } from '../src';
-import { ExchangeApi } from '../src/types/ExchangeApi';
+import RelayPricer from '../src/RelayPricer';
+import ExchangeApi from '../src/types/ExchangeApi';
 
 chai.use(chaiAsPromised);
 
