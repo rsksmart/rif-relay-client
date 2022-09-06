@@ -27,8 +27,8 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-common": "https://github.com/rsksmart/rif-relay-common#PP-288/rif-rbtc",
-    "@rsksmart/rif-relay-contracts": "https://github.com/rsksmart/rif-relay-contracts#PP-288/rif-rbtc",
+    "@rsksmart/rif-relay-common": "https://github.com/rsksmart/rif-relay-common#PP-94/revenue-sharing-model",
+    "@rsksmart/rif-relay-contracts": "https://github.com/rsksmart/rif-relay-contracts#PP-94/revenue-sharing-model",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
     "bignumber.js": "^9.1.0",
