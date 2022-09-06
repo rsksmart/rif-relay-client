@@ -29,7 +29,7 @@ describe('RelayPricer', () => {
             assert.containsAllKeys(availableApi, ['api', 'tokens']);
         });
 
-        it('should fail is there is no available api', () => {
+        it('should fail if there is no available api', () => {
             expect(() => pricer.findAvailableApi(targetCurrency)).to.throw(
                 `There is no available API for token ${targetCurrency}`
             );
