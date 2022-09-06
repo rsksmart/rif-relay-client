@@ -41,7 +41,7 @@ describe('RelayPricer', () => {
             );
         });
 
-        it('should fail token is empty', () => {
+        it('should fail if token is empty', () => {
             expect(() => pricer.findAvailableApi('')).to.throw(
                 'There is no available API for token'
             );
