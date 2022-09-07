@@ -5,10 +5,12 @@ import HttpWrapper from './HttpWrapper';
 import RelayedTransactionValidator from './RelayedTransactionValidator';
 import RelayProvider from './RelayProvider';
 import RelaySelectionManager from './RelaySelectionManager';
+import RelayPricer from './RelayPricer';
 
 export * from './types/Aliases';
 export * from './types/RelayFailureInfo';
 export * from './types/RelayInfo';
+export * from './types/ExchangeApi';
 export * from './types/RelayRegisteredEventInfo';
 export * from './types/TmpRelayTransactionJsonRequest';
 export * from './AccountManager';
@@ -28,5 +30,6 @@ export {
     HttpWrapper,
     RelayedTransactionValidator,
     RelayProvider,
-    RelaySelectionManager
+    RelaySelectionManager,
+    RelayPricer
 };
