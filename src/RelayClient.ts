@@ -303,7 +303,8 @@ export class RelayClient {
             const estimated =
                 (await this.calculateSmartWalletRelayGas(
                     trxDetails,
-                    relayWorkerAddress
+                    relayWorkerAddress,
+                    feesReceiver
                 )) + Number(trxDetails.tokenGas);
             maxPossibleGas = toBN(
                 Math.ceil(estimated * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
@@ -335,7 +336,8 @@ export class RelayClient {
     // The tokenGas must be added to this result in order to get the full estimate
     async calculateSmartWalletRelayGas(
         transactionDetails: EnvelopingTransactionDetails,
-        relayWorker: string
+        relayWorker: string,
+        feesReceiver: string
     ): Promise<number> {
         const testInfo = await this._prepareRelayHttpRequest(
             {
@@ -343,7 +345,7 @@ export class RelayClient {
                     relayWorkerAddress: relayWorker,
                     relayManagerAddress: constants.ZERO_ADDRESS,
                     relayHubAddress: constants.ZERO_ADDRESS,
-                    feesReceiver: constants.ZERO_ADDRESS,
+                    feesReceiver,
                     minGasPrice: '0',
                     ready: true,
                     version: ''
