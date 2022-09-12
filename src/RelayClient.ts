@@ -944,8 +944,7 @@ export class RelayClient {
     }
 
     private async getPingResponse() {
-        const { url } = this.knownRelaysManager.preferredRelayers[0];
-        return this.httpClient.getPingResponse(url);
+        return this.httpClient.getPingResponse(this.config.preferredRelays[0]);
     }
 }
 
