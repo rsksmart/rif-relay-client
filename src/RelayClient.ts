@@ -1,6 +1,8 @@
 import log from 'loglevel';
 import { HttpProvider, TransactionReceipt } from 'web3-core';
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx';
+import { TypedDataUtils } from 'eth-sig-util';
+import { bufferToHex } from 'ethereumjs-util';
 import {
     DeployTransactionRequest,
     RelayMetadata,
@@ -14,7 +16,12 @@ import {
     estimateMaxPossibleRelayCallWithLinearFit,
     constants
 } from '@rsksmart/rif-relay-common';
-import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
+import {
+    DeployRequest,
+    ForwardRequestType,
+    RelayRequest,
+    TypedRequestData
+} from '@rsksmart/rif-relay-contracts';
 import { Address, PingFilter } from './types/Aliases';
 import HttpClient from './HttpClient';
 import RelaySelectionManager from './RelaySelectionManager';
@@ -943,6 +950,65 @@ export class RelayClient {
             retries,
             initialBackoff
         );
+    }
+
+    async validateSmartWallet(
+        transactionDetails: EnvelopingTransactionDetails
+    ): Promise<void> {
+        const forwarderAddress = this.resolveForwarder(transactionDetails);
+        const senderNonce: string =
+            await this.contractInteractor.getSenderNonce(forwarderAddress);
+
+        const relayRequest: RelayRequest = {
+            request: {
+                relayHub: constants.ZERO_ADDRESS,
+                to: transactionDetails.to,
+                data: transactionDetails.data,
+                from: transactionDetails.from,
+                value: '0',
+                nonce: senderNonce,
+                gas: '0',
+                tokenAmount: '0x00',
+                tokenGas: '0x00',
+                tokenContract: constants.ZERO_ADDRESS
+            },
+            relayData: {
+                gasPrice: '0',
+                callVerifier: constants.ZERO_ADDRESS,
+                callForwarder: forwarderAddress,
+                feesReceiver: constants.ZERO_ADDRESS
+            }
+        };
+        this.emit(new SignRequestEvent());
+        const signature = await this.accountManager.sign(relayRequest);
+        const suffix = this.suffixData(
+            relayRequest,
+            this.accountManager.chainId
+        );
+        await this.contractInteractor.verifyForwarder(
+            suffix,
+            relayRequest,
+            signature
+        );
+    }
+
+    private suffixData(relayRequest: RelayRequest, chainId: number) {
+        const cloneRequest = { ...relayRequest };
+        const signedData = new TypedRequestData(
+            chainId,
+            relayRequest.relayData.callForwarder,
+            cloneRequest as RelayRequest
+        );
+
+        const suffixData = bufferToHex(
+            TypedDataUtils.encodeData(
+                signedData.primaryType,
+                signedData.message,
+                signedData.types
+            ).slice((1 + ForwardRequestType.length) * 32)
+        );
+
+        return suffixData;
     }
 
     private async getPingResponse() {
