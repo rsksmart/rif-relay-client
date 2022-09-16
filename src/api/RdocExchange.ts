@@ -19,19 +19,20 @@ export default class RdocExchange
     implements ExchangeApi
 {
     constructor() {
-        super('TestExchange', CURRENCY_MAPPING);
+        super('RdocExchange', CURRENCY_MAPPING);
     }
 
     async queryExchangeRate(
         sourceCurrency: string,
         targetCurrency: string
     ): Promise<BigNumber> {
-        const conversionRate = rates[sourceCurrency][targetCurrency];
+        const conversionRate = rates[sourceCurrency.toUpperCase()][targetCurrency.toUpperCase()];
         if (!conversionRate) {
             throw Error(
-                `TestExchange API does not recognise given currency ${sourceCurrency}`
+                `Exchange rate for currency pair ${sourceCurrency} / ${targetCurrency} is not available`
             );
         }
+
         return new BigNumber(conversionRate);
     }
 }
