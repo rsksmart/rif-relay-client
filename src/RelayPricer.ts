@@ -15,8 +15,9 @@ const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
 export default class RelayPricer {
     findAvailableApi(token: string): BaseExchangeApi {
         const availableApi = EXCHANGE_APIS.find((api) =>
-            api.getTokens().includes(token)
+            api.tokens.includes(token)
         );
+
         if (!availableApi) {
             throw Error(`There is no available API for token ${token}`);
         }
@@ -29,18 +30,20 @@ export default class RelayPricer {
         intermediateCurrency?: string
     ): Promise<BigNumber> {
         const sourceApi = this.findAvailableApi(sourceCurrency);
+        const targetApi = this.findAvailableApi(targetCurrency);
 
-        const source = sourceApi.getApiTokenName(sourceCurrency);
-        const target = sourceApi.getApiTokenName(targetCurrency);
+        const sourceTokenName = sourceApi.getApiTokenName(sourceCurrency);
+        const targetTokenName = targetApi.getApiTokenName(targetCurrency);
 
         const intermediary = intermediateCurrency
             ? intermediateCurrency
             : INTERMEDIATE_CURRENCY;
 
         const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
-            sourceApi.queryExchangeRate(source, intermediary),
-            sourceApi.queryExchangeRate(target, intermediary)
+            sourceApi.queryExchangeRate(sourceTokenName, intermediary),
+            targetApi.queryExchangeRate(targetTokenName, intermediary)
         ]);
+
         if (
             sourceExchangeRate.isEqualTo(0) ||
             targetExchangeRate.isEqualTo(0)
