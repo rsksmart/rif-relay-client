@@ -1,6 +1,6 @@
 import fetch, { Response } from 'node-fetch';
 import BigNumber from 'bignumber.js';
-import BaseExchangeApi from './BaseExchangeApi';
+import BaseExchangeApi from './ExchangeApi';
 
 const URL = 'https://api.coinbase.com/v2/exchange-rates';
 

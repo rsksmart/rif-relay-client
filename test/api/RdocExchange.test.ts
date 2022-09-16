@@ -10,8 +10,6 @@ describe('RdocExchange', () => {
     const SOURCE_CURRENCY = 'RDOC';
     const TARGET_CURRENCY = 'USD';
     const X_RATE_RDOC_USD = '1';
-    // let fakeResponse: Response;
-    // let fakeFetch: SinonStub;
 
     beforeEach(() => {
         rdocExchange = new RdocExchange();

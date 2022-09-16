@@ -5,7 +5,7 @@ import { StubbedInstance, stubInterface } from 'ts-sinon';
 import BigNumber from 'bignumber.js';
 
 import RelayPricer from '../src/RelayPricer';
-import BaseExchangeApi from '../src/api/BaseExchangeApi';
+import BaseExchangeApi from '../src/api/ExchangeApi';
 
 chai.use(chaiAsPromised);
 
@@ -58,7 +58,7 @@ describe('RelayPricer', () => {
 
     describe('getExchangeRate', () => {
         let fakeSourceApi: StubbedInstance<BaseExchangeApi>;
-        const CONVERSION_ERROR = `Currency conversion for pair ${RIF_SYMBOL}:${RBTC_SYMBOL} not found in current exchange api`;
+        const conversionError = `Currency conversion for pair ${RIF_SYMBOL}:${RBTC_SYMBOL} not found in current exchange api`;
         let stubPricer: sinon.SinonStub<[token: string], BaseExchangeApi>;
 
         function buildExchangeRate(rate1: BigNumber, rate2: BigNumber) {
@@ -165,7 +165,7 @@ describe('RelayPricer', () => {
             buildExchangeRate(X_RATE_RBTC_USD, new BigNumber(0));
             await assert.isRejected(
                 pricer.getExchangeRate(RIF_SYMBOL, RBTC_SYMBOL),
-                CONVERSION_ERROR
+                conversionError
             );
         });
 
@@ -173,7 +173,7 @@ describe('RelayPricer', () => {
             buildExchangeRate(new BigNumber(0), X_RATE_RIF_USD);
             await assert.isRejected(
                 pricer.getExchangeRate(RIF_SYMBOL, RBTC_SYMBOL),
-                CONVERSION_ERROR
+                conversionError
             );
         });
     });

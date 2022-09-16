@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import BaseExchangeApi from './api/BaseExchangeApi';
+import BaseExchangeApi from './api/ExchangeApi';
 import CoinBase from './api/CoinBase';
 import RdocExchange from './api/RdocExchange';
 import TestExchange from './api/TestExchange';

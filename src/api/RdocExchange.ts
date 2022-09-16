@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import BaseExchangeApi from './BaseExchangeApi';
+import BaseExchangeApi from './ExchangeApi';
 
 type RateRecord = Record<string, string>;
 
