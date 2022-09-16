@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import CoinBase from './api/CoinBase';
+import RdocExchange from './api/RdocExchange';
 import TestExchange from './api/TestExchange';
 import ExchangeApi from './types/ExchangeApi';
 
@@ -7,6 +8,7 @@ const INTERMEDIATE_CURRENCY = 'USD';
 
 const coinbase = new CoinBase();
 const testExchange = new TestExchange();
+const rdocExchange = new RdocExchange();
 
 type AvailableApi = {
     api: ExchangeApi;
@@ -21,6 +23,10 @@ const EXCHANGE_APIS: Array<AvailableApi> = [
     {
         api: testExchange,
         tokens: ['TKN']
+    },
+    {
+        api: rdocExchange,
+        tokens: ['RDOC']
     }
 ];
 
