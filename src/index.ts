@@ -10,7 +10,6 @@ import RelayPricer from './RelayPricer';
 export * from './types/Aliases';
 export * from './types/RelayFailureInfo';
 export * from './types/RelayInfo';
-export * from './types/ExchangeApi';
 export * from './types/RelayRegisteredEventInfo';
 export * from './types/TmpRelayTransactionJsonRequest';
 export * from './AccountManager';

@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import ExchangeApi from '../types/ExchangeApi';
 import BaseExchangeApi from './BaseExchangeApi';
 
 type RateRecord = Record<string, string>;
@@ -18,12 +17,9 @@ const CURRENCY_MAPPING: Record<string, string> = {
     RBTC: 'RBTC'
 };
 
-export default class TestExchange
-    extends BaseExchangeApi
-    implements ExchangeApi
-{
+export default class TestExchange extends BaseExchangeApi {
     constructor() {
-        super('TestExchange', CURRENCY_MAPPING);
+        super('TestExchange', CURRENCY_MAPPING, ['TKN']);
     }
 
     async queryExchangeRate(

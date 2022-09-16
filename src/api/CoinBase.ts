@@ -1,6 +1,5 @@
 import fetch, { Response } from 'node-fetch';
 import BigNumber from 'bignumber.js';
-import ExchangeApi from '../types/ExchangeApi';
 import BaseExchangeApi from './BaseExchangeApi';
 
 const URL = 'https://api.coinbase.com/v2/exchange-rates';
@@ -26,9 +25,9 @@ const CURRENCY_MAPPING: Record<string, string> = {
     RBTC: 'RBTC'
 };
 
-export default class CoinBase extends BaseExchangeApi implements ExchangeApi {
+export default class CoinBase extends BaseExchangeApi {
     constructor() {
-        super('CoinBase', CURRENCY_MAPPING);
+        super('CoinBase', CURRENCY_MAPPING, ['RIF']);
     }
 
     async queryExchangeRate(

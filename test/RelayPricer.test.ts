@@ -5,7 +5,7 @@ import { StubbedInstance, stubInterface } from 'ts-sinon';
 import BigNumber from 'bignumber.js';
 
 import RelayPricer from '../src/RelayPricer';
-import ExchangeApi from '../src/types/ExchangeApi';
+import BaseExchangeApi from '../src/api/BaseExchangeApi';
 
 chai.use(chaiAsPromised);
 
@@ -29,6 +29,11 @@ describe('RelayPricer', () => {
             assert.containsAllKeys(availableApi, ['api', 'tokens']);
         });
 
+        it('should return available api for RDOC', () => {
+            const availableApi = pricer.findAvailableApi('RDOC');
+            assert.containsAllKeys(availableApi, ['api', 'tokens']);
+        });
+
         it('should fail if there is no available api', () => {
             expect(() => pricer.findAvailableApi(targetCurrency)).to.throw(
                 `There is no available API for token ${targetCurrency}`
@@ -49,8 +54,8 @@ describe('RelayPricer', () => {
     });
 
     describe('getExchangeRate', () => {
-        let fakeSourceApi: StubbedInstance<ExchangeApi>;
-        const conversionError = `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`;
+        let fakeSourceApi: StubbedInstance<BaseExchangeApi>;
+        const CONVERSION_ERROR = `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`;
 
         function buildExchangeRate(rate1: BigNumber, rate2: BigNumber) {
             fakeSourceApi.queryExchangeRate
@@ -62,11 +67,8 @@ describe('RelayPricer', () => {
         }
 
         beforeEach(() => {
-            fakeSourceApi = stubInterface<ExchangeApi>();
-            stub(pricer, 'findAvailableApi').returns({
-                api: fakeSourceApi,
-                tokens: []
-            });
+            fakeSourceApi = stubInterface<BaseExchangeApi>();
+            stub(pricer, 'findAvailableApi').returns(fakeSourceApi);
             fakeSourceApi.getApiTokenName
                 .withArgs(sourceCurrency)
                 .returns(sourceCurrency);
@@ -131,7 +133,7 @@ describe('RelayPricer', () => {
             buildExchangeRate(xRateRbtcUsd, new BigNumber(0));
             await assert.isRejected(
                 pricer.getExchangeRate(sourceCurrency, targetCurrency),
-                conversionError
+                CONVERSION_ERROR
             );
         });
 
@@ -139,7 +141,7 @@ describe('RelayPricer', () => {
             buildExchangeRate(new BigNumber(0), xRateRifUsd);
             await assert.isRejected(
                 pricer.getExchangeRate(sourceCurrency, targetCurrency),
-                conversionError
+                CONVERSION_ERROR
             );
         });
     });

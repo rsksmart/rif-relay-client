@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import ExchangeApi from '../types/ExchangeApi';
 import BaseExchangeApi from './BaseExchangeApi';
 
 type RateRecord = Record<string, string>;
@@ -14,19 +13,18 @@ const CURRENCY_MAPPING: Record<string, string> = {
     RDOC: 'RDOC'
 };
 
-export default class RdocExchange
-    extends BaseExchangeApi
-    implements ExchangeApi
-{
+export default class RdocExchange extends BaseExchangeApi {
     constructor() {
-        super('RdocExchange', CURRENCY_MAPPING);
+        super('RdocExchange', CURRENCY_MAPPING, ['RDOC']);
     }
 
     async queryExchangeRate(
         sourceCurrency: string,
         targetCurrency: string
     ): Promise<BigNumber> {
-        const conversionRate = rates[sourceCurrency.toUpperCase()][targetCurrency.toUpperCase()];
+        const conversionRate =
+            rates[sourceCurrency.toUpperCase()][targetCurrency.toUpperCase()];
+
         if (!conversionRate) {
             throw Error(
                 `Exchange rate for currency pair ${sourceCurrency} / ${targetCurrency} is not available`

@@ -40,17 +40,24 @@ describe('RdocExchange', () => {
     });
 
     describe('queryExchangeRate', () => {
-        it('Should return exchange rate RDOC/USD', async function() {
+        it('Should return exchange rate RDOC/USD', async function () {
             expect(
-                (await rdocExchange.queryExchangeRate(SOURCE_CURRENCY, TARGET_CURRENCY)).toString()
+                (
+                    await rdocExchange.queryExchangeRate(
+                        SOURCE_CURRENCY,
+                        TARGET_CURRENCY
+                    )
+                ).toString()
             ).to.be.equal(X_RATE_RDOC_USD);
         });
 
-        it('Should return exchange rate rdoc/usd', async function(){
+        it('Should return exchange rate rdoc/usd', async function () {
             expect(
-                (await rdocExchange.queryExchangeRate(
-                    SOURCE_CURRENCY.toLowerCase(), 
-                    TARGET_CURRENCY.toLowerCase())
+                (
+                    await rdocExchange.queryExchangeRate(
+                        SOURCE_CURRENCY.toLowerCase(),
+                        TARGET_CURRENCY.toLowerCase()
+                    )
                 ).toString()
             ).to.be.equal(X_RATE_RDOC_USD);
         });
