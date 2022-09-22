@@ -237,12 +237,12 @@ export class RelayClient {
 
             trxDetails.gas = '0x00';
             const testRequest = await this._prepareFactoryGasEstimationRequest(
-                trxDetails,
-                feesReceiver
+                trxDetails
             );
             deployCallEstimate =
                 (await this.calculateDeployCallGas(
                     testRequest,
+                    feesReceiver,
                     relayWorkerAddress
                 )) + Number(trxDetails.tokenGas);
             maxPossibleGas = calculateDeployTransactionMaxPossibleGas(
@@ -294,12 +294,12 @@ export class RelayClient {
         if (isSmartWalletDeploy) {
             trxDetails.gas = '0x00';
             const testRequest = await this._prepareFactoryGasEstimationRequest(
-                trxDetails,
-                feesReceiver
+                trxDetails
             );
             deployCallEstimate =
                 (await this.calculateDeployCallGas(
                     testRequest,
+                    feesReceiver,
                     relayWorkerAddress
                 )) + Number(trxDetails.tokenGas);
             maxPossibleGas = calculateDeployTransactionMaxPossibleGas(
@@ -327,11 +327,13 @@ export class RelayClient {
     // The tokenGas must be added to this result in order to get the full estimate
     async calculateDeployCallGas(
         deployRequest: DeployTransactionRequest,
+        feesReceiver: string,
         relayWorker: string
     ): Promise<number> {
         const estimatedGas: number =
             await this.contractInteractor.walletFactoryEstimateGasOfDeployCall(
                 deployRequest,
+                feesReceiver,
                 relayWorker
             );
         return estimatedGas;
@@ -343,8 +345,8 @@ export class RelayClient {
     // The tokenGas must be added to this result in order to get the full estimate
     async calculateSmartWalletRelayGas(
         transactionDetails: EnvelopingTransactionDetails,
-        relayWorker: string,
-        feesReceiver: string
+        feesReceiver: string,
+        relayWorker: string
     ): Promise<number> {
         const testInfo = await this._prepareRelayHttpRequest(
             {
@@ -380,14 +382,14 @@ export class RelayClient {
         const estimatedGas: number =
             await this.contractInteractor.estimateRelayTransactionMaxPossibleGasWithTransactionRequest(
                 testInfo,
+                feesReceiver,
                 relayWorker
             );
         return estimatedGas;
     }
 
     async _prepareFactoryGasEstimationRequest(
-        transactionDetails: EnvelopingTransactionDetails,
-        feesReceiver: string
+        transactionDetails: EnvelopingTransactionDetails
     ): Promise<DeployTransactionRequest> {
         if (
             transactionDetails.isSmartWalletDeploy === undefined ||
@@ -430,8 +432,7 @@ export class RelayClient {
                 gasPrice,
                 callVerifier:
                     transactionDetails.callVerifier ?? constants.ZERO_ADDRESS,
-                callForwarder: callForwarder,
-                feesReceiver
+                callForwarder: callForwarder
             }
         };
 
@@ -646,7 +647,7 @@ export class RelayClient {
                 relayInfo
             )} transaction: ${JSON.stringify(transactionDetails)}`
         );
-        const { relayWorkerAddress } = relayInfo.pingResponse;
+        const { relayWorkerAddress, feesReceiver } = relayInfo.pingResponse;
         let httpRequest: RelayTransactionRequest | DeployTransactionRequest;
         let acceptCallResult;
 
@@ -659,6 +660,7 @@ export class RelayClient {
             acceptCallResult =
                 await this.contractInteractor.validateAcceptDeployCall(
                     deployRequest,
+                    feesReceiver,
                     relayWorkerAddress
                 );
             httpRequest = deployRequest;
@@ -677,6 +679,7 @@ export class RelayClient {
                 await this.contractInteractor.validateAcceptRelayCall(
                     relayRequest,
                     signature,
+                    feesReceiver,
                     relayWorkerAddress
                 );
 
@@ -751,6 +754,7 @@ export class RelayClient {
             !this.transactionValidator.validateRelayResponse(
                 httpRequest,
                 hexTransaction,
+                feesReceiver,
                 relayWorkerAddress
             )
         ) {
@@ -784,7 +788,7 @@ export class RelayClient {
         const callVerifier =
             transactionDetails.callVerifier ??
             this.config.deployVerifierAddress;
-        const { relayWorkerAddress, feesReceiver } = relayInfo.pingResponse;
+        const { relayWorkerAddress } = relayInfo.pingResponse;
         const gasPriceHex = transactionDetails.gasPrice;
         if (gasPriceHex == null) {
             throw new Error(
@@ -817,8 +821,7 @@ export class RelayClient {
             relayData: {
                 gasPrice,
                 callVerifier,
-                callForwarder: forwarderAddress,
-                feesReceiver
+                callForwarder: forwarderAddress
             }
         };
         this.emit(new SignRequestEvent());
@@ -874,7 +877,6 @@ export class RelayClient {
         const gasPrice = parseInt(gasPriceHex, 16).toString();
         const value = transactionDetails.value ?? '0';
 
-        const { feesReceiver } = relayInfo.pingResponse;
         const relayRequest: RelayRequest = {
             request: {
                 relayHub: transactionDetails.relayHub ?? constants.ZERO_ADDRESS,
@@ -892,8 +894,7 @@ export class RelayClient {
             relayData: {
                 gasPrice,
                 callVerifier,
-                callForwarder: forwarderAddress,
-                feesReceiver
+                callForwarder: forwarderAddress
             }
         };
         this.emit(new SignRequestEvent());
@@ -975,8 +976,7 @@ export class RelayClient {
             relayData: {
                 gasPrice: '0',
                 callVerifier: constants.ZERO_ADDRESS,
-                callForwarder: forwarderAddress,
-                feesReceiver: constants.ZERO_ADDRESS
+                callForwarder: forwarderAddress
             }
         };
         this.emit(new SignRequestEvent());
@@ -1005,7 +1005,7 @@ export class RelayClient {
                 signedData.primaryType,
                 signedData.message,
                 signedData.types
-            ).slice((1 + ForwardRequestType.length) * 32)
+            ).subarray((1 + ForwardRequestType.length) * 32)
         );
 
         return suffixData;

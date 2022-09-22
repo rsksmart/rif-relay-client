@@ -30,6 +30,7 @@ export default class RelayedTransactionValidator {
     validateRelayResponse(
         request: RelayTransactionRequest | DeployTransactionRequest,
         returnedTx: PrefixedHexString,
+        feesReceiver: string,
         relayWorker: string
     ): boolean {
         const transaction = new Transaction(
@@ -61,10 +62,12 @@ export default class RelayedTransactionValidator {
         const relayRequestAbiEncode = isDeploy
             ? this.contractInteractor.encodeDeployCallABI(
                   (request as DeployTransactionRequest).relayRequest,
+                  feesReceiver,
                   request.metadata.signature
               )
             : this.contractInteractor.encodeRelayCallABI(
                   (request as RelayTransactionRequest).relayRequest,
+                  feesReceiver,
                   request.metadata.signature
               );
 
@@ -102,7 +105,7 @@ export default class RelayedTransactionValidator {
                 'validateRelayResponse: req',
                 relayRequestAbiEncode,
                 this.config.relayHubAddress,
-                request.relayRequest.relayData.feesReceiver
+                feesReceiver
             );
             console.error(
                 'validateRelayResponse: rsp',

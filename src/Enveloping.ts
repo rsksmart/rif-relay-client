@@ -112,7 +112,6 @@ export default class Enveloping {
             },
             relayData: {
                 gasPrice: gasPrice ?? (await web3.eth.getGasPrice()),
-                feesReceiver: this.feesReceiver,
                 callForwarder: this.config.smartWalletFactoryAddress,
                 callVerifier: this.config.deployVerifierAddress
             }
@@ -204,7 +203,6 @@ export default class Enveloping {
             },
             relayData: {
                 gasPrice: gasPriceToSend,
-                feesReceiver: this.feesReceiver,
                 callForwarder: forwarder,
                 callVerifier: this.config.relayVerifierAddress
             }
