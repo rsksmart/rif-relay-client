@@ -969,8 +969,8 @@ export class RelayClient {
                 value: '0',
                 nonce: senderNonce,
                 gas: '0',
-                tokenAmount: '0x00',
-                tokenGas: '0x00',
+                tokenAmount: '0',
+                tokenGas: '0',
                 tokenContract: constants.ZERO_ADDRESS
             },
             relayData: {
@@ -1005,7 +1005,7 @@ export class RelayClient {
                 signedData.primaryType,
                 signedData.message,
                 signedData.types
-            ).subarray((1 + ForwardRequestType.length) * 32)
+            ).slice((1 + ForwardRequestType.length) * 32)
         );
 
         return suffixData;
