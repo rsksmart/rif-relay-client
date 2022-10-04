@@ -1,43 +1,18 @@
 {
+  "extends": "@tsconfig/node16-strictest/tsconfig.json",
   "compilerOptions": {
-    "allowJs": true,
     "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "target": "es2017",
-    "module": "commonjs",
-    "strict": true,
-    "strictNullChecks": false,
-    "strictPropertyInitialization": false,
-    "moduleResolution": "node",
-    "alwaysStrict": true,
+    "outDir": "dist",
     "declaration": true,
+    "baseUrl": "./",
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    "exactOptionalPropertyTypes": false,
+    "alwaysStrict": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "outDir": "dist",
-    "typeRoots": [
-      "node_modules/@types"
-    ],
-    "types": [
-      "node",
-      "mocha",
-      "chai"
-    ],
-    "lib": [
-      "es2018",
-      "esnext"
-    ],
+    "extendedDiagnostics":true,
+    "noErrorTruncation": true,
     "sourceMap": true
   },
-  "include": [
-    "**/*.ts",
-    "src/**/*"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "build",
-    "test"
-  ]
 }
