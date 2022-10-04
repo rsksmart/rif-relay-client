@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 
-describe('Client test', () => {
-    it('Unit testing', () => {
-        assert.isTrue(true);
-    });
+describe('Client test', function () {
+  it('Unit testing', function () {
+    assert.isTrue(true);
+  });
 });

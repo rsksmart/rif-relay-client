@@ -59,8 +59,8 @@ to check and fix the errors before trying to commit again:
 
 * `npm run lint`: to check linter bugs
 * `npm run lint:fix`: to fix linter bugs
-* `npm run prettier`: to check codestyles errors
-* `npm run prettier:fix`: to fix codestyles errors
+* `npm run format`: to check codestyles errors
+* `npm run format:fix`: to fix codestyles errors
 
 ### Generating a new distributable version
 
