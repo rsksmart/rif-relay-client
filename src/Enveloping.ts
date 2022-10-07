@@ -42,13 +42,15 @@ export interface SignatureProvider {
 export default class Enveloping {
     config: EnvelopingConfig;
     relayWorkerAddress: Address;
+    feesReceiver: Address;
     dependencies: EnvelopingDependencies;
     private initialized: boolean;
 
     constructor(
         _config: EnvelopingConfig,
         _web3: Web3,
-        _relayWorkerAddress: Address
+        _relayWorkerAddress: Address,
+        _feesReceiver: Address
     ) {
         this.config = _config;
         this.initialized = false;
@@ -57,6 +59,7 @@ export default class Enveloping {
             _web3.currentProvider as HttpProvider
         );
         this.relayWorkerAddress = _relayWorkerAddress;
+        this.feesReceiver = _feesReceiver;
     }
 
     async _init(): Promise<void> {
@@ -109,7 +112,7 @@ export default class Enveloping {
             },
             relayData: {
                 gasPrice: gasPrice ?? (await web3.eth.getGasPrice()),
-                relayWorker: this.relayWorkerAddress,
+                feesReceiver: this.feesReceiver,
                 callForwarder: this.config.smartWalletFactoryAddress,
                 callVerifier: this.config.deployVerifierAddress
             }
@@ -201,7 +204,7 @@ export default class Enveloping {
             },
             relayData: {
                 gasPrice: gasPriceToSend,
-                relayWorker: this.relayWorkerAddress,
+                feesReceiver: this.feesReceiver,
                 callForwarder: forwarder,
                 callVerifier: this.config.relayVerifierAddress
             }
