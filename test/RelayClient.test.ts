@@ -161,7 +161,7 @@ describe('RelayClient', () => {
         });
     });
 
-    describe.only('estimateGasLimit', function () {
+    describe('estimateGasLimit', function () {
         const responseRelayEstimation: RelayEstimation = {
             estimation: '151800',
             exchangeRate: '0.000003323449073',
