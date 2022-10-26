@@ -3,7 +3,8 @@ import {
     SinonStubbedInstance,
     replace,
     fake,
-    spy
+    spy,
+    restore
 } from 'sinon';
 import { stubInterface } from 'ts-sinon';
 import { expect, use, assert } from 'chai';
@@ -13,19 +14,20 @@ import {
     constants,
     ContractInteractor,
     EnvelopingConfig,
-    EnvelopingTransactionDetails
+    EnvelopingTransactionDetails,
+    PingResponse
 } from '@rsksmart/rif-relay-common';
 import {
     AccountManager,
     RelayClient,
     EnvelopingDependencies,
     HttpClient,
-    HttpWrapper,
     EmptyFilter,
     GasPricePingFilter,
     RelayedTransactionValidator,
     DefaultRelayScore,
-    KnownRelaysManager
+    KnownRelaysManager,
+    RelayEstimation
 } from '../src';
 import { HttpProvider } from 'web3-core';
 import * as configurator from '../src/Configurator';
@@ -40,7 +42,7 @@ const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000;
 const DEFAULT_CHAIN_ID = 33;
 
 describe('RelayClient', () => {
-    const fakeDefaultConfig: EnvelopingConfig = {
+    const defaultConfig: EnvelopingConfig = {
         preferredRelays: [],
         onlyPreferredRelays: false,
         relayLookupWindowParts: 1,
@@ -61,54 +63,60 @@ describe('RelayClient', () => {
         logLevel: 0,
         clientId: '1'
     };
-    let fakeContractInteractor: SinonStubbedInstance<ContractInteractor>;
-    let fakeAccountManager: SinonStubbedInstance<AccountManager>;
+    let contractInteractor: SinonStubbedInstance<ContractInteractor>;
+    let accountManager: SinonStubbedInstance<AccountManager>;
+    let httpClient: SinonStubbedInstance<HttpClient>;
     let mockDependencies: EnvelopingDependencies;
-    const fakeTransactionDetails: EnvelopingTransactionDetails = {
-        from: 'fake_address1',
-        to: constants.ZERO_ADDRESS,
-        callForwarder: 'fake_address2',
-        data: '0x'
-    };
     let relayClient: RelayClient;
     let mockHttpProvider: HttpProvider;
 
-    before(() => {
-        fakeContractInteractor = createStubInstance(ContractInteractor, {
-            getSenderNonce: Promise.resolve('fake_nonce'),
-            verifyForwarder: Promise.resolve(undefined)
-        });
-        fakeAccountManager = createStubInstance(AccountManager, {
-            sign: Promise.resolve('fake_signature')
-        });
-        mockDependencies = {
-            httpClient: new HttpClient(new HttpWrapper(), fakeDefaultConfig),
-            contractInteractor: fakeContractInteractor,
-            knownRelaysManager: new KnownRelaysManager(
-                fakeContractInteractor,
-                fakeDefaultConfig,
-                EmptyFilter
-            ),
-            accountManager: fakeAccountManager,
-            transactionValidator: new RelayedTransactionValidator(
-                fakeContractInteractor,
-                fakeDefaultConfig
-            ),
-            pingFilter: GasPricePingFilter,
-            relayFilter: EmptyFilter,
-            scoreCalculator: DefaultRelayScore,
-            config: fakeDefaultConfig
-        };
-        replace(
-            configurator,
-            'getDependencies',
-            fake.returns(mockDependencies)
-        );
-        mockHttpProvider = stubInterface<HttpProvider>();
-        relayClient = new RelayClient(mockHttpProvider, fakeDefaultConfig);
-    });
-
     describe('validateSmartWallet', () => {
+        beforeEach(function () {
+            contractInteractor = createStubInstance(ContractInteractor, {
+                getSenderNonce: Promise.resolve('fake_nonce'),
+                verifyForwarder: Promise.resolve(undefined)
+            });
+            accountManager = createStubInstance(AccountManager, {
+                sign: Promise.resolve('fake_signature')
+            });
+            mockDependencies = {
+                httpClient: createStubInstance(HttpClient),
+                contractInteractor: contractInteractor,
+                knownRelaysManager: new KnownRelaysManager(
+                    contractInteractor,
+                    defaultConfig,
+                    EmptyFilter
+                ),
+                accountManager: accountManager,
+                transactionValidator: new RelayedTransactionValidator(
+                    contractInteractor,
+                    defaultConfig
+                ),
+                pingFilter: GasPricePingFilter,
+                relayFilter: EmptyFilter,
+                scoreCalculator: DefaultRelayScore,
+                config: defaultConfig
+            };
+            replace(
+                configurator,
+                'getDependencies',
+                fake.returns(mockDependencies)
+            );
+            mockHttpProvider = stubInterface<HttpProvider>();
+            relayClient = new RelayClient(mockHttpProvider, defaultConfig);
+        });
+
+        afterEach(function () {
+            restore();
+        });
+
+        const fakeTransactionDetails: EnvelopingTransactionDetails = {
+            from: 'fake_address1',
+            to: constants.ZERO_ADDRESS,
+            callForwarder: 'fake_address2',
+            data: '0x'
+        };
+
         it('should use verifyForwarder', async () => {
             const spyCall = spy(relayClient, 'resolveForwarder');
             await relayClient.validateSmartWallet(fakeTransactionDetails);
@@ -116,15 +124,14 @@ describe('RelayClient', () => {
                 spyCall.calledOnceWithExactly(fakeTransactionDetails),
                 'Was not called once'
             );
-            expect(fakeContractInteractor.verifyForwarder).to.have.been
-                .calledOnce;
+            expect(contractInteractor.verifyForwarder).to.have.been.calledOnce;
         });
 
         it('should fail if EOA is not the owner', async () => {
             const error = new TypeError(
                 'VM Exception while processing transaction: revert Not the owner of the SmartWallet'
             );
-            fakeContractInteractor.verifyForwarder.throws(error);
+            contractInteractor.verifyForwarder.throws(error);
             await assert.isRejected(
                 relayClient.validateSmartWallet(fakeTransactionDetails),
                 error.message
@@ -135,7 +142,7 @@ describe('RelayClient', () => {
             const error = new TypeError(
                 'VM Exception while processing transaction: revert nonce mismatch'
             );
-            fakeContractInteractor.verifyForwarder.throws(error);
+            contractInteractor.verifyForwarder.throws(error);
             await assert.isRejected(
                 relayClient.validateSmartWallet(fakeTransactionDetails),
                 error.message
@@ -146,18 +153,84 @@ describe('RelayClient', () => {
             const error = new TypeError(
                 'VM Exception while processing transaction: revert Signature mismatch'
             );
-            fakeContractInteractor.verifyForwarder.throws(error);
+            contractInteractor.verifyForwarder.throws(error);
             await assert.isRejected(
                 relayClient.validateSmartWallet(fakeTransactionDetails),
                 error.message
             );
         });
+    });
 
-        it('should fail if tansactionDetails is null', async () => {
-            await assert.isRejected(
-                relayClient.validateSmartWallet(null),
-                "Cannot read properties of null (reading 'callForwarder')"
+    describe.only('estimateGasLimit', function () {
+        const responseRelayEstimation: RelayEstimation = {
+            estimation: '151800',
+            exchangeRate: '0.000003323449073',
+            gasPrice: '60000000',
+            requiredTokenAmount: '2.74053e18',
+            requiredNativeAmount: '0.00000311892'
+        };
+
+        const transactionDetails: EnvelopingTransactionDetails = {
+            from: '0x1',
+            to: constants.ZERO_ADDRESS,
+            value: '0',
+            callForwarder: '0x2',
+            data: '0x0'
+        };
+
+        const pingResponse = {
+            feesReceiver: '0x3'
+        } as PingResponse;
+
+        beforeEach(function () {
+            httpClient = createStubInstance(HttpClient, {
+                estimateGasLimit: Promise.resolve(responseRelayEstimation),
+                getPingResponse: Promise.resolve(pingResponse)
+            });
+            contractInteractor = createStubInstance(ContractInteractor);
+            accountManager = createStubInstance(AccountManager);
+            mockDependencies = {
+                httpClient,
+                contractInteractor,
+                knownRelaysManager: new KnownRelaysManager(
+                    contractInteractor,
+                    defaultConfig,
+                    EmptyFilter
+                ),
+                accountManager,
+                transactionValidator: new RelayedTransactionValidator(
+                    contractInteractor,
+                    defaultConfig
+                ),
+                pingFilter: GasPricePingFilter,
+                relayFilter: EmptyFilter,
+                scoreCalculator: DefaultRelayScore,
+                config: defaultConfig
+            };
+            replace(
+                configurator,
+                'getDependencies',
+                fake.returns(mockDependencies)
             );
+            mockHttpProvider = stubInterface<HttpProvider>();
+            relayClient = new RelayClient(mockHttpProvider, defaultConfig);
+            replace(
+                relayClient,
+                'getInternalCallCost',
+                fake.returns(Promise.resolve(5))
+            );
+        });
+
+        afterEach(function () {
+            restore();
+        });
+
+        it('should estimate relay gas limit', async function () {
+            const estimation = await relayClient.estimateGasLimit(
+                transactionDetails,
+                true
+            );
+            expect(estimation).to.be.equal(responseRelayEstimation);
         });
     });
 });

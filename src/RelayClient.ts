@@ -76,11 +76,22 @@ export interface RelayingResult {
     relayingErrors: Map<string, Error>;
 }
 
+export type RelayEstimation = {
+    gasPrice: string;
+    estimation: string;
+    requiredTokenAmount: string;
+    requiredNativeAmount: string;
+    exchangeRate: string;
+};
+
 export class RelayClient {
     readonly emitter = new EventEmitter();
     readonly config: EnvelopingConfig;
     private readonly httpClient: HttpClient;
-    protected contractInteractor: ContractInteractor;
+    protected _contractInteractor: ContractInteractor;
+    public get contractInteractor(): ContractInteractor {
+        return this._contractInteractor;
+    }
     protected knownRelaysManager: KnownRelaysManager;
     private readonly transactionValidator: RelayedTransactionValidator;
     private readonly pingFilter: PingFilter;
@@ -105,7 +116,7 @@ export class RelayClient {
 
         this.config = dependencies.config;
         this.httpClient = dependencies.httpClient;
-        this.contractInteractor = dependencies.contractInteractor;
+        this._contractInteractor = dependencies.contractInteractor;
         this.knownRelaysManager = dependencies.knownRelaysManager;
         this.transactionValidator = dependencies.transactionValidator;
         this.accountManager = dependencies.accountManager;
@@ -313,6 +324,8 @@ export class RelayClient {
                     relayWorkerAddress,
                     feesReceiver
                 )) + Number(trxDetails.tokenGas);
+
+            //FIXME check why two times its being multiply by ESTIMATED_GAS_CORRECTION_FACTOR
             maxPossibleGas = toBN(
                 Math.ceil(estimated * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
             );
@@ -406,8 +419,8 @@ export class RelayClient {
         const value = BigInt(transactionDetails.value ?? '0').toString();
 
         // Token payment is estimated separatedly
-        const tokenAmount = BigInt('0x00').toString();
-        const tokenGas = BigInt('0x00').toString();
+        const tokenAmount = '0x0';
+        const tokenGas = '0x0';
 
         const relayRequest: DeployRequest = {
             request: {
@@ -990,6 +1003,150 @@ export class RelayClient {
             relayRequest,
             signature
         );
+    }
+
+    async estimateGasLimit(
+        transactionDetails: EnvelopingTransactionDetails,
+        sign: boolean
+    ): Promise<RelayEstimation> {
+        const relayUrl = this.config.preferredRelays[0];
+
+        const request = await this.prepareRelayRequestGasEstimator(
+            transactionDetails,
+            sign
+        );
+
+        const estimation = await this.httpClient.estimateGasLimit(
+            relayUrl,
+            request
+        );
+
+        return estimation;
+    }
+
+    private async prepareRelayRequestGasEstimator(
+        transactionDetails: EnvelopingTransactionDetails,
+        sign: boolean
+    ): Promise<RelayTransactionRequest | DeployTransactionRequest> {
+        const callForwarder = this.resolveForwarder(transactionDetails);
+        const { feesReceiver } = await this.getPingResponse();
+        const gasPrice: number = transactionDetails.forceGasPrice
+            ? Number(transactionDetails.forceGasPrice)
+            : Number(await this._calculateGasPrice());
+
+        let relayRequest;
+        if (transactionDetails.isSmartWalletDeploy) {
+            relayRequest = await this.buildEstimationDeployRequest(
+                transactionDetails,
+                callForwarder,
+                feesReceiver,
+                gasPrice
+            );
+        } else {
+            relayRequest = await this.buildEstimationRelayRequest(
+                transactionDetails,
+                callForwarder,
+                feesReceiver,
+                gasPrice
+            );
+        }
+
+        let signature = '';
+        if (sign) {
+            this.emit(new SignRequestEvent());
+            signature = await this.accountManager.sign(relayRequest);
+        }
+
+        const metadata: RelayMetadata = {
+            relayHubAddress: this.config.relayHubAddress,
+            signature,
+            relayMaxNonce: 0
+        };
+
+        return {
+            relayRequest,
+            metadata
+        } as RelayTransactionRequest | DeployTransactionRequest;
+    }
+
+    private async buildEstimationDeployRequest(
+        transactionDetails: EnvelopingTransactionDetails,
+        callForwarder: string,
+        feesReceiver: string,
+        gasPrice: number
+    ): Promise<DeployRequest> {
+        const nonce: string = await this.contractInteractor.getFactoryNonce(
+            callForwarder,
+            transactionDetails.from
+        );
+
+        const deployRequest: DeployRequest = {
+            request: {
+                from: transactionDetails.from,
+                to: transactionDetails.to,
+                data: transactionDetails.data,
+                index: transactionDetails.index ?? '0',
+                recoverer:
+                    transactionDetails.recoverer ?? constants.ZERO_ADDRESS,
+                relayHub:
+                    transactionDetails.relayHub ?? this.config.relayHubAddress,
+                nonce,
+                value: transactionDetails.value ?? '0',
+                tokenAmount: '0x0',
+                tokenGas: transactionDetails.tokenGas ?? '0x0',
+                tokenContract:
+                    transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+            },
+            relayData: {
+                callForwarder: callForwarder,
+                callVerifier:
+                    transactionDetails.callVerifier ?? constants.ZERO_ADDRESS,
+                feesReceiver: feesReceiver,
+                gasPrice: transactionDetails.gasPrice ?? gasPrice.toString()
+            }
+        };
+
+        return deployRequest;
+    }
+
+    private async buildEstimationRelayRequest(
+        transactionDetails: EnvelopingTransactionDetails,
+        callForwarder: string,
+        feesReceiver: string,
+        gasPrice: number
+    ): Promise<RelayRequest> {
+        const nonce = await this.contractInteractor.getSenderNonce(
+            callForwarder
+        );
+
+        const gas: number = transactionDetails.forceGas
+            ? Number(transactionDetails.forceGas)
+            : await this.getInternalCallCost(transactionDetails);
+
+        const relayRequest: RelayRequest = {
+            request: {
+                relayHub: transactionDetails.relayHub ?? constants.ZERO_ADDRESS,
+                to: transactionDetails.to,
+                data: transactionDetails.data,
+                from: transactionDetails.from,
+                value: transactionDetails.value ?? '0',
+                nonce,
+                gas: gas.toString(),
+                tokenAmount: '0x0',
+                tokenGas: transactionDetails.tokenGas ?? '0x0',
+                tokenContract:
+                    transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+            },
+            relayData: {
+                callForwarder,
+                callVerifier:
+                    transactionDetails.callVerifier ?? constants.ZERO_ADDRESS,
+                feesReceiver,
+                gasPrice: transactionDetails.gasPrice ?? gasPrice.toString()
+            }
+        };
+
+        return relayRequest;
     }
 
     private suffixData(relayRequest: RelayRequest, chainId: number) {
