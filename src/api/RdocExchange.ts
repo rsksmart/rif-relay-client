@@ -4,34 +4,33 @@ import BaseExchangeApi from './ExchangeApi';
 type RateRecord = Record<string, string>;
 
 const rates: Record<string, RateRecord> = {
-    TKN: {
-        USD: '0.0775886924643371'
-    },
-    RBTC: {
-        USD: '23345.834630269488'
+    RDOC: {
+        USD: '1'
     }
 };
 
 const CURRENCY_MAPPING: Record<string, string> = {
-    TKN: 'TKN',
-    RBTC: 'RBTC'
+    RDOC: 'RDOC'
 };
 
-export default class TestExchange extends BaseExchangeApi {
+export default class RdocExchange extends BaseExchangeApi {
     constructor() {
-        super('TestExchange', CURRENCY_MAPPING, ['TKN']);
+        super('RdocExchange', CURRENCY_MAPPING, ['RDOC']);
     }
 
     async queryExchangeRate(
         sourceCurrency: string,
         targetCurrency: string
     ): Promise<BigNumber> {
-        const conversionRate = rates[sourceCurrency][targetCurrency];
+        const conversionRate =
+            rates[sourceCurrency.toUpperCase()][targetCurrency.toUpperCase()];
+
         if (!conversionRate) {
             throw Error(
-                `TestExchange API does not recognise given currency ${sourceCurrency}`
+                `Exchange rate for currency pair ${sourceCurrency} / ${targetCurrency} is not available`
             );
         }
+
         return new BigNumber(conversionRate);
     }
 }

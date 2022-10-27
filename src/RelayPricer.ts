@@ -1,34 +1,23 @@
 import BigNumber from 'bignumber.js';
+import BaseExchangeApi from './api/ExchangeApi';
 import CoinBase from './api/CoinBase';
+import RdocExchange from './api/RdocExchange';
 import TestExchange from './api/TestExchange';
-import ExchangeApi from './types/ExchangeApi';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
 const coinbase = new CoinBase();
 const testExchange = new TestExchange();
+const rdocExchange = new RdocExchange();
 
-type AvailableApi = {
-    api: ExchangeApi;
-    tokens: Array<string>;
-};
-
-const EXCHANGE_APIS: Array<AvailableApi> = [
-    {
-        api: coinbase,
-        tokens: ['RIF']
-    },
-    {
-        api: testExchange,
-        tokens: ['TKN']
-    }
-];
+const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
 
 export default class RelayPricer {
-    findAvailableApi(token: string): AvailableApi {
-        const availableApi = EXCHANGE_APIS.find((x) =>
-            x.tokens.includes(token)
+    findAvailableApi(token: string): BaseExchangeApi {
+        const availableApi = EXCHANGE_APIS.find((api) =>
+            api.tokens.includes(token)
         );
+
         if (!availableApi) {
             throw Error(`There is no available API for token ${token}`);
         }
@@ -40,19 +29,21 @@ export default class RelayPricer {
         targetCurrency: string,
         intermediateCurrency?: string
     ): Promise<BigNumber> {
-        const { api: sourceApi } = this.findAvailableApi(sourceCurrency);
+        const sourceApi = this.findAvailableApi(sourceCurrency);
+        const targetApi = this.findAvailableApi(targetCurrency);
 
-        const source = sourceApi.getApiTokenName(sourceCurrency);
-        const target = sourceApi.getApiTokenName(targetCurrency);
+        const sourceTokenName = sourceApi.getApiTokenName(sourceCurrency);
+        const targetTokenName = targetApi.getApiTokenName(targetCurrency);
 
         const intermediary = intermediateCurrency
             ? intermediateCurrency
             : INTERMEDIATE_CURRENCY;
 
         const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
-            sourceApi.queryExchangeRate(source, intermediary),
-            sourceApi.queryExchangeRate(target, intermediary)
+            sourceApi.queryExchangeRate(sourceTokenName, intermediary),
+            targetApi.queryExchangeRate(targetTokenName, intermediary)
         ]);
+
         if (
             sourceExchangeRate.isEqualTo(0) ||
             targetExchangeRate.isEqualTo(0)

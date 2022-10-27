@@ -1,11 +1,11 @@
-export default abstract class BaseExchangeApi {
-    private currencyMapping: Record<string, string>;
-    protected api: string;
+import BigNumber from 'bignumber.js';
 
-    constructor(api: string, currencyMapping: Record<string, string>) {
-        this.api = api;
-        this.currencyMapping = currencyMapping;
-    }
+export default abstract class BaseExchangeApi {
+    constructor(
+        protected readonly api: string,
+        private currencyMapping: Record<string, string>,
+        public readonly tokens: string[]
+    ) {}
 
     getApiTokenName(tokenSymbol: string): string {
         if (!tokenSymbol) {
@@ -22,4 +22,9 @@ export default abstract class BaseExchangeApi {
         }
         return resultMapping;
     }
+
+    abstract queryExchangeRate(
+        sourceCurrency: string,
+        targetCurrency: string
+    ): Promise<BigNumber>;
 }
