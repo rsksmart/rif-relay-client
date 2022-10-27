@@ -324,11 +324,7 @@ export class RelayClient {
                     relayWorkerAddress,
                     feesReceiver
                 )) + Number(trxDetails.tokenGas);
-
-            //FIXME check why two times its being multiply by ESTIMATED_GAS_CORRECTION_FACTOR
-            maxPossibleGas = toBN(
-                Math.ceil(estimated * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
-            );
+            maxPossibleGas = toBN(estimated);
         }
 
         return maxPossibleGas.toNumber();
@@ -1030,7 +1026,7 @@ export class RelayClient {
     ): Promise<RelayTransactionRequest | DeployTransactionRequest> {
         const callForwarder = this.resolveForwarder(transactionDetails);
         const { feesReceiver } = await this.getPingResponse();
-        const gasPrice: number = transactionDetails.forceGasPrice
+        const gasPrice = transactionDetails.forceGasPrice
             ? Number(transactionDetails.forceGasPrice)
             : Number(await this._calculateGasPrice());
 
@@ -1119,7 +1115,7 @@ export class RelayClient {
             callForwarder
         );
 
-        const gas: number = transactionDetails.forceGas
+        const gas = transactionDetails.forceGas
             ? Number(transactionDetails.forceGas)
             : await this.getInternalCallCost(transactionDetails);
 
