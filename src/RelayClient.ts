@@ -1001,7 +1001,7 @@ export class RelayClient {
         );
     }
 
-    async estimateGasLimit(
+    async estimateMaxPossibleGas(
         transactionDetails: EnvelopingTransactionDetails,
         sign: boolean
     ): Promise<RelayEstimation> {
@@ -1012,7 +1012,7 @@ export class RelayClient {
             sign
         );
 
-        const estimation = await this.httpClient.estimateGasLimit(
+        const estimation = await this.httpClient.estimateMaxPossibleGas(
             relayUrl,
             request
         );

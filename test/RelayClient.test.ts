@@ -7,7 +7,7 @@ import {
     restore
 } from 'sinon';
 import { stubInterface } from 'ts-sinon';
-import { expect, use, assert } from 'chai';
+import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinonChai from 'sinon-chai';
 import {
@@ -120,10 +120,10 @@ describe('RelayClient', () => {
         it('should use verifyForwarder', async () => {
             const spyCall = spy(relayClient, 'resolveForwarder');
             await relayClient.validateSmartWallet(fakeTransactionDetails);
-            assert.isTrue(
+            expect(
                 spyCall.calledOnceWithExactly(fakeTransactionDetails),
                 'Was not called once'
-            );
+            ).to.be.true;
             expect(contractInteractor.verifyForwarder).to.have.been.calledOnce;
         });
 
@@ -132,10 +132,9 @@ describe('RelayClient', () => {
                 'VM Exception while processing transaction: revert Not the owner of the SmartWallet'
             );
             contractInteractor.verifyForwarder.throws(error);
-            await assert.isRejected(
-                relayClient.validateSmartWallet(fakeTransactionDetails),
-                error.message
-            );
+            await expect(
+                relayClient.validateSmartWallet(fakeTransactionDetails)
+            ).to.be.rejectedWith(error.message);
         });
 
         it('should fail if nonce mismatch', async () => {
@@ -143,10 +142,9 @@ describe('RelayClient', () => {
                 'VM Exception while processing transaction: revert nonce mismatch'
             );
             contractInteractor.verifyForwarder.throws(error);
-            await assert.isRejected(
-                relayClient.validateSmartWallet(fakeTransactionDetails),
-                error.message
-            );
+            await expect(
+                relayClient.validateSmartWallet(fakeTransactionDetails)
+            ).to.be.rejectedWith(error.message);
         });
 
         it('should fail if signature mismatch', async () => {
@@ -154,37 +152,19 @@ describe('RelayClient', () => {
                 'VM Exception while processing transaction: revert Signature mismatch'
             );
             contractInteractor.verifyForwarder.throws(error);
-            await assert.isRejected(
-                relayClient.validateSmartWallet(fakeTransactionDetails),
-                error.message
-            );
+            await expect(
+                relayClient.validateSmartWallet(fakeTransactionDetails)
+            ).to.be.rejectedWith(error.message);
         });
     });
 
-    describe('estimateGasLimit', function () {
-        const responseRelayEstimation: RelayEstimation = {
-            estimation: '151800',
-            exchangeRate: '0.000003323449073',
-            gasPrice: '60000000',
-            requiredTokenAmount: '2.74053e18',
-            requiredNativeAmount: '0.00000311892'
-        };
-
-        const transactionDetails: EnvelopingTransactionDetails = {
-            from: '0x1',
-            to: constants.ZERO_ADDRESS,
-            value: '0',
-            callForwarder: '0x2',
-            data: '0x0'
-        };
-
+    describe('estimateMaxPossibleGas', function () {
         const pingResponse = {
             feesReceiver: '0x3'
         } as PingResponse;
 
         beforeEach(function () {
             httpClient = createStubInstance(HttpClient, {
-                estimateGasLimit: Promise.resolve(responseRelayEstimation),
                 getPingResponse: Promise.resolve(pingResponse)
             });
             contractInteractor = createStubInstance(ContractInteractor);
@@ -225,12 +205,103 @@ describe('RelayClient', () => {
             restore();
         });
 
-        it('should estimate relay gas limit', async function () {
-            const estimation = await relayClient.estimateGasLimit(
+        it('should estimate max possible gas for a relay transaction with signature', async function () {
+            const response: RelayEstimation = {
+                estimation: '128954',
+                exchangeRate: '0.00000332344907316948',
+                gasPrice: '60000000',
+                requiredTokenAmount: '2328075390853277499',
+                requiredNativeAmount: '7737240000000'
+            };
+            httpClient.estimateMaxPossibleGas.returns(
+                Promise.resolve(response)
+            );
+            const transactionDetails: EnvelopingTransactionDetails = {
+                from: '0x1',
+                to: constants.ZERO_ADDRESS,
+                value: '0',
+                callForwarder: '0x2',
+                data: '0x0'
+            };
+            const estimation = await relayClient.estimateMaxPossibleGas(
                 transactionDetails,
                 true
             );
-            expect(estimation).to.be.equal(responseRelayEstimation);
+            expect(estimation).to.be.equal(response);
+        });
+
+        it('should estimate max possible gas for a relay transaction without signature', async function () {
+            const response: RelayEstimation = {
+                estimation: '125583',
+                exchangeRate: '0.00000332344907316948',
+                gasPrice: '60000000',
+                requiredTokenAmount: '2267216928591025855',
+                requiredNativeAmount: '7534980000000'
+            };
+            httpClient.estimateMaxPossibleGas.returns(
+                Promise.resolve(response)
+            );
+            const transactionDetails: EnvelopingTransactionDetails = {
+                from: '0x1',
+                to: constants.ZERO_ADDRESS,
+                value: '0',
+                callForwarder: '0x2',
+                data: '0x0',
+                index: '1'
+            };
+            const estimation = await relayClient.estimateMaxPossibleGas(
+                transactionDetails,
+                false
+            );
+            expect(estimation).to.be.equal(response);
+        });
+
+        it('should estimate max possible gas for a deploy transaction with signature', async function () {
+            const response: RelayEstimation = {
+                estimation: '193889',
+                exchangeRate: '0.00000332344907316948',
+                gasPrice: '60000000',
+                requiredTokenAmount: '3500381604736193689',
+                requiredNativeAmount: '11633340000000'
+            };
+            httpClient.estimateMaxPossibleGas.returns(
+                Promise.resolve(response)
+            );
+            const transactionDetails: EnvelopingTransactionDetails = {
+                from: '0x1',
+                to: constants.ZERO_ADDRESS,
+                value: '0',
+                callForwarder: '0x2',
+                data: '0x0',
+                recoverer: constants.ZERO_ADDRESS,
+                index: '1'
+            };
+            const estimation = await relayClient.estimateMaxPossibleGas(
+                transactionDetails,
+                true
+            );
+            expect(estimation).to.be.equal(response);
+        });
+
+        it('should estimate max possible gas for a deploy transaction without signature', async function () {
+            const error = new Error(
+                'LinearFit estimation not implemented for deployments'
+            );
+            httpClient.estimateMaxPossibleGas.throwsException(error);
+            const transactionDetails: EnvelopingTransactionDetails = {
+                from: '0x1',
+                to: constants.ZERO_ADDRESS,
+                value: '0',
+                callForwarder: '0x2',
+                data: '0x0',
+                recoverer: constants.ZERO_ADDRESS,
+                index: '1'
+            };
+            const estimation = relayClient.estimateMaxPossibleGas(
+                transactionDetails,
+                false
+            );
+            await expect(estimation).to.be.rejectedWith(error);
         });
     });
 });

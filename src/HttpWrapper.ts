@@ -50,7 +50,10 @@ export default class HttpWrapper {
         }
     }
 
-    async sendPromise(url: string, jsonRequestData?: any): Promise<any> {
+    async sendPromise(
+        url: string,
+        jsonRequestData?: unknown
+    ): Promise<unknown> {
         if (this.logreq) {
             console.log(
                 'sending request:',
