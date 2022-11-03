@@ -23,9 +23,9 @@ export default class HttpClient {
         verifier?: string
     ): Promise<PingResponse> {
         const verifierSuffix = verifier == null ? '' : '?verifier=' + verifier;
-        const pingResponse = (await this.httpWrapper.sendPromise(
+        const pingResponse = await this.httpWrapper.sendPromise<PingResponse>(
             relayUrl + '/getaddr' + verifierSuffix
-        )) as PingResponse;
+        );
         if (pingResponse == null) {
             throw new Error('Relay responded without a body');
         }
@@ -38,10 +38,10 @@ export default class HttpClient {
         relayUrl: string,
         request: RelayTransactionRequest | DeployTransactionRequest
     ): Promise<PrefixedHexString> {
-        const { signedTx, error } = (await this.httpWrapper.sendPromise(
-            relayUrl + '/relay',
-            request
-        )) as { signedTx: string; error: string };
+        const { signedTx, error } = await this.httpWrapper.sendPromise<{
+            signedTx: string;
+            error: string;
+        }>(relayUrl + '/relay', request);
         log.info('relayTransaction response:', signedTx, error);
         if (error != null) {
             throw new Error(`Got error response from relay: ${error}`);
@@ -56,10 +56,9 @@ export default class HttpClient {
         relayUrl: string,
         request: RelayTransactionRequest | DeployTransactionRequest
     ): Promise<RelayEstimation> {
-        const response = (await this.httpWrapper.sendPromise(
-            relayUrl + '/estimate',
-            request
-        )) as RelayEstimation | { error: string };
+        const response = await this.httpWrapper.sendPromise<
+            RelayEstimation | { error: string }
+        >(relayUrl + '/estimate', request);
         log.info('esimation relayTransaction response:', response);
         if ('error' in response) {
             throw Error(
