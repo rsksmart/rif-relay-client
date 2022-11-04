@@ -31,6 +31,7 @@ import {
 } from '../src';
 import { HttpProvider } from 'web3-core';
 import * as configurator from '../src/Configurator';
+import { createRandomAddress, createRandomeValue } from './utils';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -159,9 +160,15 @@ describe('RelayClient', () => {
     });
 
     describe('estimateMaxPossibleGas', function () {
-        const pingResponse = {
-            feesReceiver: '0x3'
-        } as PingResponse;
+        const pingResponse: PingResponse = {
+            relayWorkerAddress: createRandomAddress(),
+            relayManagerAddress: createRandomAddress(),
+            relayHubAddress: createRandomAddress(),
+            feesReceiver: createRandomAddress(),
+            minGasPrice: createRandomeValue(1000),
+            ready: true,
+            version: createRandomeValue(5)
+        };
 
         beforeEach(function () {
             httpClient = createStubInstance(HttpClient, {
