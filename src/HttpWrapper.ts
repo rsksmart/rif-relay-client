@@ -50,7 +50,7 @@ export default class HttpWrapper {
         }
     }
 
-    async sendPromise(url: string, jsonRequestData?: any): Promise<any> {
+    async sendPromise<T>(url: string, jsonRequestData?: unknown): Promise<T> {
         if (this.logreq) {
             console.log(
                 'sending request:',
@@ -59,7 +59,7 @@ export default class HttpWrapper {
             );
         }
 
-        const response = await this.provider.request({
+        const response = await this.provider.request<T>({
             url,
             method: jsonRequestData != null ? 'POST' : 'GET',
             data: jsonRequestData
