@@ -27,7 +27,7 @@
     ]
   },
   "dependencies": {
-    "@rsksmart/rif-relay-common": "github:rsksmart/rif-relay-common#PP-437/enpoint-required-fees",
+    "@rsksmart/rif-relay-common": "1.0.0-alpha.1",
     "@rsksmart/rif-relay-contracts": "1.0.0-alpha.0",
     "abi-decoder": "~2.3.0",
     "axios": "~0.21.1",
