@@ -97,17 +97,41 @@ describe('CoinBase', () => {
         });
 
         it('should fail if API returns handled error message', async () => {
+            const expectedStatusCode = 400;
+            const expectedStatusText = 'Bad Request';
             const fakeError = {
                 response: {
-                    status: 400,
-                    statusText: 'Bad Request'
+                    status: expectedStatusCode,
+                    statusText: expectedStatusText
                 }
             } as AxiosError;
 
             fakeAxios.returns(Promise.reject(fakeError));
             await assert.isRejected(
                 coinBase.queryExchangeRate('NA', targetCurrency),
-                'CoinBase API status 400/Bad Request'
+                `CoinBase API status ${expectedStatusCode}/${expectedStatusText}`
+            );
+        });
+
+        it("should fail if API doesn't return a response", async () => {
+            const fakeError = {
+                request: {}
+            } as AxiosError;
+
+            fakeAxios.returns(Promise.reject(fakeError));
+            await assert.isRejected(
+                coinBase.queryExchangeRate('NA', targetCurrency),
+                'No response received from CoinBase API'
+            );
+        });
+
+        it('should fail if the request cannot be sent', async () => {
+            const fakeError = {} as AxiosError;
+
+            fakeAxios.returns(Promise.reject(fakeError));
+            await assert.isRejected(
+                coinBase.queryExchangeRate('NA', targetCurrency),
+                'The request was not sent to the CoinBase API'
             );
         });
     });
