@@ -1,8 +1,7 @@
 import { use, assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { SinonStub, stub } from 'sinon';
-import * as fetchModule from 'node-fetch';
-import { Response } from 'node-fetch';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 
 import CoinBase, { CoinBaseResponse } from '../../src/api/CoinBase';
 
@@ -13,8 +12,8 @@ describe('CoinBase', () => {
     const sourceCurrency = 'RIF';
     const targetCurrency = 'USD';
     const xRateRifUsd = '0.07770028890144696';
-    let fakeResponse: Response;
-    let fakeFetch: SinonStub;
+    let fakeResponse;
+    let fakeAxios: SinonStub;
 
     beforeEach(() => {
         coinBase = new CoinBase();
@@ -58,16 +57,17 @@ describe('CoinBase', () => {
                     }
                 }
             };
-            fakeResponse = new Response(JSON.stringify(coinBaseResponse), {
-                status: 200
-            });
-            fakeFetch = stub(fetchModule, 'default').returns(
+            fakeResponse = {
+                status: 200,
+                data: coinBaseResponse
+            } as AxiosResponse;
+            fakeAxios = stub(axios, 'get').returns(
                 Promise.resolve(fakeResponse)
             );
         });
 
         afterEach(() => {
-            fakeFetch.restore();
+            fakeAxios.restore();
         });
 
         it('should return exchange rate RIF/USD', async () => {
@@ -97,19 +97,17 @@ describe('CoinBase', () => {
         });
 
         it('should fail if API returns handled error message', async () => {
-            const errorString = JSON.stringify({
-                errors: [
-                    {
-                        id: 'not_found',
-                        message: 'Currency is invalid'
-                    }
-                ]
-            });
-            fakeResponse = new Response(errorString, { status: 400 });
-            fakeFetch.returns(Promise.resolve(fakeResponse));
+            const fakeError = {
+                response: {
+                    status: 400,
+                    statusText: 'Bad Request'
+                }
+            } as AxiosError;
+
+            fakeAxios.returns(Promise.reject(fakeError));
             await assert.isRejected(
                 coinBase.queryExchangeRate('NA', targetCurrency),
-                'CoinBase API status 400/Bad Request/Currency is invalid'
+                'CoinBase API status 400/Bad Request'
             );
         });
     });

@@ -1,4 +1,5 @@
-import fetch, { Response } from 'node-fetch';
+import axios, { AxiosError } from 'axios';
+import { AxiosResponse } from 'axios';
 import BigNumber from 'bignumber.js';
 import BaseExchangeApi from './ExchangeApi';
 
@@ -27,7 +28,7 @@ const CURRENCY_MAPPING: Record<string, string> = {
 
 export default class CoinBase extends BaseExchangeApi {
     constructor() {
-        super('CoinBase', CURRENCY_MAPPING, ['RIF']);
+        super('CoinBase', CURRENCY_MAPPING, ['RIF', 'RBTC']);
     }
 
     async queryExchangeRate(
@@ -35,25 +36,20 @@ export default class CoinBase extends BaseExchangeApi {
         targetCurrency: string
     ): Promise<BigNumber> {
         const upperCaseTargetCurrency = targetCurrency.toUpperCase();
-        const response: Response = await fetch(
-            `${URL}?currency=${sourceCurrency}`,
-            {
-                method: 'get'
-            }
-        );
+        let response: AxiosResponse;
 
-        if (!response.ok) {
-            const {
-                errors: [error]
-            }: CoinBaseErrorResponse = await response.json();
+        try {
+            response = await axios.get(`${URL}?currency=${sourceCurrency}`);
+        } catch (error: unknown) {
+            const { response } = error as AxiosError;
             throw Error(
-                `CoinBase API status ${response.status}/${response.statusText}/${error.message}`
+                `CoinBase API status ${response.status}/${response.statusText}`
             );
         }
 
         const {
             data: { rates }
-        }: CoinBaseResponse = await response.json();
+        }: CoinBaseResponse = await response.data;
         const conversionRate = rates[upperCaseTargetCurrency];
 
         if (!conversionRate) {

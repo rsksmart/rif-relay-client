@@ -38,8 +38,8 @@ describe('RelayPricer', () => {
         });
 
         it('should fail if there is no available api', () => {
-            expect(() => pricer.findAvailableApi(RBTC_SYMBOL)).to.throw(
-                `There is no available API for token ${RBTC_SYMBOL}`
+            expect(() => pricer.findAvailableApi('NA')).to.throw(
+                'There is no available API for token NA'
             );
         });
 
