@@ -3,7 +3,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { createSandbox, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
 import KnownRelaysManager, { RelayFilter, RelayFailureInfo } from '../src/KnownRelaysManager';
-import { ContractInteractor } from '@rsksmart/rif-relay-common';
+import { ContractInteractor, EnvelopingConfig } from '@rsksmart/rif-relay-common';
 import type { LogLevelNumbers } from 'loglevel';
 
 use(sinonChai);
@@ -15,7 +15,7 @@ const sandbox = createSandbox();
 describe('KnownRelaysManager', function () {
 
   let contractInteractor: SinonStubbedInstance<ContractInteractor>;
-  const envelopingConfig = {
+  const envelopingConfig: EnvelopingConfig = {
     chainId: 33,
       clientId: '',
       deployVerifierAddress: '',
@@ -98,24 +98,5 @@ describe('KnownRelaysManager', function () {
       expect(knownRelaysManager);
     });
   });
-
-  describe('refresh', function() {
-
-    let knownRelaysManager: KnownRelaysManager;
-
-    beforeEach(function () {
-
-      knownRelaysManager = new KnownRelaysManager(
-        contractInteractor,
-        envelopingConfig,
-      );
-    })
-
-    it('should', async function () {
-      
-      await knownRelaysManager.refresh();
-
-    })
-  })
 
 });
