@@ -3,9 +3,8 @@ import chaiAsPromised from 'chai-as-promised';
 import { createSandbox, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
 import KnownRelaysManager, { RelayFilter, RelayFailureInfo } from '../src/KnownRelaysManager';
-import { ContractInteractor, EnvelopingTransactionDetails } from '@rsksmart/rif-relay-common';
+import { ContractInteractor } from '@rsksmart/rif-relay-common';
 import type { LogLevelNumbers } from 'loglevel';
-import type { IRelayHub } from '@rsksmart/rif-relay-contracts/dist/typechain-types';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -85,8 +84,6 @@ describe('KnownRelaysManager', function () {
       }
 
       const scoreCalc = (
-        relay: IRelayHub.RelayManagerDataStruct,
-        txDetails: EnvelopingTransactionDetails,
         failures: RelayFailureInfo[]
       ) => {
         return Math.pow(0.9, failures.length);
