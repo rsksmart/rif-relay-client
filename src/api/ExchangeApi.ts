@@ -1,8 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-const avialableCurrencies = ['TRIF', 'RIF', 'RDOC', 'RBTC', 'TKN'] as const;
-
-export type FromCurrency = typeof avialableCurrencies[number];
+export type FromCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
 
 export type CurrencyMapping = Partial<Record<FromCurrency, string>>;
 
@@ -26,16 +24,16 @@ export default abstract class BaseExchangeApi {
 
         const upperCaseTokenSymbol = tokenSymbol.toUpperCase();
 
-        const currency = avialableCurrencies.find(
-            (c) => c === upperCaseTokenSymbol
-        );
+        const currency =
+            this.currencyMapping[upperCaseTokenSymbol as FromCurrency];
+
         if (!currency) {
             throw Error(
                 `Token ${upperCaseTokenSymbol} is not internally mapped in ${this.api} API`
             );
         }
 
-        return this.currencyMapping[currency];
+        return currency;
     }
 
     abstract queryExchangeRate(
