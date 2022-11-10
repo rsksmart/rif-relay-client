@@ -13,31 +13,30 @@ const sandbox = createSandbox();
 
 
 describe('KnownRelaysManager', function () {
+
+  let contractInteractor: SinonStubbedInstance<ContractInteractor>;
+  const envelopingConfig = {
+    chainId: 33,
+      clientId: '',
+      deployVerifierAddress: '',
+      forwarderAddress: '',
+      gasPriceFactorPercent: 0.02,
+      relayVerifierAddress: '',
+      relayHubAddress: '',
+      smartWalletFactoryAddress: '',
+      sliceSize: 0,
+      relayTimeoutGrace: 0,
+      relayLookupWindowParts: 0,
+      relayLookupWindowBlocks: 0,
+      maxRelayNonceGap: 0,
+      minGasPrice: 0,
+      methodSuffix: '',
+      preferredRelays: [],
+      onlyPreferredRelays: true,
+      jsonStringifyRequest: true,
+      logLevel: 0 as LogLevelNumbers
+  }
   describe('constructor', function () {
-
-    let contractInteractor: SinonStubbedInstance<ContractInteractor>;
-
-    const envelopingConfig = {
-      chainId: 33,
-        clientId: '',
-        deployVerifierAddress: '',
-        forwarderAddress: '',
-        gasPriceFactorPercent: 0.02,
-        relayVerifierAddress: '',
-        relayHubAddress: '',
-        smartWalletFactoryAddress: '',
-        sliceSize: 0,
-        relayTimeoutGrace: 0,
-        relayLookupWindowParts: 0,
-        relayLookupWindowBlocks: 0,
-        maxRelayNonceGap: 0,
-        minGasPrice: 0,
-        methodSuffix: '',
-        preferredRelays: [],
-        onlyPreferredRelays: true,
-        jsonStringifyRequest: true,
-        logLevel: 0 as LogLevelNumbers
-    }
 
     beforeEach(function () {
       contractInteractor = sandbox.createStubInstance(
@@ -99,4 +98,24 @@ describe('KnownRelaysManager', function () {
       expect(knownRelaysManager);
     });
   });
+
+  describe('refresh', function() {
+
+    let knownRelaysManager: KnownRelaysManager;
+
+    beforeEach(function () {
+
+      knownRelaysManager = new KnownRelaysManager(
+        contractInteractor,
+        envelopingConfig,
+      );
+    })
+
+    it('should', async function () {
+      
+      await knownRelaysManager.refresh();
+
+    })
+  })
+
 });

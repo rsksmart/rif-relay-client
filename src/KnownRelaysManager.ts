@@ -85,14 +85,13 @@ export default class KnownRelaysManager {
     log.debug(
       'KnownRelaysManager - Fetched recently active Relay Managers done'
     );
+    //@ts-ignore
     this.preferredRelayers = this.config.preferredRelays.map((relayUrl) => {
       return {
         url: relayUrl,
-        currentlyStaked: false,
-        manager: '',
-        registered: false,
       };
     });
+
     this.allRelayers = await this.getRelayDataForManagers(
       recentlyActiveRelayManagers
     );
