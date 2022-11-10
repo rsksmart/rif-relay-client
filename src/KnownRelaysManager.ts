@@ -20,9 +20,9 @@ export type RelayFilter = (
   relayData: IRelayHub.RelayManagerDataStruct
 ) => boolean;
 export type AsyncScoreCalculator = (
-  relay: IRelayHub.RelayManagerDataStruct,
-  txDetails: EnvelopingTransactionDetails,
-  failures: RelayFailureInfo[]
+    failures: RelayFailureInfo[],
+  relay?: IRelayHub.RelayManagerDataStruct,
+  txDetails?: EnvelopingTransactionDetails,
 ) => Promise<number> | number;
 
 export interface RelayFailureInfo {
@@ -36,9 +36,7 @@ export interface RelayFailureInfo {
  * Relays that failed to respond recently will be downgraded for some period of time.
  */
 export const defaultRelayScore: AsyncScoreCalculator = function (
-  relay: IRelayHub.RelayManagerDataStruct,
-  txDetails: EnvelopingTransactionDetails,
-  failures: RelayFailureInfo[]
+    failures: RelayFailureInfo[],
 ): number {
   return Math.pow(0.9, failures.length);
 };
@@ -246,9 +244,9 @@ export default class KnownRelaysManager {
     for (const activeRelay of activeRelays) {
       let score = 0;
       score = await this.scoreCalculator(
+        this.relayFailures.get(await activeRelay.url) ?? [],
         activeRelay,
         transactionDetails,
-        this.relayFailures.get(await activeRelay.url) ?? []
       );
       scores.set(await activeRelay.manager, score);
     }
