@@ -289,4 +289,8 @@ export default class KnownRelaysManager {
       relayFailures.push(newFailureInfo);
     }
   }
+
+  getLastScannedBlock(): number {
+    return this.latestScannedBlock;
+  }
 }
