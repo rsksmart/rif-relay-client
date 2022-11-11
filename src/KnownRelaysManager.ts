@@ -56,7 +56,7 @@ export default class KnownRelaysManager {
 
   public relayLookupWindowParts: number;
 
-  public preferredRelayers: IRelayHub.RelayManagerDataStruct[] = [];
+  public preferredRelayers: Pick<IRelayHub.RelayManagerDataStruct, 'url'>[] = [];
 
   public allRelayers: IRelayHub.RelayManagerDataStruct[] = [];
 
@@ -85,7 +85,7 @@ export default class KnownRelaysManager {
     log.debug(
       'KnownRelaysManager - Fetched recently active Relay Managers done'
     );
-    //@ts-ignore
+
     this.preferredRelayers = this.config.preferredRelays.map((relayUrl) => {
       return {
         url: relayUrl,
@@ -225,14 +225,11 @@ export default class KnownRelaysManager {
   async getRelaysSortedForTransaction(
     transactionDetails: EnvelopingTransactionDetails
   ): Promise<IRelayHub.RelayManagerDataStruct[][]> {
-    const sortedRelays: IRelayHub.RelayManagerDataStruct[][] = [];
-    sortedRelays[0] = Array.from(this.preferredRelayers);
-    sortedRelays[1] = await this._sortRelaysInternal(
+
+    return [this.preferredRelayers as IRelayHub.RelayManagerDataStruct[], await this._sortRelaysInternal(
       transactionDetails,
       this.allRelayers
-    );
-
-    return sortedRelays;
+    )]
   }
 
   async _sortRelaysInternal(
