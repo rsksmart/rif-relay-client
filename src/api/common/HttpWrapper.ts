@@ -2,7 +2,7 @@ import axios, {
   AxiosError,
   AxiosInstance,
   AxiosRequestConfig,
-  AxiosResponse,
+  AxiosResponse
 } from 'axios';
 import log, { LogLevelDesc } from 'loglevel';
 
@@ -28,6 +28,16 @@ const stringify = (something: unknown): string =>
 
 const interceptors = {
   logRequest: {
+    onErrorResponse: (response: AxiosResponse) => {
+      log.debug('relayTransaction response:', response);
+      const data = (response.data as {error: string} | undefined);
+      if (data?.error) {
+        log.error(`Error within response: ${data.error}`);
+        throw new Error(`Got error response from relay: ${data.error}`);
+      }
+      
+      return response;
+    },
     onResponse: (response: AxiosResponse) => {
       log.info(
         `Got a response: ${response.config.url as string}${stringify(
@@ -67,7 +77,6 @@ export default class HttpWrapper {
       headers: { 'Content-Type': 'application/json' },
       ...opts,
     });
-
     log.setLevel(loglLevel);
 
     this._httpClient.interceptors.response.use(
@@ -92,3 +101,5 @@ export default class HttpWrapper {
     return data;
   }
 }
+
+export const requestInterceptors = interceptors;

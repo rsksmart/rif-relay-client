@@ -1,20 +1,16 @@
 import sigUtil, {
   SignTypedDataVersion,
-  TypedMessage,
+  TypedMessage
 } from '@metamask/eth-sig-util';
-import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
 import { providers, Wallet } from 'ethers';
 import { getAddress } from 'ethers/lib/utils';
+import type { RelayOrDeployRequest } from './common/relay.types';
 import {
   deployRequestType,
   EnvelopingMessageTypes,
   getEnvelopingRequestDataV4Field,
-  relayRequestType,
+  relayRequestType
 } from './typedRequestData.utils';
-
-export type RelayOrDeployRequest =
-  | EnvelopingTypes.RelayRequestStruct
-  | EnvelopingTypes.DeployRequestStruct;
 
 export default class AccountManager {
   private _provider: providers.Provider;
