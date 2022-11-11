@@ -44,9 +44,9 @@ describe('HttpWrapper', function () {
       const setLogLevelsSpy = sandbox.spy(log, 'setLevel');
       const expectedLogLevel = LogLevel.INFO;
       new HttpWrapper({}, expectedLogLevel);
-      
+
       expect(setLogLevelsSpy).to.be.calledWith(expectedLogLevel);
-    } );
+    });
   });
 
   describe('', function () {
@@ -59,7 +59,7 @@ describe('HttpWrapper', function () {
           url: fakeURL,
           data: { foo: 'bar' },
         };
-        const httpWrapper = new HttpWrapper();
+        const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await httpWrapper.sendPromise(
           expectedPostParams.url,
@@ -82,7 +82,7 @@ describe('HttpWrapper', function () {
           url: fakeURL,
           data: { foo: 'bar' },
         };
-        const httpWrapper = new HttpWrapper();
+        const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await httpWrapper.sendPromise(
           expectedPostParams.url,
@@ -104,7 +104,7 @@ describe('HttpWrapper', function () {
         const expectedPostParams = {
           url: fakeURL,
         };
-        const httpWrapper = new HttpWrapper();
+        const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await httpWrapper.sendPromise(expectedPostParams.url);
 
@@ -121,10 +121,23 @@ describe('HttpWrapper', function () {
         sandbox
           .stub(Axios.prototype, 'request')
           .resolves({ data: expectedResponse });
-        const httpWrapper = new HttpWrapper();
+        const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
         const result = await httpWrapper.sendPromise(fakeURL);
 
         expect(result).to.equal(expectedResponse);
+      });
+
+      it('should throw error if response contains error', async function () {
+        const fakeServer = sandbox.useFakeServer();
+        const expectedError = 'foo'
+        fakeServer.respondWith(() => ({data: {error: expectedError}}));
+        
+        const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
+
+        await expect(httpWrapper.sendPromise(fakeURL)).to.be.rejectedWith(
+          expectedError
+        );
+        
       });
     });
   });
