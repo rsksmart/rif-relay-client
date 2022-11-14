@@ -32,6 +32,13 @@ describe('RelayPricer', () => {
             assert.containsAllKeys(availableApi, ['api', 'tokens']);
         });
 
+        it('should return available api(lowercase)', () => {
+            const availableApi = pricer.findAvailableApi(
+                RIF_SYMBOL.toLowerCase()
+            );
+            assert.containsAllKeys(availableApi, ['api', 'tokens']);
+        });
+
         it('should return available api for RDOC', () => {
             const availableApi = pricer.findAvailableApi('RDOC');
             assert.containsAllKeys(availableApi, ['api', 'tokens']);

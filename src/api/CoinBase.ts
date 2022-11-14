@@ -1,6 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
 import BigNumber from 'bignumber.js';
-import BaseExchangeApi from './ExchangeApi';
+import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
 import log, { LogLevelDesc } from 'loglevel';
 
 const URL = 'https://api.coinbase.com/v2/exchange-rates';
@@ -21,9 +21,10 @@ export type CoinBaseErrorResponse = {
     errors: Array<CoinBaseError>;
 };
 
-const CURRENCY_MAPPING: Record<string, string> = {
+const CURRENCY_MAPPING: CurrencyMapping = {
     RIF: 'RIF',
-    RBTC: 'RBTC'
+    RBTC: 'RBTC',
+    TRIF: 'RIF'
 };
 
 /* TODO:
@@ -62,7 +63,7 @@ export default class CoinBase extends BaseExchangeApi {
     private readonly _httpClient: AxiosInstance;
 
     constructor(loglLevel: LogLevelDesc = 'error') {
-        super('CoinBase', CURRENCY_MAPPING, ['RIF', 'RBTC']);
+        super('CoinBase', CURRENCY_MAPPING, ['RIF', 'RBTC', 'tRif']);
         log.setLevel(loglLevel);
 
         this._httpClient = axios.create();

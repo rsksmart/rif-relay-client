@@ -1,11 +1,19 @@
 import BigNumber from 'bignumber.js';
 
+export type FromCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
+
+export type CurrencyMapping = Partial<Record<FromCurrency, string>>;
+
 export default abstract class BaseExchangeApi {
+    public readonly tokens: string[];
+
     constructor(
         protected readonly api: string,
-        private currencyMapping: Record<string, string>,
-        public readonly tokens: string[]
-    ) {}
+        private currencyMapping: CurrencyMapping,
+        tokens: string[]
+    ) {
+        this.tokens = tokens.map((token) => token.toUpperCase());
+    }
 
     getApiTokenName(tokenSymbol: string): string {
         if (!tokenSymbol) {
@@ -13,14 +21,19 @@ export default abstract class BaseExchangeApi {
                 `${this.api} API cannot map a token with a null/empty value`
             );
         }
+
         const upperCaseTokenSymbol = tokenSymbol.toUpperCase();
-        const resultMapping = this.currencyMapping[upperCaseTokenSymbol];
-        if (!resultMapping) {
+
+        const currency =
+            this.currencyMapping[upperCaseTokenSymbol as FromCurrency];
+
+        if (!currency) {
             throw Error(
                 `Token ${upperCaseTokenSymbol} is not internally mapped in ${this.api} API`
             );
         }
-        return resultMapping;
+
+        return currency;
     }
 
     abstract queryExchangeRate(

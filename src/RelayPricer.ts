@@ -14,8 +14,9 @@ const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
 
 export default class RelayPricer {
     findAvailableApi(token: string): BaseExchangeApi {
+        const upperCaseToken = token?.toUpperCase();
         const availableApi = EXCHANGE_APIS.find((api) =>
-            api.tokens.includes(token)
+            api.tokens.includes(upperCaseToken)
         );
 
         if (!availableApi) {

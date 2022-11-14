@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import BaseExchangeApi from './ExchangeApi';
+import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
 
 type RateRecord = Record<string, string>;
 
@@ -9,7 +9,7 @@ const rates: Record<string, RateRecord> = {
     }
 };
 
-const CURRENCY_MAPPING: Record<string, string> = {
+const CURRENCY_MAPPING: CurrencyMapping = {
     RDOC: 'RDOC'
 };
 
