@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+// All FromCurrency tokens should be in uppercases as we uppercase it before doing the request
 export type FromCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
 
 export type CurrencyMapping = Partial<Record<FromCurrency, string>>;
