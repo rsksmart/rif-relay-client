@@ -1,7 +1,7 @@
 import { expect, use } from 'chai';
 import sinonChai from 'sinon-chai'
 import { createSandbox, SinonStubbedInstance } from 'sinon';
-import RelayedTransactionValidator from '../src/RelayedTransactionValidator';
+import { RelayedTransactionValidator } from '../src/RelayedTransactionValidator';
 import ContractInteractor from '@rsksmart/rif-relay-common/dist/src/ContractInteractor';
 import chaiAsPromised from 'chai-as-promised';
 import type { DeployTransactionRequest, EnvelopingConfig } from '@rsksmart/rif-relay-common/dist/src';
@@ -123,6 +123,8 @@ describe('RelayedTransactionValidator', function () {
             contractInteractor = sandbox.createStubInstance(
                 ContractInteractor
             );
+            contractInteractor.encodeDeployCallABI.returns('Dummy Deploy Data');
+            contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
             relayedTransactionValidator = new RelayedTransactionValidator(contractInteractor, envelopingConfig);
         })
 
@@ -135,22 +137,21 @@ describe('RelayedTransactionValidator', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Deploy Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: relayHubAddress,
                 from: relayWorkerAddress
             }
             
-            contractInteractor.encodeDeployCallABI.returns('Dummy Data');
-            expect(relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress)).to.not.throw;
+            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress)).to.not.throw();
         });
         
         it('Should perform checks on relay transaction and not throw errors', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Relay Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: relayHubAddress,
@@ -169,15 +170,14 @@ describe('RelayedTransactionValidator', function () {
                 }
             }
 
-            contractInteractor.encodeRelayCallABI.returns('Dummy Data');
-            expect(relayedTransactionValidator.validateRelayResponse(relayRequest, transaction, relayWorkerAddress));
+            expect(() => relayedTransactionValidator.validateRelayResponse(relayRequest, transaction, relayWorkerAddress)).to.not.throw();
         });
 
         it('Should throw error if transaction has no recipient address', function () {
             const transaction: Transaction = {
                 nonce: 7,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Deploy Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: undefined,
@@ -193,7 +193,7 @@ describe('RelayedTransactionValidator', function () {
             const transaction: Transaction = {
                 nonce: 7,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Deploy Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: relayHubAddress,
@@ -209,7 +209,7 @@ describe('RelayedTransactionValidator', function () {
             const transaction: Transaction = {
                 nonce: 7,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Deploy Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: relayHubAddress,
@@ -225,7 +225,7 @@ describe('RelayedTransactionValidator', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Deploy Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: 'Dummy Address',
@@ -241,7 +241,7 @@ describe('RelayedTransactionValidator', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
-                data: 'Dummy Data',
+                data: 'Dummy Different Data',
                 gasLimit: BigNumber.from(0),
                 value: BigNumber.from(0),
                 to: relayHubAddress,
@@ -251,6 +251,22 @@ describe('RelayedTransactionValidator', function () {
             expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
                 .to
                 .throw(`Relay request Encoded data must be the same as Transaction data`);
+        });
+
+        it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
+            const transaction: Transaction = {
+                nonce: 5,
+                chainId: 33,
+                data: 'Dummy Deploy Data',
+                gasLimit: BigNumber.from(0),
+                value: BigNumber.from(0),
+                to: relayHubAddress,
+                from: 'Dummy Address',
+            }
+
+            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
+                .to
+                .throw(`Transaction sender address must be the same as configured relayWorker address`);
         });
     })
 });
