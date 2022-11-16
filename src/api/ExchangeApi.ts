@@ -1,8 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-export type FromCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
+// All BaseCurrency tokens should be in uppercases as we uppercase it before doing the request
+export type BaseCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
 
-export type CurrencyMapping = Partial<Record<FromCurrency, string>>;
+export type CurrencyMapping = Partial<Record<BaseCurrency, string>>;
 
 export default abstract class BaseExchangeApi {
     public readonly tokens: string[];
@@ -25,7 +26,7 @@ export default abstract class BaseExchangeApi {
         const upperCaseTokenSymbol = tokenSymbol.toUpperCase();
 
         const currency =
-            this.currencyMapping[upperCaseTokenSymbol as FromCurrency];
+            this.currencyMapping[upperCaseTokenSymbol as BaseCurrency];
 
         if (!currency) {
             throw Error(

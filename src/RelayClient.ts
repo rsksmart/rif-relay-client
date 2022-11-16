@@ -1164,7 +1164,7 @@ export class RelayClient {
         return suffixData;
     }
 
-    private async getPingResponse() {
+    public async getPingResponse() {
         return this.httpClient.getPingResponse(this.config.preferredRelays[0]);
     }
 }
