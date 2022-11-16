@@ -65,7 +65,6 @@ export class RelayedTransactionValidator {
       // TODO: need to validate that client retries the same request and doesn't double-spend.
       // Note that this transaction is totally valid from the EVM's point of view
 
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new Error(
         `Relay used a tx nonce higher than requested. Requested ${request.metadata.relayMaxNonce} got ${nonce}`
       );
