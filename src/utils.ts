@@ -1,14 +1,20 @@
-import type { DeployTransactionRequest, RelayTransactionRequest } from "@rsksmart/rif-relay-common";
+import type {
+  DeployTransactionRequest,
+  RelayTransactionRequest,
+} from '@rsksmart/rif-relay-common';
 
-export const isDeployTransaction = (req: RelayTransactionRequest | DeployTransactionRequest) => {
+export const isDeployTransaction = (
+  req: RelayTransactionRequest | DeployTransactionRequest
+) => {
+  const {
+    relayRequest: { request },
+  } = req;
 
-    const { relayRequest: { request }  } = req;
+  const { recoverer } = request as { recoverer: string };
 
-    const { recoverer } = request as { recoverer: string };
+  if (recoverer) {
+    return true;
+  }
 
-    if(recoverer){
-        return true;
-    }
-
-    return false;
-}
+  return false;
+};
