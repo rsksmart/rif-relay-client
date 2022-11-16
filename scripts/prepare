@@ -2,4 +2,4 @@
 
 node -e "try { require('husky').install() } catch (e) {if (e.code !== 'MODULE_NOT_FOUND') throw e}"
 
-npm run dist
+npx tsc --p ./tsconfig.build.json
