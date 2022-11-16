@@ -2,4 +2,4 @@
 
 rm -rf dist
 
-npx tsc --build --clean
+npx tsc

@@ -15,4 +15,5 @@
     "noErrorTruncation": true,
     "sourceMap": true,
   },
+  "exclude": ["./test"]
 }

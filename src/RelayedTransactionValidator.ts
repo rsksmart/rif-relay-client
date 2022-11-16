@@ -1,6 +1,6 @@
 import log from 'loglevel';
 import type { Transaction } from 'ethers';
-import type ContractInteractor from '@rsksmart/rif-relay-common/dist/src/ContractInteractor';
+import type { ContractInteractor } from '@rsksmart/rif-relay-common';
 import type {
   EnvelopingConfig,
   RelayTransactionRequest,
