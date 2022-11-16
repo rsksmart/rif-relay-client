@@ -137,28 +137,47 @@ export default class KnownRelaysManager {
 
   // return events from hub. split requested range into "window parts", to avoid
   // fetching too many events at once.
-  getPastEventsForHub(
+  async getPastEventsForHub(
     fromBlock: number,
     toBlock: number
   ): Promise<TypedEvent[][]> {
-    const rangeParts = this.splitRange(
-      fromBlock,
-      toBlock,
-      this.relayLookupWindowParts
-    );
+    let relayEventParts: Array<Array<Array<TypedEvent>>> = [];
+        const running = true;
+        while (running) {
+            const rangeParts = this.splitRange(
+                fromBlock,
+                toBlock,
+                this.relayLookupWindowParts
+            );
+            try {
+                const getPastEventsPromises = rangeParts.map(
+                    ({ fromBlock, toBlock }): Promise<Array<Array<TypedEvent>>> =>
+                        this.contractInteractor.getPastEventsForHub({
+                            fromBlock,
+                            toBlock
+                        }, [])
+                );
+                relayEventParts = await Promise.all(getPastEventsPromises);
+                break;
+            } catch (e: unknown) {
+                if (
+                    (e as Error).toString().match(/query returned more than/) != null &&
+                    this.config.relayLookupWindowBlocks >
+                        this.relayLookupWindowParts
+                ) {
+                    if (this.relayLookupWindowParts >= 16) {
+                        throw new Error(
+                            `Too many events after splitting by ${this.relayLookupWindowParts}`
+                        );
+                    }
+                    this.relayLookupWindowParts *= 4;
+                } else {
+                    throw e;
+                }
+            }
+        }
 
-    const pastEventsPromises = rangeParts.map(({ fromBlock, toBlock }) => {
-      return this.contractInteractor.getPastEventsForHub({
-        fromBlock,
-        toBlock,
-      });
-    });
-
-    return Promise.all(pastEventsPromises).then(
-      (pastEventArray: TypedEvent[][][]) => {
-        return pastEventArray.flat();
-      }
-    );
+        return relayEventParts.flat();
   }
 
   async _fetchRecentlyActiveRelayManagers(): Promise<Set<string>> {
@@ -188,12 +207,6 @@ export default class KnownRelaysManager {
       const {
         args: { relayManager },
       } = genericEvent;
-
-      if (!genericEvent) {
-        log.info('No relayManager found in event');
-
-        return;
-      }
 
       foundRelayManagers.add(relayManager);
     });
@@ -284,9 +297,5 @@ export default class KnownRelaysManager {
     } else {
       relayFailures.push(newFailureInfo);
     }
-  }
-
-  getLastScannedBlock(): number {
-    return this.latestScannedBlock;
   }
 }
