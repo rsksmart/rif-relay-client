@@ -15,5 +15,8 @@
     "noErrorTruncation": true,
     "sourceMap": true,
   },
-  "exclude": ["./test"]
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

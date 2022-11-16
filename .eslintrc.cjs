@@ -19,7 +19,7 @@ module.exports = {
     ecmaVersion: "latest",
     sourceType: "module",
     tsconfigRootDir: __dirname,
-    project: "./tsconfig.prettier.json",
+    project: "./tsconfig.json",
   },
   rules: {
     "lines-between-class-members": "error",

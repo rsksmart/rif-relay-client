@@ -6,6 +6,7 @@ import type {
   RelayTransactionRequest,
   DeployTransactionRequest,
 } from '@rsksmart/rif-relay-common/dist/src';
+import { isDeployTransaction } from './utils';
 
 export class RelayedTransactionValidator {
   private readonly contractInteractor: ContractInteractor;
@@ -48,10 +49,7 @@ export class RelayedTransactionValidator {
       throw Error('Transaction has no signer');
     }
 
-    const isDeploy = (request as DeployTransactionRequest).relayRequest.request
-      .recoverer
-      ? true
-      : false;
+    const isDeploy = isDeployTransaction(request);
 
     const relayRequestAbiEncode = isDeploy
       ? this.contractInteractor.encodeDeployCallABI(
@@ -63,7 +61,6 @@ export class RelayedTransactionValidator {
           request.metadata.signature
         );
 
-    // TODO: the relayServer encoder returns zero-length buffer for nonce=0.`
     if (nonce > request.metadata.relayMaxNonce) {
       // TODO: need to validate that client retries the same request and doesn't double-spend.
       // Note that this transaction is totally valid from the EVM's point of view

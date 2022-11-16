@@ -1,5 +1,5 @@
 #!/bin/bash
 
-rm -rf dist
+npx tsc --build --clean
 
-npx tsc
+npx tsc --p ./tsconfig.build.json

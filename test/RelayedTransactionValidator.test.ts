@@ -169,7 +169,7 @@ describe('RelayedTransactionValidator', function () {
                     }
                 }
             }
-
+            contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
             expect(() => relayedTransactionValidator.validateRelayResponse(relayRequest, transaction, relayWorkerAddress)).to.not.throw();
         });
 
