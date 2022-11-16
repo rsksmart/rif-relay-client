@@ -50,8 +50,6 @@ export default class KnownRelaysManager {
 
   private readonly scoreCalculator: AsyncScoreCalculator;
 
-  private latestScannedBlock = 0;
-
   private relayFailures = new Map<string, RelayFailureInfo[]>();
 
   public relayLookupWindowParts: number;
@@ -142,42 +140,44 @@ export default class KnownRelaysManager {
     toBlock: number
   ): Promise<TypedEvent[][]> {
     let relayEventParts: Array<Array<Array<TypedEvent>>> = [];
-        const running = true;
-        while (running) {
-            const rangeParts = this.splitRange(
+    const running = true;
+    while (running) {
+      const rangeParts = this.splitRange(
+        fromBlock,
+        toBlock,
+        this.relayLookupWindowParts
+      );
+      try {
+        const getPastEventsPromises = rangeParts.map(
+          ({ fromBlock, toBlock }): Promise<Array<Array<TypedEvent>>> =>
+            this.contractInteractor.getPastEventsForHub(
+              {
                 fromBlock,
                 toBlock,
-                this.relayLookupWindowParts
+              },
+              []
+            )
+        );
+        relayEventParts = await Promise.all(getPastEventsPromises);
+        break;
+      } catch (e: unknown) {
+        if (
+          (e as Error).toString().match(/query returned more than/) != null &&
+          this.config.relayLookupWindowBlocks > this.relayLookupWindowParts
+        ) {
+          if (this.relayLookupWindowParts >= 16) {
+            throw new Error(
+              `Too many events after splitting by ${this.relayLookupWindowParts}`
             );
-            try {
-                const getPastEventsPromises = rangeParts.map(
-                    ({ fromBlock, toBlock }): Promise<Array<Array<TypedEvent>>> =>
-                        this.contractInteractor.getPastEventsForHub({
-                            fromBlock,
-                            toBlock
-                        }, [])
-                );
-                relayEventParts = await Promise.all(getPastEventsPromises);
-                break;
-            } catch (e: unknown) {
-                if (
-                    (e as Error).toString().match(/query returned more than/) != null &&
-                    this.config.relayLookupWindowBlocks >
-                        this.relayLookupWindowParts
-                ) {
-                    if (this.relayLookupWindowParts >= 16) {
-                        throw new Error(
-                            `Too many events after splitting by ${this.relayLookupWindowParts}`
-                        );
-                    }
-                    this.relayLookupWindowParts *= 4;
-                } else {
-                    throw e;
-                }
-            }
+          }
+          this.relayLookupWindowParts *= 4;
+        } else {
+          throw e;
         }
+      }
+    }
 
-        return relayEventParts.flat();
+    return relayEventParts.flat();
   }
 
   async _fetchRecentlyActiveRelayManagers(): Promise<Set<string>> {
@@ -216,7 +216,6 @@ export default class KnownRelaysManager {
         Array.from(foundRelayManagers.values())
       )}`
     );
-    this.latestScannedBlock = toBlock;
 
     return foundRelayManagers;
   }
