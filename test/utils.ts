@@ -1,10 +1,10 @@
 import type { SinonStub } from "sinon";
 
-const callFakeOnce = (
-  stubFn: SinonStub,
+const callFakeOnce = <T extends SinonStub>(
+  stubFn: T,
   fake: (...args: unknown[]) => unknown,
   finalFake: (...args: unknown[]) => unknown
-): SinonStub => {
+): T => {
   stubFn.callsFake((...args: unknown[]) => {
     const response = fake(...args);
     stubFn.callsFake(finalFake);

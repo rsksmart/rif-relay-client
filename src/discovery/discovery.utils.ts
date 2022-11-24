@@ -1,5 +1,10 @@
-import { constants, getDefaultProvider, providers, utils } from 'ethers';
-import { getAddress, HDNode, solidityKeccak256 } from 'ethers/lib/utils';
+import { constants, getDefaultProvider, providers } from 'ethers';
+import {
+  getAddress,
+  HDNode,
+  keccak256,
+  solidityKeccak256,
+} from 'ethers/lib/utils';
 
 import { langCz as cz } from '@ethersproject/wordlists/lib/lang-cz';
 import { langEn as en } from '@ethersproject/wordlists/lib/lang-en';
@@ -10,21 +15,17 @@ import { langJa as ja } from '@ethersproject/wordlists/lib/lang-ja';
 import { langKo as ko } from '@ethersproject/wordlists/lib/lang-ko';
 import {
   langZhCn as zh_cn,
-  langZhTw as zh_tw
+  langZhTw as zh_tw,
 } from '@ethersproject/wordlists/lib/lang-zh';
 import type { SmartWalletFactory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/factory/SmartWalletFactory';
 import { ERC20__factory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/factories/@openzeppelin/contracts/token/ERC20/ERC20__factory';
 import { SmartWalletFactory__factory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/factories/contracts/factory';
-
-const SHA3_NULL_S =
-  '0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'; //TODO: verify this is the correct way to get the hash. Copied from rif-relay-common (https://github.com/rsksmart/rif-relay-common/blob/f8e4ce8d90a979f3eec55a0eb5dbd5cc742c40e3/src/Constants.ts#L18-L19)
+const SHA3_NULL_S = keccak256('0x');
 
 type Account = {
   eoaAccount: string;
   swAccounts: string[];
 };
-
-type Locale = keyof typeof wordlists; //TODO: hopefully this will be added to ethers.js (https://github.com/ethers-io/ethers.js/pull/3514)
 
 // TODO: copied from @ethersproject/wordlists/src.ts/wordlists.ts as that doesn't allow for locale type extraction. Remove (including imports) when this is fixed (https://github.com/ethers-io/ethers.js/pull/3514).
 const wordlists = {
@@ -39,6 +40,8 @@ const wordlists = {
   zh_cn,
   zh_tw,
 } as const;
+
+type Locale = keyof typeof wordlists; //TODO: hopefully this will be added to ethers.js (https://github.com/ethers-io/ethers.js/pull/3514)
 
 // TODO: check that the optional params have to be optional
 type Config = {
@@ -78,6 +81,56 @@ const RSK_COIN_TYPE = 137; // src: https://github.com/satoshilabs/slips/blob/mas
 const RSK_TESTNET_COIN_TYPE = 37310; // src: https://github.com/rsksmart/RSKIPs/blob/master/IPs/RSKIP57.md
 const DEFAULT_DERIVATION_PATH_CHANGE = 0;
 
+type Setup = {
+  config: Config;
+  rootNode?: HDNode;
+  bytecodeHash: string;
+  smartWalletFactory: SmartWalletFactory;
+  provider: providers.BaseProvider;
+};
+
+const setupDiscovery = async (
+  configOverride: Config,
+  mnemonic?: string,
+  password?: string
+): Promise<Setup> => {
+  const config = {
+    ...DEFAULT_DISCOVERY_CONFIG,
+    ...configOverride,
+  };
+
+  const rootNode = mnemonic
+    ? HDNode.fromMnemonic(
+        mnemonic,
+        password,
+        wordlists[config.mnemonicLanguage]
+      )
+    : undefined;
+  const provider = getDefaultProvider(config.network);
+
+  const smartWalletFactory = SmartWalletFactory__factory.connect(
+    config.factory,
+    provider
+  );
+
+  const creationByteCode = await smartWalletFactory.getCreationBytecode();
+  const bytecodeHash = keccak256(creationByteCode);
+  const logic = config.logic ?? constants.AddressZero;
+  const logicParamsHash = config.logicParamsHash ?? SHA3_NULL_S;
+
+  return {
+    config: {
+      ...config,
+      logic,
+      logicParamsHash,
+    },
+    rootNode,
+    bytecodeHash,
+    smartWalletFactory,
+    provider,
+  };
+};
+
 const constructDerivationPath = (
   addressIdx: number,
   hardenedIdx: number,
@@ -85,7 +138,7 @@ const constructDerivationPath = (
   isTestNet = false,
   purpose = DEFAULT_DERIVATION_PATH_PURPOSE,
   change: 0 | 1 = DEFAULT_DERIVATION_PATH_CHANGE
-) => {
+): `m/${string}` => {
   return `m/${purpose}'/${
     coinType || isTestNet ? RSK_TESTNET_COIN_TYPE : RSK_COIN_TYPE
   }'/${hardenedIdx}'/${change}/${addressIdx}`;
@@ -96,7 +149,7 @@ const getSWAddress = (
   ownerEOA: string,
   walletIndex: number,
   bytecodeHash: string
-) => {
+): string => {
   const isCustom = config.logic && config.logicParamsHash;
   const salt = isCustom
     ? solidityKeccak256(
@@ -124,11 +177,11 @@ const getSWAddress = (
   return getAddress(address);
 };
 
-const hasAccActivity = async (
+const checkHasActivity = async (
   accountAddr: string,
   config: Config,
   provider: providers.Provider
-) => {
+): Promise<boolean> => {
   const hasBalance = (await provider.getBalance(accountAddr, 'latest')).gt(0);
 
   if (hasBalance) {
@@ -141,13 +194,14 @@ const hasAccActivity = async (
     return true;
   }
 
-  const hasERC20Balance = Boolean(
-    config.tokens.find(async (tokenAddr: string) => {
-      const erc20Contract = ERC20__factory.connect(tokenAddr, provider);
-      const balance = await erc20Contract.balanceOf(accountAddr);
+  const erc20Balances = await Promise.all(
+    config.tokens.map((token) =>
+      ERC20__factory.connect(token, provider).balanceOf(accountAddr)
+    )
+  );
 
-      return balance.gt(0);
-    })
+  const hasERC20Balance = Boolean(
+    erc20Balances.find((balance) => balance.gt(0))
   );
 
   if (hasERC20Balance) {
@@ -157,64 +211,61 @@ const hasAccActivity = async (
   return false;
 };
 
-async function setupDiscovery(
-  configOveride: Config,
-  mnemonic: string,
-  password: string | undefined
-): Promise<{
-  config: Config;
-  hardenedNode: utils.HDNode;
-  bytecodeHash: string;
-  smartWalletFactory: SmartWalletFactory;
-  provider: providers.Provider;
-}> {
-  const config = {
-    ...DEFAULT_DISCOVERY_CONFIG,
-    ...configOveride,
-  };
+const findHardenedNodeActivity = async (
+  { config, rootNode, provider, bytecodeHash }: Required<Setup>,
+  hardenedAccIdx: number
+): Promise<Account[]> => {
+  let accounts: Account[] = [];
+  let inactivityCountdown = config.eoaGap;
+  let eoaIndex = 0;
 
-  const wordlist = wordlists[config.mnemonicLanguage];
-  const hardenedNode: HDNode = HDNode.fromMnemonic(
-    mnemonic,
-    password,
-    wordlist
-  );
-  const provider = getDefaultProvider(config.network);
+  while (inactivityCountdown > 0) {
+    const { address: eoaAccount } = rootNode.derivePath(
+      constructDerivationPath(eoaIndex, hardenedAccIdx)
+    );
+    const eoaActivityFound = await checkHasActivity(
+      eoaAccount,
+      config,
+      provider
+    );
 
-  const smartWalletFactory = SmartWalletFactory__factory.connect(
-    config.factory,
-    provider
-  );
+    const swAccounts = await findSWActivity(
+      eoaAccount,
+      config,
+      bytecodeHash,
+      provider
+    );
 
-  const creationByteCode = await smartWalletFactory.getCreationBytecode();
-  const bytecodeHash = utils.keccak256(creationByteCode);
-  const logic = config.logic ?? constants.AddressZero;
-  const logicParamsHash = config.logicParamsHash ?? SHA3_NULL_S;
+    if (swAccounts.length > 0 || eoaActivityFound) {
+      inactivityCountdown = config.eoaGap;
 
-  return {
-    config: {
-      ...config,
-      logic,
-      logicParamsHash,
-    },
-    hardenedNode,
-    bytecodeHash,
-    smartWalletFactory,
-    provider,
-  };
-}
+      accounts = [
+        ...accounts,
+        {
+          eoaAccount,
+          swAccounts,
+        },
+      ];
+    } else {
+      inactivityCountdown -= 1;
+    }
+    eoaIndex++;
+  }
 
-async function findActiveSWFor(
+  return accounts;
+};
+
+const findSWActivity = async (
   eoaAddr: string,
   config: Config,
   bytecodeHash: string,
   provider: providers.Provider
-) {
+): Promise<string[]> => {
   let inactivityCountdown = config.sWalletGap;
   let swIndex = 0;
   let swAccounts: string[] = [];
 
-  while (inactivityCountdown >= 0) {
+  while (inactivityCountdown > 0) {
     // originally <=gapLimit, but rskj rpc crashes
     const currentSWAddress = getSWAddress(
       config,
@@ -223,7 +274,7 @@ async function findActiveSWFor(
       bytecodeHash
     );
 
-    const hasActivity = await hasAccActivity(
+    const hasActivity = await checkHasActivity(
       currentSWAddress,
       config,
       provider
@@ -240,82 +291,21 @@ async function findActiveSWFor(
   }
 
   return swAccounts;
-}
-
-const discoverAccountsFromMnemonic = async (
-  configOveride: Config,
-  mnemonic: string,
-  password?: string
-): Promise<Account[]> => {
-  const { config, hardenedNode, bytecodeHash, provider } = await setupDiscovery(
-    configOveride,
-    mnemonic,
-    password
-  );
-
-  let accounts: Account[] = [];
-  let hardenedAccount = -1;
-  let nextHardened = true;
-
-  while (nextHardened) {
-    hardenedAccount += 1;
-    nextHardened = false;
-    let inactivityCountdown = config.eoaGap;
-    let eoaIndex = 0;
-
-    while (inactivityCountdown > 0) {
-      const { address: eoaAccount } = hardenedNode.derivePath(
-        constructDerivationPath(eoaIndex, hardenedAccount)
-      );
-      const eoaActivityFound = await hasAccActivity(
-        eoaAccount,
-        config,
-        provider
-      );
-
-      if (eoaActivityFound) {
-        nextHardened = true;
-        inactivityCountdown = config.eoaGap;
-      }
-
-      const swAccounts = await findActiveSWFor(
-        eoaAccount,
-        config,
-        bytecodeHash,
-        provider
-      );
-      
-      if (swAccounts.length > 0 || eoaActivityFound) {
-        nextHardened = true;
-        inactivityCountdown = config.eoaGap;
-
-        accounts = [
-          ...accounts,
-          {
-            eoaAccount,
-            swAccounts,
-          },
-        ];
-      } else {
-        inactivityCountdown -= 1;
-      }
-      eoaIndex++;
-    }
-  }
-
-  return accounts;
 };
 
-// export const discoverAccountsFromExtendedPublicKeys = async (
-//   configOverride: Config,
-//   extendedPublicKeys: string[]
-// ): Promise<Account[]> => {
-
-// };
-
-export type DiscoveryConfig = Config;
-export type DiscoveredAccount = Account;
-
+export type { Config, Account, Setup };
 export {
-  discoverAccountsFromMnemonic
+  getSWAddress,
+  findSWActivity,
+  findHardenedNodeActivity,
+  constructDerivationPath,
+  setupDiscovery,
+  checkHasActivity,
+};
+export {
+  DEFAULT_DISCOVERY_CONFIG,
+  DEFAULT_DERIVATION_PATH_PURPOSE,
+  RSK_COIN_TYPE,
+  RSK_TESTNET_COIN_TYPE,
+  DEFAULT_DERIVATION_PATH_CHANGE,
 };
