@@ -5,4 +5,4 @@ export {
 export type {
   Account as DiscoveredAccount,
   Config as DiscoveryConfig,
-} from './discovery.utils';
+} from './utils';

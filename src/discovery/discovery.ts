@@ -5,7 +5,7 @@ import {
   findHardenedNodeActivity,
   Setup,
   setupDiscovery,
-} from './discovery.utils';
+} from './utils';
 
 const discoverAccountsFromMnemonic = async (
   configOverride: Config,
