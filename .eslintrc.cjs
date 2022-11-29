@@ -2,7 +2,7 @@ module.exports = {
   extends: [
     "eslint:recommended",
     "plugin:mocha/recommended",
-    "plugin:jest-formatting/recommended",
+    "plugin:jest-formatting/recommended", // easiest way to add padding around tests blocks rules. could write our own in future using [padding-line-between-statements](https://eslint.org/docs/latest/rules/padding-line-between-statements) rule
     "plugin:@typescript-eslint/eslint-recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:@typescript-eslint/recommended-requiring-type-checking",
