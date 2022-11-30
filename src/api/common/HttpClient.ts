@@ -7,6 +7,7 @@ import type {
 } from '../../common/relay.types';
 import type HttpWrapper from './HttpWrapper';
 import { requestInterceptors } from './HttpWrapper';
+import type { PingResponse } from '../../utils'
 
 const PATHS = {
   GET_INFO: '/getaddr',
@@ -69,6 +70,22 @@ export default class HttpClient {
     log.info('esimation relayTransaction response:', response);
 
     return response;
+  }
+
+  async getPingResponse(
+    relayUrl: string,
+    verifier?: string
+): Promise<PingResponse> {
+    const verifierSuffix = verifier == null ? '' : '?verifier=' + verifier;
+    const pingResponse = await this._httpWrapper.sendPromise<PingResponse>(
+        relayUrl + '/getaddr' + verifierSuffix
+    );
+    if (pingResponse == null) {
+        throw new Error('Relay responded without a body');
+    }
+    log.info(`pingResponse: ${JSON.stringify(pingResponse)}`);
+
+    return pingResponse;
   }
 }
 
