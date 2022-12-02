@@ -9,6 +9,7 @@ import sinonChai from 'sinon-chai';
 import { RelayClient } from '../src/RelayClient';
 import { createRandomAddress } from './utils';
 import { providers, BigNumber } from 'ethers';
+import { BigNumber as BigNumberJs } from 'bignumber.js';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -161,7 +162,7 @@ describe('RelayClient', function () {
         clientId: '',
         deployVerifierAddress: '',
         forwarderAddress: '',
-        gasPriceFactorPercent: 20,
+        gasPriceFactorPercent: 0.2,
         relayVerifierAddress: '',
         relayHubAddress: '',
         smartWalletFactoryAddress: '',
@@ -208,12 +209,13 @@ describe('RelayClient', function () {
       const estimateGas = BigNumber.from(60000);
       provider.getGasPrice.returns(Promise.resolve(estimateGas));
       const gasPrice = await relayClient['_calculateGasPrice']();
-      const bigGasPriceFactorPercent = BigNumber.from(
+      const bigGasPriceFactorPercent = BigNumberJs(
         envelopingConfig.gasPriceFactorPercent
       );
-      const estimatedGas = estimateGas
-        .mul(bigGasPriceFactorPercent.add(100))
-        .div(100);
+      const bigEstimateGas = BigNumberJs(estimateGas.toString());
+      const estimatedGas = bigEstimateGas.multipliedBy(
+        bigGasPriceFactorPercent.plus(1).toString()
+      );
       expect(gasPrice.toString()).to.be.equal(estimatedGas.toString());
     });
   });

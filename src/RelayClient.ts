@@ -58,25 +58,26 @@ class RelayClient {
     return BigNumber.from(bigEstimation.toFixed());
   }
 
-  //FIXME should be private but since its being used yet, would leave as public to avoid lint error
+  //FIXME ts-ignore needs to be removed once its used by other method
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
   private async _calculateGasPrice(): Promise<BigNumber> {
     const { minGasPrice, gasPriceFactorPercent } = this._envelopingConfig;
 
-    const bigMinGasPrice = BigNumber.from(minGasPrice);
-    const bigGasPriceFactorPercent = BigNumber.from(gasPriceFactorPercent);
+    const bigMinGasPrice = BigNumberJs(minGasPrice);
+    const bigGasPriceFactorPercent = BigNumberJs(gasPriceFactorPercent);
     const networkGasPrice = await this._provider.getGasPrice();
+    const bigNetworkPrice = BigNumberJs(networkGasPrice.toString());
 
-    const gasPrice = networkGasPrice
-      .mul(bigGasPriceFactorPercent.add(100))
-      .div(100);
+    const gasPrice = bigNetworkPrice.multipliedBy(
+      bigGasPriceFactorPercent.plus(1)
+    );
 
-    if (gasPrice.lt(minGasPrice)) {
-      return bigMinGasPrice;
+    if (gasPrice.lt(bigMinGasPrice)) {
+      return BigNumber.from(bigMinGasPrice.toFixed());
     }
 
-    return gasPrice;
+    return BigNumber.from(gasPrice.toFixed());
   }
 }
 
