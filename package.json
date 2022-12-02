@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-relay-client",
-  "version": "1.0.0-alpha.0",
+  "version": "1.0.0-alpha.1",
   "private": false,
   "description": "This project contains all the client code for the rif relay system.",
   "license": "MIT",
@@ -67,7 +67,6 @@
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
     "@commitlint/config-conventional": "^17.1.0",
-    "@nomiclabs/hardhat-ethers": "^2.2.0",
     "@tsconfig/node16-strictest": "^1.0.4",
     "@types/chai": "4.3.3",
     "@types/chai-as-promised": "^7.1.5",
@@ -104,5 +103,6 @@
       "test",
       ".github"
     ]
-  }
+  },
+  "FIXME:": "delete @rsksmart/rif-relay-common once RelayTransactionValidator implements the contract interactor methods"
 }

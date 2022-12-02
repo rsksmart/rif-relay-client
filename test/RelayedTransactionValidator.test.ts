@@ -1,11 +1,14 @@
+import type {
+  DeployTransactionRequest,
+  EnvelopingConfig,
+} from '@rsksmart/rif-relay-common/dist/src';
+import ContractInteractor from '@rsksmart/rif-relay-common/dist/src/ContractInteractor'; // FIXME: ContractInteractor should not be used
 import { expect, use } from 'chai';
-import sinonChai from 'sinon-chai'
-import { createSandbox, SinonStubbedInstance } from 'sinon';
-import { RelayedTransactionValidator } from '../src/RelayedTransactionValidator';
-import ContractInteractor from '@rsksmart/rif-relay-common/dist/src/ContractInteractor';
 import chaiAsPromised from 'chai-as-promised';
-import type { DeployTransactionRequest, EnvelopingConfig } from '@rsksmart/rif-relay-common/dist/src';
 import { BigNumber, Transaction, Wallet } from 'ethers';
+import { createSandbox, SinonStubbedInstance } from 'sinon';
+import sinonChai from 'sinon-chai';
+import { RelayedTransactionValidator } from '../src/RelayedTransactionValidator';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -14,259 +17,304 @@ const sandbox = createSandbox();
 const createRandomAddress = () => Wallet.createRandom().address;
 
 describe('RelayedTransactionValidator', function () {
+  describe('constructor', function () {
+    after(function () {
+      sandbox.restore();
+    });
 
-    describe('constructor', function(){
+    afterEach(function () {
+      sandbox.restore();
+    });
 
-        after(function () {
-            sandbox.restore();
-        });
+    it('Should store ContractInteractor and Config', function () {
+      const contractInteractor = sandbox.createStubInstance(ContractInteractor);
 
-        afterEach(function () {
-            sandbox.restore();
-        });
+      const envelopingConfig: EnvelopingConfig = {
+        chainId: 33,
+        clientId: '',
+        deployVerifierAddress: '',
+        forwarderAddress: '',
+        gasPriceFactorPercent: 0.02,
+        relayVerifierAddress: '',
+        relayHubAddress: '',
+        smartWalletFactoryAddress: '',
+        sliceSize: 0,
+        relayTimeoutGrace: 0,
+        relayLookupWindowParts: 0,
+        relayLookupWindowBlocks: 0,
+        maxRelayNonceGap: 0,
+        minGasPrice: 0,
+        methodSuffix: '',
+        preferredRelays: [],
+        onlyPreferredRelays: true,
+        jsonStringifyRequest: true,
+        logLevel: 0,
+      };
 
-        it('Should store ContractInteractor and Config', function () {
+      const relayedTransactionValidator = new RelayedTransactionValidator(
+        contractInteractor,
+        envelopingConfig
+      );
+      expect(relayedTransactionValidator).to.be.instanceOf(
+        RelayedTransactionValidator
+      );
+    });
+  });
 
-            const contractInteractor = sandbox.createStubInstance(
-                ContractInteractor
-            );
+  describe('validateRelayResponse', function () {
+    let contractInteractor: SinonStubbedInstance<ContractInteractor>;
+    let deployRequest: DeployTransactionRequest;
+    let relayedTransactionValidator: RelayedTransactionValidator;
+    let relayWorkerAddress: string;
+    let relayHubAddress: string;
 
-            const envelopingConfig: EnvelopingConfig = {
-                chainId: 33,
-                clientId: '',
-                deployVerifierAddress: '',
-                forwarderAddress: '',
-                gasPriceFactorPercent: 0.02,
-                relayVerifierAddress: '',
-                relayHubAddress: '',
-                smartWalletFactoryAddress: '',
-                sliceSize: 0,
-                relayTimeoutGrace: 0,
-                relayLookupWindowParts: 0,
-                relayLookupWindowBlocks: 0,
-                maxRelayNonceGap: 0,
-                minGasPrice: 0,
-                methodSuffix: '',
-                preferredRelays: [],
-                onlyPreferredRelays: true,
-                jsonStringifyRequest: true,
-                logLevel: 0
-            }
+    beforeEach(function () {
+      relayWorkerAddress = createRandomAddress();
+      relayHubAddress = createRandomAddress();
 
-            const relayedTransactionValidator = new RelayedTransactionValidator(contractInteractor, envelopingConfig);
-            expect(relayedTransactionValidator).to.be.instanceOf(RelayedTransactionValidator);
-        });
-    })
+      deployRequest = {
+        metadata: {
+          relayHubAddress,
+          relayMaxNonce: 6,
+          signature: '',
+        },
+        relayRequest: {
+          relayData: {
+            callForwarder: '',
+            callVerifier: '',
+            feesReceiver: '',
+            gasPrice: '',
+          },
+          request: {
+            from: '',
+            to: '',
+            index: 0,
+            nonce: 0,
+            recoverer: createRandomAddress(),
+            relayHub: '',
+            tokenAmount: 0,
+            tokenContract: '',
+            tokenGas: 0,
+            value: 0,
+            data: '',
+          },
+        },
+      };
 
-    describe('validateRelayResponse', function() {
+      const envelopingConfig: EnvelopingConfig = {
+        chainId: 33,
+        clientId: '',
+        deployVerifierAddress: '',
+        forwarderAddress: '',
+        gasPriceFactorPercent: 0.02,
+        relayVerifierAddress: '',
+        relayHubAddress,
+        smartWalletFactoryAddress: '',
+        sliceSize: 0,
+        relayTimeoutGrace: 0,
+        relayLookupWindowParts: 0,
+        relayLookupWindowBlocks: 0,
+        maxRelayNonceGap: 0,
+        minGasPrice: 0,
+        methodSuffix: '',
+        preferredRelays: [],
+        onlyPreferredRelays: true,
+        jsonStringifyRequest: true,
+        logLevel: 0,
+      };
 
-        let contractInteractor: SinonStubbedInstance<ContractInteractor>;
-        let deployRequest: DeployTransactionRequest;
-        let relayedTransactionValidator: RelayedTransactionValidator;
-        let relayWorkerAddress: string;
-        let relayHubAddress: string;
-        beforeEach(function () {
-            relayWorkerAddress = createRandomAddress();
-            relayHubAddress = createRandomAddress();
+      contractInteractor = sandbox.createStubInstance(ContractInteractor);
+      contractInteractor.encodeDeployCallABI.returns('Dummy Deploy Data');
+      contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
+      relayedTransactionValidator = new RelayedTransactionValidator(
+        contractInteractor,
+        envelopingConfig
+      );
+    });
 
-            deployRequest = {
-                metadata: {
-                    relayHubAddress,
-                    relayMaxNonce: 6,
-                    signature: ''
-                },
-                relayRequest: {
-                    relayData: {
-                        callForwarder: '',
-                        callVerifier: '',
-                        feesReceiver: '',
-                        gasPrice: ''
-                    },
-                    request: {
-                        from: '',
-                        to: '',
-                        index: 0,
-                        nonce: 0,
-                        recoverer: createRandomAddress(),
-                        relayHub: '',
-                        tokenAmount: 0,
-                        tokenContract: '',
-                        tokenGas: 0,
-                        value: 0,
-                        data: ''
-                    }
-                }
-            }
+    afterEach(function () {
+      sandbox.restore();
+    });
 
-            const envelopingConfig: EnvelopingConfig = {
-                chainId: 33,
-                clientId: '',
-                deployVerifierAddress: '',
-                forwarderAddress: '',
-                gasPriceFactorPercent: 0.02,
-                relayVerifierAddress: '',
-                relayHubAddress,
-                smartWalletFactoryAddress: '',
-                sliceSize: 0,
-                relayTimeoutGrace: 0,
-                relayLookupWindowParts: 0,
-                relayLookupWindowBlocks: 0,
-                maxRelayNonceGap: 0,
-                minGasPrice: 0,
-                methodSuffix: '',
-                preferredRelays: [],
-                onlyPreferredRelays: true,
-                jsonStringifyRequest: true,
-                logLevel: 0
-            }
+    it('Should perform checks on deploy transaction and not throw errors', function () {
+      const transaction: Transaction = {
+        nonce: 5,
+        chainId: 33,
+        data: 'Dummy Deploy Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: relayHubAddress,
+        from: relayWorkerAddress,
+      };
 
-            contractInteractor = sandbox.createStubInstance(
-                ContractInteractor
-            );
-            contractInteractor.encodeDeployCallABI.returns('Dummy Deploy Data');
-            contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
-            relayedTransactionValidator = new RelayedTransactionValidator(contractInteractor, envelopingConfig);
-        })
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.not.throw();
+    });
 
-        afterEach(function () {
-            sandbox.restore();
-        });
+    it('Should perform checks on relay transaction and not throw errors', function () {
+      const transaction: Transaction = {
+        nonce: 5,
+        chainId: 33,
+        data: 'Dummy Relay Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: relayHubAddress,
+        from: relayWorkerAddress,
+      };
 
-        it('Should perform checks on deploy transaction and not throw errors', function () {
-            
-            const transaction: Transaction = {
-                nonce: 5,
-                chainId: 33,
-                data: 'Dummy Deploy Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: relayHubAddress,
-                from: relayWorkerAddress
-            }
-            
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress)).to.not.throw();
-        });
-        
-        it('Should perform checks on relay transaction and not throw errors', function () {
-            const transaction: Transaction = {
-                nonce: 5,
-                chainId: 33,
-                data: 'Dummy Relay Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: relayHubAddress,
-                from: relayWorkerAddress
-            }
+      const {
+        metadata,
+        relayRequest: { relayData, request },
+      } = deployRequest;
+      const relayRequest = {
+        metadata,
+        relayRequest: {
+          relayData,
+          request: {
+            ...request,
+            recoverer: '',
+          },
+        },
+      };
+      contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          relayRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.not.throw();
+    });
 
-            const { metadata, relayRequest: { relayData, request } } = deployRequest;
-            const relayRequest = {
-                metadata,
-                relayRequest: {
-                    relayData,
-                    request: {
-                        ...request,
-                        recoverer: ''
-                    }
-                }
-            }
-            contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
-            expect(() => relayedTransactionValidator.validateRelayResponse(relayRequest, transaction, relayWorkerAddress)).to.not.throw();
-        });
+    it('Should throw error if transaction has no recipient address', function () {
+      const transaction: Transaction = {
+        nonce: 7,
+        chainId: 33,
+        data: 'Dummy Deploy Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: undefined,
+        from: relayWorkerAddress,
+      };
 
-        it('Should throw error if transaction has no recipient address', function () {
-            const transaction: Transaction = {
-                nonce: 7,
-                chainId: 33,
-                data: 'Dummy Deploy Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: undefined,
-                from: relayWorkerAddress
-            }
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.throw(`Transaction has no recipient address`);
+    });
 
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
-                .to
-                .throw(`Transaction has no recipient address`);
-        });
+    it('Should throw error if transaction has no sender address', function () {
+      const transaction: Transaction = {
+        nonce: 7,
+        chainId: 33,
+        data: 'Dummy Deploy Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: relayHubAddress,
+        from: undefined,
+      };
 
-        it('Should throw error if transaction has no sender address', function () {
-            const transaction: Transaction = {
-                nonce: 7,
-                chainId: 33,
-                data: 'Dummy Deploy Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: relayHubAddress,
-                from: undefined
-            }
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.throw(`Transaction has no signer`);
+    });
 
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
-                .to
-                .throw(`Transaction has no signer`);
-        });
-        
-        it('Should throw error if nonce is greater than relayMaxNonce', function () {
-            const transaction: Transaction = {
-                nonce: 7,
-                chainId: 33,
-                data: 'Dummy Deploy Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: relayHubAddress,
-                from: relayWorkerAddress
-            }
+    it('Should throw error if nonce is greater than relayMaxNonce', function () {
+      const transaction: Transaction = {
+        nonce: 7,
+        chainId: 33,
+        data: 'Dummy Deploy Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: relayHubAddress,
+        from: relayWorkerAddress,
+      };
 
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
-                .to
-                .throw(`Relay used a tx nonce higher than requested. Requested ${deployRequest.metadata.relayMaxNonce} got ${transaction.nonce}`);
-        });
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.throw(
+        `Relay used a tx nonce higher than requested. Requested ${deployRequest.metadata.relayMaxNonce} got ${transaction.nonce}`
+      );
+    });
 
-        it('Should throw error if Transaction recipient is not the RelayHubAddress', function () {
-            const transaction: Transaction = {
-                nonce: 5,
-                chainId: 33,
-                data: 'Dummy Deploy Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: 'Dummy Address',
-                from: relayWorkerAddress
-            }
+    it('Should throw error if Transaction recipient is not the RelayHubAddress', function () {
+      const transaction: Transaction = {
+        nonce: 5,
+        chainId: 33,
+        data: 'Dummy Deploy Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: 'Dummy Address',
+        from: relayWorkerAddress,
+      };
 
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
-                .to
-                .throw(`Transaction recipient must be the RelayHubAddress`);
-        });
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.throw(`Transaction recipient must be the RelayHubAddress`);
+    });
 
-        it('Should throw error if Relay request Encoded data is not the same as Transaction data', function () {
-            const transaction: Transaction = {
-                nonce: 5,
-                chainId: 33,
-                data: 'Dummy Different Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: relayHubAddress,
-                from: relayWorkerAddress
-            }
+    it('Should throw error if Relay request Encoded data is not the same as Transaction data', function () {
+      const transaction: Transaction = {
+        nonce: 5,
+        chainId: 33,
+        data: 'Dummy Different Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: relayHubAddress,
+        from: relayWorkerAddress,
+      };
 
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
-                .to
-                .throw(`Relay request Encoded data must be the same as Transaction data`);
-        });
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.throw(
+        `Relay request Encoded data must be the same as Transaction data`
+      );
+    });
 
-        it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
-            const transaction: Transaction = {
-                nonce: 5,
-                chainId: 33,
-                data: 'Dummy Deploy Data',
-                gasLimit: BigNumber.from(0),
-                value: BigNumber.from(0),
-                to: relayHubAddress,
-                from: 'Dummy Address',
-            }
+    it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
+      const transaction: Transaction = {
+        nonce: 5,
+        chainId: 33,
+        data: 'Dummy Deploy Data',
+        gasLimit: BigNumber.from(0),
+        value: BigNumber.from(0),
+        to: relayHubAddress,
+        from: 'Dummy Address',
+      };
 
-            expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress))
-                .to
-                .throw(`Transaction sender address must be the same as configured relayWorker address`);
-        });
-    })
+      expect(() =>
+        relayedTransactionValidator.validateRelayResponse(
+          deployRequest,
+          transaction,
+          relayWorkerAddress
+        )
+      ).to.throw(
+        `Transaction sender address must be the same as configured relayWorker address`
+      );
+    });
+  });
 });

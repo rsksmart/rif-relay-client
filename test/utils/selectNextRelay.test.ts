@@ -1,12 +1,12 @@
-import * as sinon from 'sinon';
 import { expect, use } from 'chai';
-import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
-import { type RelayManagerData, selectNextRelay } from '../../src/utils';
-import { HttpWrapper, HttpClient } from '../../src/api/common';
 import config from 'config';
-import * as defaultClient from '../../src/api/common/HttpClient';
-import type { HubInfo } from '../../src/common/relay.types';
+import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
+import { HttpClient, HttpWrapper } from 'src/api/common';
+import type { RelayManagerData } from 'src/common/config.types';
+import type { HubInfo } from 'src/common/relayHub.types';
+import { selectNextRelay } from 'src/utils';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -81,12 +81,6 @@ describe('RelaySelectionManager', function () {
     });
 
     it('Should use the default httpClient if not provided as parameter', async function () {
-      const stubDefaultHttpClient = sinon.stub(
-        defaultClient,
-        'getDefaultHttpClient'
-      );
-      stubDefaultHttpClient.returns(httpClient);
-
       const stubHttpClient = sinon.stub(httpClient);
 
       stubHttpClient.getChainInfo

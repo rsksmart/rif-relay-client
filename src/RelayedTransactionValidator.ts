@@ -1,12 +1,15 @@
-import log from 'loglevel';
-import type { Transaction } from 'ethers';
-import type { ContractInteractor } from '@rsksmart/rif-relay-common';
+/* eslint-disable */
+// @ts-nocheck
+import type { ContractInteractor } from '@rsksmart/rif-relay-common'; // FIXME: ContractInteractor should not be used, instead implement it's functionality directly
 import type {
+  DeployTransactionRequest,
   EnvelopingConfig,
   RelayTransactionRequest,
-  DeployTransactionRequest,
 } from '@rsksmart/rif-relay-common/dist/src';
-import { isDeployTransaction } from './utils';
+import type { Transaction } from 'ethers';
+import log from 'loglevel';
+import { isDeployTransaction } from './common/relayRequest.utils';
+import { EnvelopingTxRequest } from './common/relayTransaction.types';
 
 export class RelayedTransactionValidator {
   private readonly contractInteractor: ContractInteractor;
@@ -26,7 +29,7 @@ export class RelayedTransactionValidator {
    * requested transaction and validate its signature.
    */
   validateRelayResponse(
-    request: RelayTransactionRequest | DeployTransactionRequest,
+    request: EnvelopingTxRequest,
     { v, r, s, to, data, value, from, nonce }: Transaction,
     relayWorker: string
   ): void {
