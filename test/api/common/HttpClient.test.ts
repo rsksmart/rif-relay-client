@@ -17,6 +17,7 @@ describe('HttpClient', function () {
   afterEach(function () {
     sandbox.restore();
   });
+  
   describe('constructor', function () {
     it('should store http wrapper', function () {
      const expectedHttpWrapper = new HttpWrapper();

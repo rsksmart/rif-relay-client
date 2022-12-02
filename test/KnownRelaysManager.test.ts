@@ -11,7 +11,6 @@ use(chaiAsPromised);
 
 const sandbox = createSandbox();
 
-
 describe('KnownRelaysManager', function () {
 
   let contractInteractor: SinonStubbedInstance<ContractInteractor>;
@@ -36,6 +35,7 @@ describe('KnownRelaysManager', function () {
       jsonStringifyRequest: true,
       logLevel: 0 as LogLevelNumbers
   }
+
   describe('constructor', function () {
 
     beforeEach(function () {
@@ -47,6 +47,7 @@ describe('KnownRelaysManager', function () {
     after(function () {
       sandbox.restore();
     });
+    
     afterEach(function () {
       sandbox.restore();
     });

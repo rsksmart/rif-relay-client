@@ -5,13 +5,12 @@ import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import AccountManager from '../src/AccountManager';
 import * as typedDataUtils from '../src/typedRequestData.utils';
+import { createRandomAddress } from './utils';
 
 use(sinonChai);
 use(chaiAsPromised);
 
 const sandbox = createSandbox();
-
-const createRandomAddress = () => Wallet.createRandom().address;
 
 const relayOrDeployRequest = {
   relayData: {
@@ -50,9 +49,11 @@ const deployRequest = {
 
 describe('AccountManager', function () {
   describe('constructor', function () {
+    
     after(function () {
       sandbox.restore();
     });
+
     afterEach(function () {
       sandbox.restore();
     });

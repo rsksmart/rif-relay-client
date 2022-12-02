@@ -17,9 +17,11 @@ import {
   langZhCn as zh_cn,
   langZhTw as zh_tw,
 } from '@ethersproject/wordlists/lib/lang-zh';
-import type { SmartWalletFactory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/factory/SmartWalletFactory';
-import { ERC20__factory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/factories/@openzeppelin/contracts/token/ERC20/ERC20__factory';
-import { SmartWalletFactory__factory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/factories/contracts/factory';
+import type { SmartWalletFactory } from '@rsksmart/rif-relay-contracts';
+import {
+  ERC20__factory,
+  SmartWalletFactory__factory,
+} from '@rsksmart/rif-relay-contracts';
 const SHA3_NULL_S = keccak256('0x');
 
 type Account = {

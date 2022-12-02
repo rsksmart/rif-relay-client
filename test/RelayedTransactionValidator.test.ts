@@ -5,13 +5,13 @@ import { RelayedTransactionValidator } from '../src/RelayedTransactionValidator'
 import ContractInteractor from '@rsksmart/rif-relay-common/dist/src/ContractInteractor';
 import chaiAsPromised from 'chai-as-promised';
 import type { DeployTransactionRequest, EnvelopingConfig } from '@rsksmart/rif-relay-common/dist/src';
-import { BigNumber, Transaction, Wallet } from 'ethers';
+import { BigNumber, Transaction } from 'ethers';
+import { createRandomAddress } from './utils';
 
 use(sinonChai);
 use(chaiAsPromised);
 
 const sandbox = createSandbox();
-const createRandomAddress = () => Wallet.createRandom().address;
 
 describe('RelayedTransactionValidator', function () {
 
@@ -25,7 +25,7 @@ describe('RelayedTransactionValidator', function () {
             sandbox.restore();
         });
 
-        it('Should store ContractInteractor and Config', function () {
+        it('should store ContractInteractor and Config', function () {
 
             const contractInteractor = sandbox.createStubInstance(
                 ContractInteractor
@@ -65,6 +65,7 @@ describe('RelayedTransactionValidator', function () {
         let relayedTransactionValidator: RelayedTransactionValidator;
         let relayWorkerAddress: string;
         let relayHubAddress: string;
+
         beforeEach(function () {
             relayWorkerAddress = createRandomAddress();
             relayHubAddress = createRandomAddress();
@@ -132,7 +133,7 @@ describe('RelayedTransactionValidator', function () {
             sandbox.restore();
         });
 
-        it('Should perform checks on deploy transaction and not throw errors', function () {
+        it('should perform checks on deploy transaction and not throw errors', function () {
             
             const transaction: Transaction = {
                 nonce: 5,
@@ -147,7 +148,7 @@ describe('RelayedTransactionValidator', function () {
             expect(() => relayedTransactionValidator.validateRelayResponse(deployRequest, transaction, relayWorkerAddress)).to.not.throw();
         });
         
-        it('Should perform checks on relay transaction and not throw errors', function () {
+        it('should perform checks on relay transaction and not throw errors', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
@@ -173,7 +174,7 @@ describe('RelayedTransactionValidator', function () {
             expect(() => relayedTransactionValidator.validateRelayResponse(relayRequest, transaction, relayWorkerAddress)).to.not.throw();
         });
 
-        it('Should throw error if transaction has no recipient address', function () {
+        it('should throw error if transaction has no recipient address', function () {
             const transaction: Transaction = {
                 nonce: 7,
                 chainId: 33,
@@ -189,7 +190,7 @@ describe('RelayedTransactionValidator', function () {
                 .throw(`Transaction has no recipient address`);
         });
 
-        it('Should throw error if transaction has no sender address', function () {
+        it('should throw error if transaction has no sender address', function () {
             const transaction: Transaction = {
                 nonce: 7,
                 chainId: 33,
@@ -205,7 +206,7 @@ describe('RelayedTransactionValidator', function () {
                 .throw(`Transaction has no signer`);
         });
         
-        it('Should throw error if nonce is greater than relayMaxNonce', function () {
+        it('should throw error if nonce is greater than relayMaxNonce', function () {
             const transaction: Transaction = {
                 nonce: 7,
                 chainId: 33,
@@ -221,7 +222,7 @@ describe('RelayedTransactionValidator', function () {
                 .throw(`Relay used a tx nonce higher than requested. Requested ${deployRequest.metadata.relayMaxNonce} got ${transaction.nonce}`);
         });
 
-        it('Should throw error if Transaction recipient is not the RelayHubAddress', function () {
+        it('should throw error if Transaction recipient is not the RelayHubAddress', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
@@ -237,7 +238,7 @@ describe('RelayedTransactionValidator', function () {
                 .throw(`Transaction recipient must be the RelayHubAddress`);
         });
 
-        it('Should throw error if Relay request Encoded data is not the same as Transaction data', function () {
+        it('should throw error if Relay request Encoded data is not the same as Transaction data', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,
@@ -253,7 +254,7 @@ describe('RelayedTransactionValidator', function () {
                 .throw(`Relay request Encoded data must be the same as Transaction data`);
         });
 
-        it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
+        it('should throw error if Relay Worker is not the same as Transaction sender', function () {
             const transaction: Transaction = {
                 nonce: 5,
                 chainId: 33,

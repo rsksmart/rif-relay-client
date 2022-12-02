@@ -5,7 +5,7 @@ import type {
   EnvelopingConfig,
   RelayTransactionRequest,
   DeployTransactionRequest,
-} from '@rsksmart/rif-relay-common/dist/src';
+} from '@rsksmart/rif-relay-common';
 import { isDeployTransaction } from './utils';
 
 export class RelayedTransactionValidator {

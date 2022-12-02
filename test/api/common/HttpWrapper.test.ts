@@ -10,10 +10,12 @@ const sandbox = createSandbox();
 use(sinonChai);
 
 const fakeURL = 'http://foo.bar';
+
 describe('HttpWrapper', function () {
   afterEach(function () {
     sandbox.restore();
   });
+  
   describe('constructor', function () {
     it('should create new http client with given params', function () {
       const axiosCreateSpy = sandbox.spy(axios, 'create');
