@@ -1,9 +1,9 @@
 import type { AxiosResponse } from 'axios';
 import log from 'loglevel';
 import type {
-    HubInfo,
-    RelayEstimation,
-    RelayOrDeployRequest
+  HubInfo,
+  RelayEstimation,
+  RelayOrDeployRequest,
 } from '../../common/relay.types';
 import type HttpWrapper from './HttpWrapper';
 import { requestInterceptors } from './HttpWrapper';
@@ -33,7 +33,9 @@ export default class HttpClient {
       relayUrl + PATHS.GET_INFO + verifierSuffix
     );
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
-    requestInterceptors.logRequest.onErrorResponse({ data: {error: (hubInfo as unknown as { message: string; }).message} } as unknown as AxiosResponse); //FIXME: the server return data should not morph like this. In any case, the response should be same across all endpoints, meaning this too should contain "error" property instead of "message"
+    requestInterceptors.logRequest.onErrorResponse({
+      data: { error: (hubInfo as unknown as { message: string }).message },
+    } as unknown as AxiosResponse); //FIXME: the server return data should not morph like this. In any case, the response should be same across all endpoints, meaning this too should contain "error" property instead of "message"
 
     return hubInfo;
   }

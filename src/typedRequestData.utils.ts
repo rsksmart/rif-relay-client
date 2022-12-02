@@ -5,7 +5,7 @@ import {
   TypedDataUtils,
   TypedMessage,
 } from '@metamask/eth-sig-util';
-import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
+import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts';
 
 export type EIP712Domain = TypedMessage<EnvelopingMessageTypes>['domain'];
 

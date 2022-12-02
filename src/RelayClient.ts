@@ -1,0 +1,83 @@
+import {
+  EnvelopingConfig,
+  EnvelopingTransactionDetails,
+  ESTIMATED_GAS_CORRECTION_FACTOR,
+} from '@rsksmart/rif-relay-common';
+import { BigNumber, BigNumberish, getDefaultProvider, providers } from 'ethers';
+import { BigNumber as BigNumberJs } from 'bignumber.js';
+import config from 'config';
+
+class RelayClient {
+  private readonly _provider: providers.Provider;
+
+  private readonly _envelopingConfig: EnvelopingConfig;
+
+  constructor() {
+    this._provider = getDefaultProvider();
+    this._envelopingConfig = config.get('EnvelopingConfig');
+  }
+
+  async estimateInternalCallGas(
+    transactionDetails: EnvelopingTransactionDetails,
+    internalGasCorrection: BigNumberish,
+    addCorrection = true
+  ): Promise<BigNumber> {
+    let estimation = await this._provider.estimateGas({
+      from: transactionDetails.from,
+      to: transactionDetails.to,
+      gasPrice: transactionDetails.gasPrice,
+      data: transactionDetails.data,
+    });
+
+    // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
+    // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
+    // Because of this, the estimated maxPossibleGas in the server (which estimates the whole transaction) might not be enough to successfully pass
+    // the following verification made in the SmartWallet:
+    // require(gasleft() > req.gas, "Not enough gas left"). This is done right before calling the destination internally
+    if (estimation.gt(internalGasCorrection)) {
+      estimation = estimation.sub(internalGasCorrection);
+    }
+
+    if (addCorrection) {
+      estimation = this._applyGasCorrectionFactor(estimation);
+    }
+
+    return estimation;
+  }
+
+  private _applyGasCorrectionFactor(estimation: BigNumberish): BigNumber {
+    let bigEstimation = BigNumberJs(estimation.toString());
+    const bigGasCorrection = BigNumberJs(
+      ESTIMATED_GAS_CORRECTION_FACTOR.toString()
+    );
+
+    if (!bigGasCorrection.isEqualTo(1)) {
+      bigEstimation = bigEstimation.multipliedBy(bigGasCorrection);
+    }
+
+    return BigNumber.from(bigEstimation.toFixed());
+  }
+
+  //FIXME should be private but since its being used yet, would leave as public to avoid lint error
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  //@ts-ignore
+  private async _calculateGasPrice(): Promise<BigNumber> {
+    const { minGasPrice, gasPriceFactorPercent } = this._envelopingConfig;
+
+    const bigMinGasPrice = BigNumber.from(minGasPrice);
+    const bigGasPriceFactorPercent = BigNumber.from(gasPriceFactorPercent);
+    const networkGasPrice = await this._provider.getGasPrice();
+
+    const gasPrice = networkGasPrice
+      .mul(bigGasPriceFactorPercent.add(100))
+      .div(100);
+
+    if (gasPrice.lt(minGasPrice)) {
+      return bigMinGasPrice;
+    }
+
+    return gasPrice;
+  }
+}
+
+export { RelayClient };

@@ -10,10 +10,12 @@ const sandbox = createSandbox();
 use(sinonChai);
 
 const fakeURL = 'http://foo.bar';
+
 describe('HttpWrapper', function () {
   afterEach(function () {
     sandbox.restore();
   });
+
   describe('constructor', function () {
     it('should create new http client with given params', function () {
       const axiosCreateSpy = sandbox.spy(axios, 'create');
@@ -129,15 +131,14 @@ describe('HttpWrapper', function () {
 
       it('should throw error if response contains error', async function () {
         const fakeServer = sandbox.useFakeServer();
-        const expectedError = 'foo'
-        fakeServer.respondWith(() => ({data: {error: expectedError}}));
-        
+        const expectedError = 'foo';
+        fakeServer.respondWith(() => ({ data: { error: expectedError } }));
+
         const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await expect(httpWrapper.sendPromise(fakeURL)).to.be.rejectedWith(
           expectedError
         );
-        
       });
     });
   });
