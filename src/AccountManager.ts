@@ -1,6 +1,6 @@
 import sigUtil, {
   SignTypedDataVersion,
-  TypedMessage
+  TypedMessage,
 } from '@metamask/eth-sig-util';
 import { providers, Wallet } from 'ethers';
 import { getAddress } from 'ethers/lib/utils';
@@ -9,7 +9,7 @@ import {
   deployRequestType,
   EnvelopingMessageTypes,
   getEnvelopingRequestDataV4Field,
-  relayRequestType
+  relayRequestType,
 } from './typedRequestData.utils';
 
 export default class AccountManager {

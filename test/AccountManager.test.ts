@@ -49,7 +49,6 @@ const deployRequest = {
 
 describe('AccountManager', function () {
   describe('constructor', function () {
-    
     after(function () {
       sandbox.restore();
     });
@@ -176,7 +175,7 @@ describe('AccountManager', function () {
             },
             primaryType: 'RelayRequest',
             domain: typedDataUtils.getDomainSeparator(
-              relayRequest.relayData.callForwarder ,
+              relayRequest.relayData.callForwarder,
               accountManager.chainId
             ),
             message: {

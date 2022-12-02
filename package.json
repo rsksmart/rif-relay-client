@@ -38,9 +38,9 @@
   "main": "dist/index.js",
   "scripts": {
     "dist": "scripts/dist",
-    "format": "npx prettier test/**/*.ts src/**/*.ts !.gitignore  --check --ignore-unknown",
+    "format": "npx prettier 'test/**/*.ts' 'src/**/*.ts' !.gitignore  --check --ignore-unknown",
     "format:fix": "npm run format -- --write --ignore-unknown",
-    "lint": "npx eslint --cache test/**/*.ts src/**/*.ts",
+    "lint": "npx eslint --cache 'test/**/*.ts' 'src/**/*.ts'",
     "lint:fix": "npm run lint -- --fix",
     "prepack": "npmignore --auto",
     "prepare": "scripts/prepare",

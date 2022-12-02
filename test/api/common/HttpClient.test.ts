@@ -17,15 +17,19 @@ describe('HttpClient', function () {
   afterEach(function () {
     sandbox.restore();
   });
-  
+
   describe('constructor', function () {
     it('should store http wrapper', function () {
-     const expectedHttpWrapper = new HttpWrapper();
+      const expectedHttpWrapper = new HttpWrapper();
       const httpClient = new HttpClient(expectedHttpWrapper);
 
-      expect((httpClient as unknown as {
-        _httpWrapper: HttpWrapper
-      })._httpWrapper).to.be.equal(expectedHttpWrapper);
+      expect(
+        (
+          httpClient as unknown as {
+            _httpWrapper: HttpWrapper;
+          }
+        )._httpWrapper
+      ).to.be.equal(expectedHttpWrapper);
     });
   });
 
@@ -33,27 +37,30 @@ describe('HttpClient', function () {
     it(`should call httpWrapper.sendPromise with given url + '${GET_ADDRESS_PATH}'`, async function () {
       const expectedSendPromiseUrl = fakeURL + GET_ADDRESS_PATH;
       const httpWrapperSendPromiseSpy = sandbox
-        .stub(HttpWrapper.prototype, 'sendPromise').resolves({ foo: 'bar' });
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ foo: 'bar' });
       const httpClient = new HttpClient(new HttpWrapper());
       await httpClient.getChainInfo(fakeURL);
 
       expect(httpWrapperSendPromiseSpy).to.be.called;
       expect(httpWrapperSendPromiseSpy).to.be.calledWith(
-        expectedSendPromiseUrl,
+        expectedSendPromiseUrl
       );
     });
 
     it(`should call httpWrapper.sendPromise with given url + '${GET_ADDRESS_PATH}' + given verifier`, async function () {
       const verifier = '0x123';
-      const expectedSendPromiseUrl = fakeURL + GET_ADDRESS_PATH + VERIFIER_SUFFIX + verifier;
+      const expectedSendPromiseUrl =
+        fakeURL + GET_ADDRESS_PATH + VERIFIER_SUFFIX + verifier;
       const httpWrapperSendPromiseSpy = sandbox
-        .stub(HttpWrapper.prototype, 'sendPromise').resolves({ foo: 'bar' });
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ foo: 'bar' });
       const httpClient = new HttpClient(new HttpWrapper());
       await httpClient.getChainInfo(fakeURL, verifier);
 
       expect(httpWrapperSendPromiseSpy).to.be.called;
       expect(httpWrapperSendPromiseSpy).to.be.calledWith(
-        expectedSendPromiseUrl,
+        expectedSendPromiseUrl
       );
     });
 
@@ -76,90 +83,120 @@ describe('HttpClient', function () {
       const httpClient = new HttpClient(new HttpWrapper());
 
       await expect(httpClient.getChainInfo(fakeURL)).to.be.rejectedWith(
-        'Got error response from relay: bar',
+        'Got error response from relay: bar'
       );
     });
   });
 
   describe('relayTransaction', function () {
     it(`should call httpWrapper.sendPromise with given url + ${RELAY_PATH}`, async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
       const expectedSendPromiseUrl = fakeURL + RELAY_PATH;
       const httpWrapperSendPromiseSpy = sandbox
-        .stub(HttpWrapper.prototype, 'sendPromise').resolves({ signedTx: '0x123',
-        });
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ signedTx: '0x123' });
       const httpClient = new HttpClient(new HttpWrapper());
       await httpClient.relayTransaction(fakeURL, request);
-      
+
       expect(httpWrapperSendPromiseSpy).to.be.called;
       expect(httpWrapperSendPromiseSpy).to.be.calledWith(
-        expectedSendPromiseUrl);
+        expectedSendPromiseUrl
+      );
     });
 
     it('should call httpWrapper.sendPromise with given request', async function () {
-        const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
-        const httpWrapperSendPromiseSpy = sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ signedTx: '0x123' });
-        const httpClient = new HttpClient(new HttpWrapper());
-        await httpClient.relayTransaction(fakeURL, request);
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const httpWrapperSendPromiseSpy = sandbox
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ signedTx: '0x123' });
+      const httpClient = new HttpClient(new HttpWrapper());
+      await httpClient.relayTransaction(fakeURL, request);
 
-        expect(httpWrapperSendPromiseSpy).to.be.called;
-        expect(httpWrapperSendPromiseSpy).to.be.calledWith(
-          sandbox.match.any,
-          request,
-        );
+      expect(httpWrapperSendPromiseSpy).to.be.called;
+      expect(httpWrapperSendPromiseSpy).to.be.calledWith(
+        sandbox.match.any,
+        request
+      );
     });
 
     it('shouold return signedTx', async function () {
-        const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
-        const expectedSignedTx = '0x123';
-        sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ signedTx: expectedSignedTx });
-        const httpClient = new HttpClient(new HttpWrapper());
-        const result = await httpClient.relayTransaction(fakeURL, request);
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const expectedSignedTx = '0x123';
+      sandbox
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ signedTx: expectedSignedTx });
+      const httpClient = new HttpClient(new HttpWrapper());
+      const result = await httpClient.relayTransaction(fakeURL, request);
 
-        expect(result).to.be.equal(expectedSignedTx);
+      expect(result).to.be.equal(expectedSignedTx);
     });
-    
-    it('should throw error if response object does not contain signedTx', async function () {
-        const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
-        const expectedError = 'Got invalid response from relay: signedTx field missing.';
-        sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ foo: 'bar' });
-        const httpClient = new HttpClient(new HttpWrapper());
 
-        await expect(httpClient.relayTransaction(fakeURL, request)).to.be.rejectedWith(expectedError);
-    })
+    it('should throw error if response object does not contain signedTx', async function () {
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const expectedError =
+        'Got invalid response from relay: signedTx field missing.';
+      sandbox
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ foo: 'bar' });
+      const httpClient = new HttpClient(new HttpWrapper());
+
+      await expect(
+        httpClient.relayTransaction(fakeURL, request)
+      ).to.be.rejectedWith(expectedError);
+    });
   });
 
   describe('estimateMaxPossibleGas', function () {
     it('should call httpWrapper.sendPromise with given url + POST_ESTIMATE', async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
       const expectedSendPromiseUrl = fakeURL + POST_ESTIMATE;
-      const httpWrapperSendPromiseSpy = sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ gas: '123' });
+      const httpWrapperSendPromiseSpy = sandbox
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ gas: '123' });
       const httpClient = new HttpClient(new HttpWrapper());
       await httpClient.estimateMaxPossibleGas(fakeURL, request);
 
       expect(httpWrapperSendPromiseSpy).to.be.called;
       expect(httpWrapperSendPromiseSpy).to.be.calledWith(
-        expectedSendPromiseUrl,
+        expectedSendPromiseUrl
       );
     });
 
     it('should call httpWrapper.sendPromise with given request', async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
-      const httpWrapperSendPromiseSpy = sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ gas: '123' });
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const httpWrapperSendPromiseSpy = sandbox
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves({ gas: '123' });
       const httpClient = new HttpClient(new HttpWrapper());
       await httpClient.estimateMaxPossibleGas(fakeURL, request);
 
       expect(httpWrapperSendPromiseSpy).to.be.called;
       expect(httpWrapperSendPromiseSpy).to.be.calledWith(
         sandbox.match.any,
-        request,
+        request
       );
     });
 
     it('should return the response', async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
-      const expectedGasEstimation = {foo: 'bar'};
-      sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves(expectedGasEstimation);
+      const request = {
+        foo: 'bar',
+      } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const expectedGasEstimation = { foo: 'bar' };
+      sandbox
+        .stub(HttpWrapper.prototype, 'sendPromise')
+        .resolves(expectedGasEstimation);
       const httpClient = new HttpClient(new HttpWrapper());
       const result = await httpClient.estimateMaxPossibleGas(fakeURL, request);
 
