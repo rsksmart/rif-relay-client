@@ -5,7 +5,7 @@ import type {
     RelayEstimation,
     RelayOrDeployRequest
 } from '../../common/relay.types';
-import type HttpWrapper from './HttpWrapper';
+import HttpWrapper from './HttpWrapper';
 import { requestInterceptors } from './HttpWrapper';
 import type { PingResponse } from '../../utils'
 
@@ -88,6 +88,8 @@ export default class HttpClient {
     return pingResponse;
   }
 }
+
+export const defaultHttpClient = new HttpClient(new HttpWrapper());
 
 export type RelayPath = typeof PATHS[keyof typeof PATHS];
 export const RELAY_PATHS = PATHS;
