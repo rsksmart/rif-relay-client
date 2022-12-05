@@ -2,17 +2,20 @@ import * as sinon from 'sinon';
 import { expect , use } from 'chai';
 import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
-import type { PingResponse, RelayManagerData } from '../src/utils';
+import type { RelayManagerData } from '../src/utils';
 import { selectNextRelay } from '../src/RelaySelectionManager';
-import { HttpClient, HttpWrapper } from '../src/api/common';
+import { HttpWrapper, HttpClient } from '../src/api/common';
 import config from 'config';
-import { defaultHttpClient } from '../src/api/common/HttpClient';
+import * as defaultClient from '../src/api/common/HttpClient';
+import type {
+  HubInfo
+} from '../src/common/relay.types';
 
 use(sinonChai);
 use(chaiAsPromised);
 
 describe('RelaySelectionManager', function () {
-  const badPingResponse: PingResponse = {
+  const badPingResponse: HubInfo = {
     relayWorkerAddress: '0x',
     relayManagerAddress: '0x',
     relayHubAddress: '0x',
@@ -22,7 +25,7 @@ describe('RelaySelectionManager', function () {
     version: '0.1',
   };
 
-  const goodPingResponse: PingResponse = {
+  const goodPingResponse: HubInfo = {
     relayWorkerAddress: '0x',
     relayManagerAddress: '0x',
     relayHubAddress: '0x',
@@ -66,7 +69,8 @@ describe('RelaySelectionManager', function () {
   describe('selectNextRelay() function', function () {
     it('Should iterate the array of relays and select an available one', async function () {
       const stubHttpClient = sinon.stub(httpClient);
-      stubHttpClient.getPingResponse
+
+      stubHttpClient.getChainInfo
         .onFirstCall()
         .resolves(badPingResponse)
         .onSecondCall()
@@ -80,9 +84,12 @@ describe('RelaySelectionManager', function () {
     });
 
     it('Should use the default httpClient if not provided as parameter', async function () {
-      const stubHttpClient = sinon.stub(defaultHttpClient);
+      const stubDefaultHttpClient = sinon.stub(defaultClient, 'getDefaultHttpClient');
+      stubDefaultHttpClient.returns(httpClient);
 
-      stubHttpClient.getPingResponse
+      const stubHttpClient = sinon.stub(httpClient);
+
+      stubHttpClient.getChainInfo
         .onFirstCall()
         .resolves(badPingResponse)
         .onSecondCall()
@@ -99,7 +106,7 @@ describe('RelaySelectionManager', function () {
 
     it('Should return undefined if not relay is available', async function () {
       const stubHttpClient = sinon.stub(httpClient);
-      stubHttpClient.getPingResponse.resolves(badPingResponse);
+      stubHttpClient.getChainInfo.resolves(badPingResponse);
 
       sinon.stub(config, 'get').returns(preferredRelays);
 
@@ -110,7 +117,7 @@ describe('RelaySelectionManager', function () {
 
     it('Should keep iterating if a ping call throws an error', async function () {
       const stubHttpClient = sinon.stub(httpClient);
-      stubHttpClient.getPingResponse
+      stubHttpClient.getChainInfo
         .onFirstCall()
         .throws(new Error('Some fake error'))
         .onSecondCall()
@@ -128,7 +135,7 @@ describe('RelaySelectionManager', function () {
         sinon.stub(config, 'get').throws(new Error(ERROR_MESSAGE));
 
         const stubHttpClient = sinon.stub(httpClient);
-        stubHttpClient.getPingResponse
+        stubHttpClient.getChainInfo
             .onFirstCall().resolves(badPingResponse)
             .onSecondCall().resolves(goodPingResponse);
         

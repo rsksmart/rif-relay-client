@@ -7,7 +7,10 @@ import type {
 } from '../../common/relay.types';
 import HttpWrapper from './HttpWrapper';
 import { requestInterceptors } from './HttpWrapper';
-import type { PingResponse } from '../../utils'
+import type {
+    AxiosRequestConfig,
+} from 'axios';
+import type { LogLevelDesc } from 'loglevel';
 
 const PATHS = {
   GET_INFO: '/getaddr',
@@ -71,25 +74,11 @@ export default class HttpClient {
 
     return response;
   }
-
-  async getPingResponse(
-    relayUrl: string,
-    verifier?: string
-): Promise<PingResponse> {
-    const verifierSuffix = verifier == null ? '' : '?verifier=' + verifier;
-    const pingResponse = await this._httpWrapper.sendPromise<PingResponse>(
-        relayUrl + '/getaddr' + verifierSuffix
-    );
-    if (pingResponse == null) {
-        throw new Error('Relay responded without a body');
-    }
-    log.info(`pingResponse: ${JSON.stringify(pingResponse)}`);
-
-    return pingResponse;
-  }
 }
-
-export const defaultHttpClient = new HttpClient(new HttpWrapper());
 
 export type RelayPath = typeof PATHS[keyof typeof PATHS];
 export const RELAY_PATHS = PATHS;
+export const getDefaultHttpClient = (
+  opts: AxiosRequestConfig = {},
+  logLevel: LogLevelDesc = 'error'
+) => new HttpClient(new HttpWrapper(opts, logLevel));

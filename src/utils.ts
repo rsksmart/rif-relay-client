@@ -2,6 +2,9 @@ import type {
   DeployTransactionRequest,
   RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
+import type {
+  HubInfo
+} from '../src/common/relay.types';
 
 export const isDeployTransaction = (
   req: RelayTransactionRequest | DeployTransactionRequest
@@ -19,27 +22,6 @@ export const isDeployTransaction = (
   return false;
 };
 
-export interface PingResponse {
-  relayWorkerAddress: string;
-  relayManagerAddress: string;
-  relayHubAddress: string;
-  feesReceiver: string;
-  minGasPrice: string;
-  networkId?: string;
-  chainId?: string;
-  ready: boolean;
-  version: string;
-}
-
-/**
- * For legacy reasons, to filter out the relay this filter has to throw.
- * TODO: make ping filtering sane!
- */
- export type PingFilter = (
-  pingResponse: PingResponse,
-  transactionDetails: EnvelopingTransactionDetails
-) => void;
-
 export interface RelayManagerData {
   manager: string;
   url: string;
@@ -51,11 +33,11 @@ export interface RelayManagerData {
 // Some info is known from the event, some from ping
 export interface PartialRelayInfo {
   relayInfo: RelayManagerData;
-  pingResponse: PingResponse;
+  hubInfo: HubInfo;
 }
 
 export interface RelayInfo {
-  pingResponse: PingResponse;
+  hubInfo: HubInfo;
   relayInfo: RelayManagerData;
 }
 
