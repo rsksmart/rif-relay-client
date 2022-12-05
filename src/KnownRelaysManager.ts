@@ -2,11 +2,11 @@ import log from 'loglevel';
 import type {
   ContractInteractor,
   EnvelopingConfig,
-  EnvelopingTransactionDetails,
 } from '@rsksmart/rif-relay-common';
 import type { IRelayHub } from '@rsksmart/rif-relay-contracts/dist/typechain-types';
 import type { BigNumber } from 'ethers';
 import type { TypedEvent } from '@rsksmart/rif-relay-contracts/dist/typechain-types/common';
+import type {EnvelopingTransactionDetails } from './utils';
 
 export interface GenericEventObject {
   relayManager: string;
@@ -139,7 +139,7 @@ export default class KnownRelaysManager {
     fromBlock: number,
     toBlock: number
   ): Promise<TypedEvent[][]> {
-    let relayEventParts: Array<Array<Array<TypedEvent>>> = [];
+    let relayEventParts: Array<Array<TypedEvent>> = [];
     const running = true;
     while (running) {
       const rangeParts = this.splitRange(
@@ -149,7 +149,7 @@ export default class KnownRelaysManager {
       );
       try {
         const getPastEventsPromises = rangeParts.map(
-          ({ fromBlock, toBlock }): Promise<Array<Array<TypedEvent>>> =>
+          ({ fromBlock, toBlock }): Promise<Array<TypedEvent>> =>
             this.contractInteractor.getPastEventsForHub(
               {
                 fromBlock,
@@ -177,7 +177,7 @@ export default class KnownRelaysManager {
       }
     }
 
-    return relayEventParts.flat();
+    return relayEventParts;
   }
 
   async _fetchRecentlyActiveRelayManagers(): Promise<Set<string>> {

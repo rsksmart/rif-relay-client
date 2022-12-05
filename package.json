@@ -54,8 +54,8 @@
   },
   "dependencies": {
     "@metamask/eth-sig-util": "^5.0.0",
-    "@rsksmart/rif-relay-common": "/Users/andres/IOV/GitHub/SP22/PP499_Upgrade_RelaySelectionManager/rif-relay-common",
-    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/PP-355/upgrade_contracts",
+    "@rsksmart/rif-relay-common": "github:rsksmart/rif-relay-common#feature/PP-278/PP-339/upgrade_with_ethers",
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts",
     "axios": "~1.1.2",
     "config": "^3.3.8",
     "ethereum-cryptography": "~1.1.2",

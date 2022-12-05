@@ -53,14 +53,18 @@ describe('RelaySelectionManager', function () {
     },
   ];
 
+  let httpClient: HttpClient;
+
+  beforeEach(function () {
+    httpClient = new HttpClient(new HttpWrapper()); 
+  });
+
   afterEach(function () {
     sinon.restore();
   });
 
   describe('selectNextRelay() function', function () {
     it('Should iterate the array of relays and select an available one', async function () {
-      const httpClient = new HttpClient(new HttpWrapper());
-
       const stubHttpClient = sinon.stub(httpClient);
       stubHttpClient.getPingResponse
         .onFirstCall()
@@ -94,8 +98,6 @@ describe('RelaySelectionManager', function () {
     });
 
     it('Should return undefined if not relay is available', async function () {
-      const httpClient = new HttpClient(new HttpWrapper());
-
       const stubHttpClient = sinon.stub(httpClient);
       stubHttpClient.getPingResponse.resolves(badPingResponse);
 
@@ -107,8 +109,6 @@ describe('RelaySelectionManager', function () {
     });
 
     it('Should keep iterating if a ping call throws an error', async function () {
-      const httpClient = new HttpClient(new HttpWrapper());
-
       const stubHttpClient = sinon.stub(httpClient);
       stubHttpClient.getPingResponse
         .onFirstCall()
@@ -127,7 +127,6 @@ describe('RelaySelectionManager', function () {
         const ERROR_MESSAGE = 'Some error getting the config';
         sinon.stub(config, 'get').throws(new Error(ERROR_MESSAGE));
 
-        const httpClient = new HttpClient(new HttpWrapper());
         const stubHttpClient = sinon.stub(httpClient);
         stubHttpClient.getPingResponse
             .onFirstCall().resolves(badPingResponse)
