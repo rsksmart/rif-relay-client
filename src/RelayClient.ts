@@ -65,13 +65,13 @@ export const GasPricePingFilter: PingFilter = (
 };
 
 export interface RelayingAttempt {
-    validUntilTime?: number;
+    validUntilTime?: string;
     transaction?: Transaction;
     error?: Error;
 }
 
 export interface RelayingResult {
-    validUntilTime?: number;
+    validUntilTime?: string;
     transaction?: Transaction;
     receipt?: TransactionReceipt;
     pingErrors: Map<string, Error>;
@@ -780,6 +780,7 @@ export class RelayClient {
         this.emit(new RelayerResponseEvent(true));
         await this._broadcastRawTx(transaction);
         return {
+            validUntilTime: httpRequest.relayRequest.request.validUntilTime,
             transaction
         };
     }
@@ -980,10 +981,6 @@ export class RelayClient {
         const forwarderAddress = this.resolveForwarder(transactionDetails);
         const senderNonce: string =
             await this.contractInteractor.getSenderNonce(forwarderAddress);
-        const secondsNow = Math.round(Date.now() / 1000);
-        const validUntilTime = (
-            secondsNow + this.config.requestValidSeconds
-        ).toString();
         const relayRequest: RelayRequest = {
             request: {
                 relayHub: constants.ZERO_ADDRESS,
@@ -995,7 +992,7 @@ export class RelayClient {
                 gas: '0',
                 tokenAmount: '0x00',
                 tokenGas: '0x00',
-                validUntilTime,
+                validUntilTime: '0',
                 tokenContract: constants.ZERO_ADDRESS
             },
             relayData: {
@@ -1093,11 +1090,6 @@ export class RelayClient {
             transactionDetails.from
         );
 
-        const secondsNow = Math.round(Date.now() / 1000);
-        const validUntilTime = (
-            secondsNow + this.config.requestValidSeconds
-        ).toString();
-
         const deployRequest: DeployRequest = {
             request: {
                 from: transactionDetails.from,
@@ -1114,7 +1106,7 @@ export class RelayClient {
                 tokenGas: transactionDetails.tokenGas ?? '0x0',
                 tokenContract:
                     transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
-                validUntilTime
+                validUntilTime: '0'
             },
             relayData: {
                 callForwarder: callForwarder,
@@ -1141,11 +1133,6 @@ export class RelayClient {
         const gas = transactionDetails.forceGas
             ? Number(transactionDetails.forceGas)
             : await this.getInternalCallCost(transactionDetails);
-
-        const secondsNow = Math.round(Date.now() / 1000);
-        const validUntilTime = (
-            secondsNow + this.config.requestValidSeconds
-        ).toString();
 
         const relayRequest: RelayRequest = {
             request: {
