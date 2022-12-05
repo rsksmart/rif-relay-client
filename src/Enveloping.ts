@@ -91,6 +91,10 @@ export default class Enveloping {
         index?: IntString,
         recoverer?: IntString
     ): Promise<DeployRequest> {
+        const secondsNow = Math.round(Date.now() / 1000);
+        const validUntilTime = (
+            secondsNow + this.config.requestValidSeconds
+        ).toString();
         const deployRequest: DeployRequest = {
             request: {
                 relayHub: this.config.relayHubAddress,
@@ -108,6 +112,7 @@ export default class Enveloping {
                 tokenAmount: tokenAmount,
                 tokenGas: tokenGas,
                 recoverer: recoverer ?? constants.ZERO_ADDRESS,
+                validUntilTime,
                 index: index ?? '0'
             },
             relayData: {
@@ -189,6 +194,11 @@ export default class Enveloping {
             gasToSend = toHex(internalCallCost);
         }
 
+        const secondsNow = Math.round(Date.now() / 1000);
+        const validUntilTime = (
+            secondsNow + this.config.requestValidSeconds
+        ).toString();
+
         const relayRequest: RelayRequest = {
             request: {
                 relayHub: this.config.relayHubAddress,
@@ -200,7 +210,8 @@ export default class Enveloping {
                 nonce: (await this.getSenderNonce(forwarder)).toString(),
                 tokenContract: tokenContract,
                 tokenAmount: tokenAmount,
-                tokenGas: tokenGas
+                tokenGas: tokenGas,
+                validUntilTime: validUntilTime
             },
             relayData: {
                 gasPrice: gasPriceToSend,
