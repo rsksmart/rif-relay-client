@@ -1160,7 +1160,7 @@ export class RelayClient {
                 tokenGas: transactionDetails.tokenGas ?? '0x0',
                 tokenContract:
                     transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
-                validUntilTime
+                validUntilTime: '0'
             },
             relayData: {
                 callForwarder,

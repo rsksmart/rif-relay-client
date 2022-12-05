@@ -83,7 +83,8 @@ describe('HttpClient', function () {
         forwarderAddress: constants.ZERO_ADDRESS,
         smartWalletFactoryAddress: constants.ZERO_ADDRESS,
         logLevel: 0,
-        clientId: '1'
+        clientId: '1',
+        requestValidSeconds: 0
     };
     let httpClient: HttpClient;
     let httpWrapper: SinonStubbedInstance<HttpWrapper>;
