@@ -5,7 +5,6 @@ import {
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { BigNumber, getDefaultProvider, providers, utils } from 'ethers';
 import AccountManager from './AccountManager';
-import { ESTIMATED_GAS_CORRECTION_FACTOR } from './common';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
 import type {
@@ -15,6 +14,7 @@ import type {
   UserDefinedRelayRequest,
 } from './common/relayRequest.types';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
+import { ESTIMATED_GAS_CORRECTION_FACTOR } from './constants/relay.const';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from './events/EnvelopingEventEmitter';
