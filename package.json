@@ -57,6 +57,7 @@
     "@rsksmart/rif-relay-common": "github:rsksmart/rif-relay-common#feature/PP-278/PP-339/upgrade_with_ethers",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts",
     "axios": "~1.1.2",
+    "bignumber.js": "^9.1.1",
     "config": "^3.3.8",
     "ethereum-cryptography": "~1.1.2",
     "ethers": "5.7.1",
