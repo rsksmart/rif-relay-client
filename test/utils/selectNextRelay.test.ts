@@ -2,14 +2,13 @@ import * as sinon from 'sinon';
 import { expect , use } from 'chai';
 import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
-import type { RelayManagerData } from '../src/utils';
-import { selectNextRelay } from '../src/RelaySelectionManager';
-import { HttpWrapper, HttpClient } from '../src/api/common';
+import { type RelayManagerData, selectNextRelay } from '../../src/utils';
+import { HttpWrapper, HttpClient } from '../../src/api/common';
 import config from 'config';
-import * as defaultClient from '../src/api/common/HttpClient';
+import * as defaultClient from '../../src/api/common/HttpClient';
 import type {
   HubInfo
-} from '../src/common/relay.types';
+} from '../../src/common/relay.types';
 
 use(sinonChai);
 use(chaiAsPromised);
