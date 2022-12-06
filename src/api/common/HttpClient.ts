@@ -5,8 +5,12 @@ import type {
     RelayEstimation,
     RelayOrDeployRequest
 } from '../../common/relay.types';
-import type HttpWrapper from './HttpWrapper';
+import HttpWrapper from './HttpWrapper';
 import { requestInterceptors } from './HttpWrapper';
+import type {
+    AxiosRequestConfig,
+} from 'axios';
+import type { LogLevelDesc } from 'loglevel';
 
 const PATHS = {
   GET_INFO: '/getaddr',
@@ -74,3 +78,7 @@ export default class HttpClient {
 
 export type RelayPath = typeof PATHS[keyof typeof PATHS];
 export const RELAY_PATHS = PATHS;
+export const getDefaultHttpClient = (
+  opts: AxiosRequestConfig = {},
+  logLevel: LogLevelDesc = 'error'
+) => new HttpClient(new HttpWrapper(opts, logLevel));
