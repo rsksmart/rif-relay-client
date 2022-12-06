@@ -1,3 +1,5 @@
+import { ESTIMATED_GAS_CORRECTION_FACTOR } from '@rsksmart/rif-relay-common';
+import type EnvelopingTransactionDetails from '@rsksmart/rif-relay-common/dist/types/EnvelopingTransactionDetails';
 import {
   EnvelopingTypes,
   IForwarder__factory,
@@ -126,6 +128,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     return BigNumber.from(gasPrice.toFixed());
   };
+  
   public async isSmartWalletOwner(smartWalletAddress: string, owner:string): Promise<boolean>{
     const iForwarder = IForwarder__factory.connect(smartWalletAddress, this._provider);
     if(await iForwarder.getOwner()  !== utils.solidityKeccak256(['address'], [owner])){

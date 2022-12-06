@@ -1,4 +1,5 @@
 import type { Network } from '@ethersproject/networks';
+import type EnvelopingTransactionDetails from '@rsksmart/rif-relay-common/dist/types/EnvelopingTransactionDetails';
 import {
   EnvelopingTypes,
   IForwarder,
@@ -45,9 +46,31 @@ const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;
 const FAKE_SIGNATURE = 'FAKE_SIGNATURE';
 
+const createRandomAddress = () => Wallet.createRandom().address;
+
 describe('RelayClient', function () {
   afterEach(function () {
     sandbox.restore();
+  });
+
+  describe('constructor', function () {
+    afterEach(function () {
+      sandbox.restore();
+    });
+
+    it('should store provider', function () {
+      const expectedProvider: providers.BaseProvider =
+        sandbox.createStubInstance(providers.JsonRpcProvider);
+      const relayClient = new RelayClient();
+
+      (relayClient as unknown as { _provider: providers.Provider })._provider =
+        expectedProvider;
+      expect(relayClient).to.be.instanceOf(RelayClient);
+      expect(
+        (relayClient as unknown as { _provider: providers.Provider })._provider,
+        'Provider'
+      ).to.equal(expectedProvider);
+    });
   });
 
   describe('_prepareRelayHttpRequest', function () {
