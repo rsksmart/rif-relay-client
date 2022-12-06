@@ -1,5 +1,3 @@
-import { ESTIMATED_GAS_CORRECTION_FACTOR } from '@rsksmart/rif-relay-common';
-import type EnvelopingTransactionDetails from '@rsksmart/rif-relay-common/dist/types/EnvelopingTransactionDetails';
 import {
   EnvelopingTypes,
   IForwarder__factory,
@@ -7,6 +5,7 @@ import {
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { BigNumber, getDefaultProvider, providers, utils } from 'ethers';
 import AccountManager from './AccountManager';
+import { ESTIMATED_GAS_CORRECTION_FACTOR } from './common';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
 import type {

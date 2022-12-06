@@ -1,5 +1,4 @@
 import type { Network } from '@ethersproject/networks';
-import type EnvelopingTransactionDetails from '@rsksmart/rif-relay-common/dist/types/EnvelopingTransactionDetails';
 import {
   EnvelopingTypes,
   IForwarder,
@@ -54,10 +53,6 @@ describe('RelayClient', function () {
   });
 
   describe('constructor', function () {
-    afterEach(function () {
-      sandbox.restore();
-    });
-
     it('should store provider', function () {
       const expectedProvider: providers.BaseProvider =
         sandbox.createStubInstance(providers.JsonRpcProvider);
@@ -70,6 +65,100 @@ describe('RelayClient', function () {
         (relayClient as unknown as { _provider: providers.Provider })._provider,
         'Provider'
       ).to.equal(expectedProvider);
+    });
+  });
+
+  describe('getInternalGasEstimation', function () {
+    let provider: SinonStubbedInstance<providers.BaseProvider>;
+    let relayClient: RelayClient;
+    let relayRequest: EnvelopingTypes.RelayRequestStruct;
+
+    beforeEach(function () {
+      relayRequest = {
+        request: {
+          from: createRandomAddress(),
+          to: createRandomAddress(),
+          data: '0x01',
+        },
+        relayData: {
+          gasPrice: '60000000',
+        },
+      } as EnvelopingTypes.RelayRequestStruct;
+      relayClient = new RelayClient();
+      provider = sandbox.createStubInstance(providers.JsonRpcProvider);
+      (relayClient as unknown as { _provider: providers.Provider })._provider =
+        provider;
+    });
+
+    afterEach(function () {
+      sandbox.restore();
+    });
+
+    it('should return the estimation applying the internal correction', async function () {
+      const estimateGas = BigNumber.from(10000);
+      provider.estimateGas.returns(Promise.resolve(estimateGas));
+      const internalGasCorrection = 5000;
+      const estimation = await relayClient.estimateInternalCallGas(
+        relayRequest,
+        internalGasCorrection
+      );
+      const expectedEstimation = estimateGas.sub(internalGasCorrection);
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
+    });
+
+    it('should return the estimation without applying the internal correction', async function () {
+      const estimateGas = BigNumber.from(4000);
+      provider.estimateGas.returns(Promise.resolve(estimateGas));
+      const internalGasCorrection = 5000;
+      const estimation = await relayClient.estimateInternalCallGas(
+        relayRequest,
+        internalGasCorrection
+      );
+      const expectedEstimation = estimateGas;
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
+    });
+
+    it('should return estimation without applying gas correction factor', async function () {
+      const stubApplyGasCorrection = sandbox
+        .stub(
+          relayClient as unknown as {
+            _applyGasCorrectionFactor: () => BigNumber;
+          },
+          '_applyGasCorrectionFactor'
+        )
+        .returns(BigNumber.from(7500));
+      const estimateGas = BigNumber.from(10000);
+      provider.estimateGas.returns(Promise.resolve(estimateGas));
+      const internalGasCorrection = 5000;
+      const estimation = await relayClient.estimateInternalCallGas(
+        relayRequest,
+        internalGasCorrection,
+        false
+      );
+      const expectedEstimation = estimateGas.sub(internalGasCorrection);
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
+      expect(stubApplyGasCorrection.calledOnce).to.be.false;
+    });
+
+    it('should return estimation applying gas correction factor', async function () {
+      const expectedEstimation = BigNumber.from(7500);
+      const stubApplyGasCorrection = sandbox
+        .stub(
+          relayClient as unknown as {
+            _applyGasCorrectionFactor: () => BigNumber;
+          },
+          '_applyGasCorrectionFactor'
+        )
+        .returns(expectedEstimation);
+      const estimateGas = BigNumber.from(10000);
+      provider.estimateGas.returns(Promise.resolve(estimateGas));
+      const internalGasCorrection = 5000;
+      const estimation = await relayClient.estimateInternalCallGas(
+        relayRequest,
+        internalGasCorrection
+      );
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
+      expect(stubApplyGasCorrection.calledOnce).to.be.true;
     });
   });
 

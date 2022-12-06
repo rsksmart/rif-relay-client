@@ -1,0 +1,1 @@
+export const ESTIMATED_GAS_CORRECTION_FACTOR = '1';
