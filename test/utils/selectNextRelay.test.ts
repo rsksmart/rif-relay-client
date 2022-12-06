@@ -1,14 +1,12 @@
 import * as sinon from 'sinon';
-import { expect , use } from 'chai';
+import { expect, use } from 'chai';
 import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
 import { type RelayManagerData, selectNextRelay } from '../../src/utils';
 import { HttpWrapper, HttpClient } from '../../src/api/common';
 import config from 'config';
 import * as defaultClient from '../../src/api/common/HttpClient';
-import type {
-  HubInfo
-} from '../../src/common/relay.types';
+import type { HubInfo } from '../../src/common/relay.types';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -58,7 +56,7 @@ describe('RelaySelectionManager', function () {
   let httpClient: HttpClient;
 
   beforeEach(function () {
-    httpClient = new HttpClient(new HttpWrapper()); 
+    httpClient = new HttpClient(new HttpWrapper());
   });
 
   afterEach(function () {
@@ -83,7 +81,10 @@ describe('RelaySelectionManager', function () {
     });
 
     it('Should use the default httpClient if not provided as parameter', async function () {
-      const stubDefaultHttpClient = sinon.stub(defaultClient, 'getDefaultHttpClient');
+      const stubDefaultHttpClient = sinon.stub(
+        defaultClient,
+        'getDefaultHttpClient'
+      );
       stubDefaultHttpClient.returns(httpClient);
 
       const stubHttpClient = sinon.stub(httpClient);
@@ -129,16 +130,20 @@ describe('RelaySelectionManager', function () {
       expect(nextRelay?.relayInfo?.url).to.equal(preferredRelays[1]?.url);
     });
 
-    it('Should fail if cannnot find a config', async function(){
-        const ERROR_MESSAGE = 'Some error getting the config';
-        sinon.stub(config, 'get').throws(new Error(ERROR_MESSAGE));
+    it('Should fail if cannnot find a config', async function () {
+      const ERROR_MESSAGE = 'Some error getting the config';
+      sinon.stub(config, 'get').throws(new Error(ERROR_MESSAGE));
 
-        const stubHttpClient = sinon.stub(httpClient);
-        stubHttpClient.getChainInfo
-            .onFirstCall().resolves(badPingResponse)
-            .onSecondCall().resolves(goodPingResponse);
-        
-        await expect(selectNextRelay(httpClient)).to.be.rejectedWith(ERROR_MESSAGE);
+      const stubHttpClient = sinon.stub(httpClient);
+      stubHttpClient.getChainInfo
+        .onFirstCall()
+        .resolves(badPingResponse)
+        .onSecondCall()
+        .resolves(goodPingResponse);
+
+      await expect(selectNextRelay(httpClient)).to.be.rejectedWith(
+        ERROR_MESSAGE
+      );
     });
   });
 });
