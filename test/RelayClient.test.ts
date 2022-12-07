@@ -14,6 +14,7 @@ import {
   constants,
   providers,
   Signer,
+  utils,
   Wallet,
 } from 'ethers';
 import Sinon, { SinonStubbedInstance } from 'sinon';
@@ -37,6 +38,8 @@ import { FAKE_RELAY_REQUEST } from './request.fakes';
 use(sinonChai);
 use(chaiAsPromised);
 const sandbox = Sinon.createSandbox();
+const createRandomAddress = () => Wallet.createRandom().address;
+
 
 const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;
@@ -291,33 +294,81 @@ describe('RelayClient', function () {
       )._provider = provider;
     });
 
+      it('should return minGasPrice', async function () {
+        const estimateGas = BigNumber.from(10000);
+        provider.getGasPrice.returns(Promise.resolve(estimateGas));
+        const gasPrice = await relayClient._calculateGasPrice();
+  
+        expect(gasPrice.toString()).to.be.equal(
+          envelopingConfig.minGasPrice.toString()
+        );
+      });
+  
+      it('should return gas price with factor', async function () {
+        const estimateGas = BigNumber.from(60000);
+        provider.getGasPrice.returns(Promise.resolve(estimateGas));
+        const gasPrice = await relayClient._calculateGasPrice();
+        const bigGasPriceFactorPercent = BigNumberJs(
+          envelopingConfig.gasPriceFactorPercent
+        );
+        const bigEstimateGas = BigNumberJs(estimateGas.toString());
+        const estimatedGas = bigEstimateGas.multipliedBy(
+          bigGasPriceFactorPercent.plus(1).toString()
+        );
+  
+        expect(gasPrice.toString()).to.be.equal(estimatedGas.toString());
+      });
+    });
+
+  describe('isSmartWalletOwner', function () {
+    const originalConfig = { ...config };
+    let provider: SinonStubbedInstance<providers.BaseProvider>;
+    let relayClient: RelayClient;
+    let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
+    let smartWalletAddress: string;
+    let owner: string;
+
+    before(function () {
+      config.util.extendDeep(config, {
+        EnvelopingConfig: FAKE_ENVELOPING_CONFIG,
+      });
+    });
+
+    after(function () {
+      config.util.extendDeep(config, originalConfig);
+    });
+
+    beforeEach(function () {
+      smartWalletAddress = createRandomAddress();
+      owner = createRandomAddress();
+
+      relayClient = new RelayClient();
+      provider = sandbox.createStubInstance(providers.JsonRpcProvider);
+      (
+        relayClient as unknown as {
+          _provider: providers.Provider;
+        }
+      )._provider = provider;
+      const expectedOwner = utils.solidityKeccak256(['address'], [owner]);
+      forwarderStub = {
+        getOwner: sandbox.stub().returns(Promise.resolve(expectedOwner)),
+      } as typeof forwarderStub;
+      sandbox.stub(IForwarder__factory, 'connect').returns(forwarderStub);
+    });
+
     afterEach(function () {
       sandbox.restore();
     });
 
-    it('should return minGasPrice', async function () {
-      const estimateGas = BigNumber.from(10000);
-      provider.getGasPrice.returns(Promise.resolve(estimateGas));
-      const gasPrice = await relayClient._calculateGasPrice();
-
-      expect(gasPrice.toString()).to.be.equal(
-        envelopingConfig.minGasPrice.toString()
-      );
+    it('should return true if its the owner of the smart wallet', async function () {
+      const verify = await relayClient.isSmartWalletOwner(smartWalletAddress, owner);
+      expect(verify).to.be.true;
     });
 
-    it('should return gas price with factor', async function () {
-      const estimateGas = BigNumber.from(60000);
-      provider.getGasPrice.returns(Promise.resolve(estimateGas));
-      const gasPrice = await relayClient._calculateGasPrice();
-      const bigGasPriceFactorPercent = BigNumberJs(
-        envelopingConfig.gasPriceFactorPercent
-      );
-      const bigEstimateGas = BigNumberJs(estimateGas.toString());
-      const estimatedGas = bigEstimateGas.multipliedBy(
-        bigGasPriceFactorPercent.plus(1).toString()
-      );
-
-      expect(gasPrice.toString()).to.be.equal(estimatedGas.toString());
+    it('shoudl return false if its not the owner of the smart wallet', async function () {
+      const verify = await relayClient.isSmartWalletOwner(smartWalletAddress, '0x02');
+      expect(verify).to.be.false;
     });
+    
   });
 });
