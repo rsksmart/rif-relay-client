@@ -247,8 +247,11 @@ describe('RelayClient', function () {
   });
 
   describe('_calculateGasPrice', function () {
+    type RelayClientExposed = {
+      _calculateGasPrice: () => Promise<BigNumber>;
+    };
     let provider: SinonStubbedInstance<providers.BaseProvider>;
-    let relayClient: RelayClient;
+    let relayClient: RelayClientExposed;
     let envelopingConfig: EnvelopingConfig;
 
     beforeEach(function () {
@@ -273,7 +276,8 @@ describe('RelayClient', function () {
         jsonStringifyRequest: true,
         logLevel: 0,
       };
-      relayClient = new RelayClient();
+
+      relayClient = new RelayClient() as unknown as RelayClientExposed;
       provider = sandbox.createStubInstance(providers.JsonRpcProvider);
       (
         relayClient as unknown as {
@@ -294,7 +298,7 @@ describe('RelayClient', function () {
     it('should return minGasPrice', async function () {
       const estimateGas = BigNumber.from(10000);
       provider.getGasPrice.returns(Promise.resolve(estimateGas));
-      const gasPrice = await relayClient['_calculateGasPrice']();
+      const gasPrice = await relayClient._calculateGasPrice();
       expect(gasPrice.toString()).to.be.equal(
         envelopingConfig.minGasPrice.toString()
       );
@@ -303,7 +307,7 @@ describe('RelayClient', function () {
     it('should return gas price with factor', async function () {
       const estimateGas = BigNumber.from(60000);
       provider.getGasPrice.returns(Promise.resolve(estimateGas));
-      const gasPrice = await relayClient['_calculateGasPrice']();
+      const gasPrice = await relayClient._calculateGasPrice();
       const bigGasPriceFactorPercent = BigNumberJs(
         envelopingConfig.gasPriceFactorPercent
       );
