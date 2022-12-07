@@ -33,7 +33,8 @@ describe('HttpClient', function () {
             tokenGas: createRandomeValue(1000),
             value: createRandomeValue(1e16),
             index: createRandomeValue(100),
-            recoverer: createRandomAddress()
+            recoverer: createRandomAddress(),
+            validUntilTime: '0'
         },
         relayData: {
             gasPrice: createRandomeValue(1000),
@@ -53,7 +54,8 @@ describe('HttpClient', function () {
             tokenContract: createRandomAddress(),
             tokenGas: createRandomeValue(1000),
             value: createRandomeValue(1e16),
-            gas: createRandomeValue(1000)
+            gas: createRandomeValue(1000),
+            validUntilTime: '0'
         },
         relayData: {
             gasPrice: createRandomeValue(1000),
@@ -81,7 +83,8 @@ describe('HttpClient', function () {
         forwarderAddress: constants.ZERO_ADDRESS,
         smartWalletFactoryAddress: constants.ZERO_ADDRESS,
         logLevel: 0,
-        clientId: '1'
+        clientId: '1',
+        requestValidSeconds: 0
     };
     let httpClient: HttpClient;
     let httpWrapper: SinonStubbedInstance<HttpWrapper>;

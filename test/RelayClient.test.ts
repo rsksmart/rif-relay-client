@@ -62,7 +62,8 @@ describe('RelayClient', () => {
         forwarderAddress: constants.ZERO_ADDRESS,
         smartWalletFactoryAddress: constants.ZERO_ADDRESS,
         logLevel: 0,
-        clientId: '1'
+        clientId: '1',
+        requestValidSeconds: 0
     };
     let contractInteractor: SinonStubbedInstance<ContractInteractor>;
     let accountManager: SinonStubbedInstance<AccountManager>;
