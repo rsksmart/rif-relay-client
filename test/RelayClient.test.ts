@@ -17,7 +17,6 @@ import {
 } from 'ethers';
 import Sinon, { SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
-import type { EnvelopingConfig } from 'src/common/config.types';
 import AccountManager from '../src/AccountManager';
 import type { HubInfo } from '../src/common/relayHub.types';
 import type {
@@ -31,62 +30,12 @@ import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
 import RelayClient from '../src/RelayClient';
+import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
+import { FAKE_RELAY_REQUEST } from './request.fakes';
 
 use(sinonChai);
 use(chaiAsPromised);
 const sandbox = Sinon.createSandbox();
-
-const FAKE_ENVELOPING_CONFIG: EnvelopingConfig = {
-  // FIXME: move to test utils/constants
-  chainId: 3,
-  clientId: 3,
-  deployVerifierAddress: Wallet.createRandom().address,
-  forwarderAddress: Wallet.createRandom().address,
-  gasPriceFactorPercent: 3,
-  jsonStringifyRequest: false,
-  logLevel: 3,
-  maxRelayNonceGap: 3,
-  methodSuffix: '',
-  minGasPrice: 3,
-  onlyPreferredRelays: false,
-  preferredRelays: [
-    {
-      currentlyStaked: false,
-      manager: Wallet.createRandom().address,
-      registered: false,
-      url: '',
-    },
-  ],
-  relayHubAddress: Wallet.createRandom().address,
-  relayLookupWindowBlocks: 3,
-  relayLookupWindowParts: 3,
-  relayTimeoutGrace: 3,
-  relayVerifierAddress: Wallet.createRandom().address,
-  sliceSize: 3,
-  smartWalletFactoryAddress: Wallet.createRandom().address,
-};
-
-const FAKE_RELAY_REQUEST: RelayRequest = {
-  // FIXME: move to test utils/constants
-  relayData: {
-    callForwarder: Wallet.createRandom().address,
-    callVerifier: Wallet.createRandom().address,
-    feesReceiver: Wallet.createRandom().address,
-    gasPrice: constants.Two,
-  },
-  request: {
-    data: '',
-    gas: constants.Two,
-    tokenGas: constants.Two,
-    nonce: constants.Two,
-    relayHub: Wallet.createRandom().address,
-    from: Wallet.createRandom().address,
-    to: Wallet.createRandom().address,
-    tokenAmount: constants.Two,
-    tokenContract: Wallet.createRandom().address,
-    value: constants.Two,
-  },
-};
 
 const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;

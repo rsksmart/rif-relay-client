@@ -1,6 +1,14 @@
-import type { RelayManagerData } from './config.types';
+import type { RelayRequestBody } from './relayRequest.types';
+
+type RelayManagerData = {
+  manager: string;
+  url: string;
+  currentlyStaked: boolean;
+  registered: boolean;
+};
 
 type HubInfo = {
+  // TODO: separate to transport (this) and internal representation (this name) types
   relayWorkerAddress: string;
   relayManagerAddress: string;
   relayHubAddress: string;
@@ -17,10 +25,10 @@ type RelayInfo = {
   relayInfo: RelayManagerData;
 };
 
-type RelayMetadata = {
-  relayHubAddress: string;
-  relayMaxNonce: number;
+type EnvelopingMetadata = {
+  relayHubAddress: RelayRequestBody['relayHub'];
+  relayMaxNonce: RelayRequestBody['nonce'];
   signature: string;
 };
 
-export type { HubInfo, RelayMetadata, RelayInfo };
+export type { HubInfo, EnvelopingMetadata, RelayInfo, RelayManagerData };

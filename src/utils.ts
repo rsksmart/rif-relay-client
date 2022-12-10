@@ -1,5 +1,5 @@
 import config from 'config';
-import { HttpClient, HttpWrapper } from './api/common';
+import type { HttpClient } from './api/common';
 import type { EnvelopingConfig } from './common/config.types';
 import type { RelayInfo } from './common/relayHub.types';
 import { ENVELOPING_ROOT } from './constants/configs';
@@ -15,7 +15,7 @@ const getEnvelopingConfig = () => {
 };
 
 const selectNextRelay = async (
-  httpClient: HttpClient = new HttpClient(new HttpWrapper())
+  httpClient: HttpClient
 ): Promise<RelayInfo | undefined> => {
   const { preferredRelays } = getEnvelopingConfig();
 

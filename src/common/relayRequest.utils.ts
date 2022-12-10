@@ -18,7 +18,7 @@ const isRelayRequest = (
   request: EnvelopingRequest
 ): request is RelayRequest => {
   return relayOnlyRequestKeys.every((key: RelayOnlyRequestKey) => {
-    return key in request;
+    return key in request.request;
   });
 };
 
@@ -26,7 +26,7 @@ const isDeployRequest = (
   request: EnvelopingRequest
 ): request is DeployRequest => {
   return deployOnlyRequestKeys.every((key: DeployOnlyRequestKey) => {
-    return key in request;
+    return key in request.request;
   });
 };
 

@@ -43,6 +43,9 @@ type DeployOnlyRequestKey = keyof Omit<
   keyof RelayRequestBody
 >;
 
+type CommonEnvelopingRequestBody = Omit<RelayRequestBody, RelayOnlyRequestKey> &
+  Omit<DeployRequestBody, DeployOnlyRequestKey>;
+
 type UserDefinedRelayRequest = Modify<
   RelayRequest,
   {
@@ -66,6 +69,7 @@ type UserDefinedEnvelopingRequest =
 export type {
   UserDefinedRelayRequestBody,
   UserDefinedDeployRequestBody,
+  CommonEnvelopingRequestBody,
   UserDefinedRelayRequest,
   UserDefinedDeployRequest,
   UserDefinedEnvelopingRequest,

@@ -1,15 +1,10 @@
-/* eslint-disable */
-// @ts-nocheck
 import type { ContractInteractor } from '@rsksmart/rif-relay-common'; // FIXME: ContractInteractor should not be used, instead implement it's functionality directly
-import type {
-  DeployTransactionRequest,
-  EnvelopingConfig,
-  RelayTransactionRequest,
-} from '@rsksmart/rif-relay-common/dist/src';
-import type { Transaction } from 'ethers';
+import type { EnvelopingConfig } from '@rsksmart/rif-relay-common/dist/src';
+import { BigNumber, Transaction } from 'ethers';
 import log from 'loglevel';
+import type { DeployRequest, RelayRequest } from './common/relayRequest.types';
 import { isDeployTransaction } from './common/relayRequest.utils';
-import { EnvelopingTxRequest } from './common/relayTransaction.types';
+import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 
 export class RelayedTransactionValidator {
   private readonly contractInteractor: ContractInteractor;
@@ -30,60 +25,62 @@ export class RelayedTransactionValidator {
    */
   validateRelayResponse(
     request: EnvelopingTxRequest,
-    { v, r, s, to, data, value, from, nonce }: Transaction,
+    transaction: Transaction,
     relayWorker: string
   ): void {
-    log.info('validateRelayResponse - Transaction is', {
-      v,
-      r,
-      s,
-      to,
-      from,
-      data,
-      value,
-      nonce,
-    });
+    const {
+      to: txDestination,
+      from: txOrigin,
+      nonce: txNonce,
+      data: txData,
+    } = transaction;
+    const {
+      metadata: { signature, relayMaxNonce },
+      relayRequest,
+    } = request;
+    const requestMaxNonce = BigNumber.from(relayMaxNonce).toNumber();
+    log.debug('validateRelayResponse - Transaction is', transaction);
 
-    if (!to) {
+    if (!txDestination) {
       throw Error('Transaction has no recipient address');
     }
 
-    if (!from) {
+    if (!txOrigin) {
       throw Error('Transaction has no signer');
     }
 
     const isDeploy = isDeployTransaction(request);
-
-    const relayRequestAbiEncode = isDeploy
+    const encodedEnveloping = isDeploy
       ? this.contractInteractor.encodeDeployCallABI(
-          (request as DeployTransactionRequest).relayRequest,
-          request.metadata.signature
+          relayRequest as DeployRequest,
+          signature
         )
       : this.contractInteractor.encodeRelayCallABI(
-          (request as RelayTransactionRequest).relayRequest,
-          request.metadata.signature
+          relayRequest as RelayRequest,
+          signature
         );
 
-    if (nonce > request.metadata.relayMaxNonce) {
+    if (txNonce > requestMaxNonce) {
       // TODO: need to validate that client retries the same request and doesn't double-spend.
       // Note that this transaction is totally valid from the EVM's point of view
-
       throw new Error(
-        `Relay used a tx nonce higher than requested. Requested ${request.metadata.relayMaxNonce} got ${nonce}`
+        `Relay used a tx nonce higher than requested. Requested ${requestMaxNonce} got ${txNonce}`
       );
     }
 
-    if (to.toLowerCase() !== this.config.relayHubAddress.toLowerCase()) {
+    if (
+      txDestination.toLowerCase() !== this.config.relayHubAddress.toLowerCase()
+    ) {
       throw new Error('Transaction recipient must be the RelayHubAddress');
     }
 
-    if (relayRequestAbiEncode !== data) {
+    if (encodedEnveloping !== txData) {
       throw new Error(
         'Relay request Encoded data must be the same as Transaction data'
       );
     }
 
-    if (relayWorker.toLowerCase() !== from.toLowerCase()) {
+    if (relayWorker.toLowerCase() !== txOrigin.toLowerCase()) {
       throw new Error(
         'Transaction sender address must be the same as configured relayWorker address'
       );

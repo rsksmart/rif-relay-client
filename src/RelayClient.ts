@@ -5,7 +5,7 @@ import {
 import { getDefaultProvider, providers } from 'ethers';
 import AccountManager from './AccountManager';
 import type { EnvelopingConfig } from './common/config.types';
-import type { HubInfo, RelayMetadata } from './common/relayHub.types';
+import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
 import type {
   EnvelopingRequestData,
   RelayRequest,
@@ -85,7 +85,7 @@ class RelayClient extends EnvelopingEventEmitter {
       (await this._provider.getTransactionCount(callForwarder)) +
       this._envelopingConfig.maxRelayNonceGap;
 
-    const metadata: RelayMetadata = {
+    const metadata: EnvelopingMetadata = {
       relayHubAddress: request.relayHub?.toString() ?? '',
       signature: await accountManager.sign({
         request: updatedRequest,

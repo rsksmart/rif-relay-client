@@ -8,7 +8,9 @@ import chaiAsPromised from 'chai-as-promised';
 import { BigNumber, Transaction, Wallet } from 'ethers';
 import { createSandbox, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
+import type { RelayTransactionRequest } from 'src/common/relayTransaction.types';
 import { RelayedTransactionValidator } from '../src/RelayedTransactionValidator';
+import { FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -136,8 +138,8 @@ describe('RelayedTransactionValidator', function () {
       sandbox.restore();
     });
 
-    it.skip('Should perform checks on deploy transaction and not throw errors', function () {
-      // FIXME: fix test
+    it('Should perform checks on deploy transaction and not throw errors', function () {
+      // FIXME: this test sounds meaningless.
       const transaction: Transaction = {
         nonce: 5,
         chainId: 33,
@@ -159,7 +161,9 @@ describe('RelayedTransactionValidator', function () {
 
     it('Should perform checks on relay transaction and not throw errors', function () {
       const transaction: Transaction = {
-        nonce: 5,
+        nonce: BigNumber.from(
+          FAKE_RELAY_TRANSACTION_REQUEST.metadata.relayMaxNonce
+        ).toNumber(),
         chainId: 33,
         data: 'Dummy Relay Data',
         gasLimit: BigNumber.from(0),
@@ -167,22 +171,9 @@ describe('RelayedTransactionValidator', function () {
         to: relayHubAddress,
         from: relayWorkerAddress,
       };
+      const relayRequest: RelayTransactionRequest =
+        FAKE_RELAY_TRANSACTION_REQUEST;
 
-      const {
-        metadata,
-        relayRequest: { relayData, request },
-      } = deployRequest;
-      const relayRequest = {
-        metadata,
-        relayRequest: {
-          relayData,
-          request: {
-            ...request,
-            recoverer: '',
-          },
-        },
-      };
-      contractInteractor.encodeRelayCallABI.returns('Dummy Relay Data');
       expect(() =>
         relayedTransactionValidator.validateRelayResponse(
           relayRequest,
@@ -296,7 +287,7 @@ describe('RelayedTransactionValidator', function () {
       );
     });
 
-    it.skip('Should throw error if Relay Worker is not the same as Transaction sender', function () {
+    it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
       // FIXME: fix test
       const transaction: Transaction = {
         nonce: 5,

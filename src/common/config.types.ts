@@ -1,10 +1,4 @@
-type RelayManagerData = {
-  // FIXME: remove when https://github.com/rsksmart/rif-relay-client/pull/49 is merged
-  manager: string;
-  url: string;
-  currentlyStaked: boolean;
-  registered: boolean;
-};
+import type { RelayManagerData } from './relayHub.types';
 
 type EnvelopingConfig = {
   preferredRelays: RelayManagerData[];
@@ -27,4 +21,4 @@ type EnvelopingConfig = {
   logLevel: number;
   clientId: number;
 };
-export { EnvelopingConfig, RelayManagerData };
+export { EnvelopingConfig };
