@@ -19,7 +19,7 @@ const selectNextRelay = async (
 ): Promise<RelayInfo | undefined> => {
   const { preferredRelays } = getEnvelopingConfig();
 
-  for (const relayInfo of preferredRelays) {
+  for (const relayInfo of preferredRelays ?? []) {
     let hubInfo;
 
     try {
