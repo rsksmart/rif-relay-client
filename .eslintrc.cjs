@@ -22,6 +22,16 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: "./tsconfig.json",
   },
+  overrides: [
+    {
+      files: ['test/**'],
+      plugins: ['mocha'],
+      rules: {
+        // you should turn the original rule off *only* for test files
+        '@typescript-eslint/unbound-method': 'off',
+      },
+    },
+  ],
   rules: {
     "lines-between-class-members": "error",
     "padding-line-between-statements": [

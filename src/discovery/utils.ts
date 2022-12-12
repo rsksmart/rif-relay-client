@@ -219,7 +219,7 @@ const findHardenedNodeActivity = async (
   let inactivityCountdown = config.eoaGap;
   let eoaIndex = 0;
 
-  while (inactivityCountdown > 0) {
+  while (inactivityCountdown) {
     const { address: eoaAccount } = rootNode.derivePath(
       constructDerivationPath(eoaIndex, hardenedAccIdx)
     );
@@ -236,7 +236,7 @@ const findHardenedNodeActivity = async (
       provider
     );
 
-    if (swAccounts.length > 0 || eoaActivityFound) {
+    if (swAccounts.length || eoaActivityFound) {
       inactivityCountdown = config.eoaGap;
 
       accounts = [
@@ -265,7 +265,7 @@ const findSWActivity = async (
   let swIndex = 0;
   let swAccounts: string[] = [];
 
-  while (inactivityCountdown > 0) {
+  while (inactivityCountdown) {
     // originally <=gapLimit, but rskj rpc crashes
     const currentSWAddress = getSWAddress(
       config,

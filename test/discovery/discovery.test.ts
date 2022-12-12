@@ -67,7 +67,7 @@ describe('smartWalletDiscovery', function () {
         .callsFake(() => FAKE_SHA3_RESULT);
 
       getBalanceStub = sinon.stub();
-      getBalanceStub.resolves(BigNumber.from(0));
+      getBalanceStub.resolves(constants.Zero);
       providerStub = sinon.createStubInstance(providers.BaseProvider);
       providerStub.getBalance = getBalanceStub;
       sinon
@@ -173,7 +173,7 @@ describe('smartWalletDiscovery', function () {
       getBalanceStub
         .onFirstCall()
         .resolves(FAKE_BALANCE)
-        .resolves(BigNumber.from(0));
+        .resolves(constants.Zero);
       await discoverAccountsFromMnemonic(
         {
           sWalletGap: 0,
@@ -241,7 +241,7 @@ describe('smartWalletDiscovery', function () {
     it('should check that one of given tokens has derived hd node balance if hd node does not have balance or transactions', async function () {
       const erc20BalanceStub = sinon
         .stub()
-        .returns(Promise.resolve(BigNumber.from(0)));
+        .returns(Promise.resolve(constants.Zero));
       const fakeERC20 = {
         balanceOf: erc20BalanceStub,
       } as unknown as ERC20;
@@ -271,7 +271,7 @@ describe('smartWalletDiscovery', function () {
         .returns({ address: expectedEOAAddr } as unknown as HDNode);
       getBalanceStub.callsFake((accountAddress: string | Promise<string>) =>
         Promise.resolve(
-          accountAddress === expectedEOAAddr ? FAKE_BALANCE : BigNumber.from(0)
+          accountAddress === expectedEOAAddr ? FAKE_BALANCE : constants.Zero
         )
       );
       const actualAccounts = await discoverAccountsFromMnemonic(
@@ -308,7 +308,7 @@ describe('smartWalletDiscovery', function () {
           return Promise.resolve(BigNumber.from(1));
         }
 
-        return Promise.resolve(BigNumber.from(0));
+        return Promise.resolve(constants.Zero);
       });
       const actualAccounts = await discoverAccountsFromMnemonic(
         {
@@ -347,7 +347,7 @@ describe('smartWalletDiscovery', function () {
           return Promise.resolve(BigNumber.from(1));
         }
 
-        return Promise.resolve(BigNumber.from(0));
+        return Promise.resolve(constants.Zero);
       });
       const actualAccounts = await discoverAccountsFromMnemonic(
         {
@@ -407,7 +407,7 @@ describe('smartWalletDiscovery', function () {
     it('should call getSWAddress TWICE if first eoa DOES NOT have sw activity and eoa gap is 1 and sWalletGap is 2', async function () {
       sinon.stub(discoveryUtils, 'getSWAddress');
 
-      getBalanceStub.returns(Promise.resolve(BigNumber.from(0)));
+      getBalanceStub.returns(Promise.resolve(constants.Zero));
 
       await discoverAccountsFromMnemonic(
         {
