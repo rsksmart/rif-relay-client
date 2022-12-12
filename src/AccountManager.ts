@@ -4,12 +4,15 @@ import sigUtil, {
 } from '@metamask/eth-sig-util';
 import { providers, Wallet } from 'ethers';
 import { getAddress } from 'ethers/lib/utils';
-import type { RelayOrDeployRequest } from './common/relay.types';
+import type {
+  EnvelopingRequest,
+  UserDefinedEnvelopingRequest,
+} from './common/relayRequest.types';
 import {
   deployRequestType,
   EnvelopingMessageTypes,
   getEnvelopingRequestDataV4Field,
-  relayRequestType
+  relayRequestType,
 } from './typedRequestData.utils';
 
 export default class AccountManager {
@@ -36,11 +39,11 @@ export default class AccountManager {
     this._accounts.push(wallet);
   }
 
-  isDeployRequest({ request }: RelayOrDeployRequest): boolean {
+  isDeployRequest({ request }: UserDefinedEnvelopingRequest): boolean {
     return 'index' in request;
   }
 
-  async sign(relayRequest: RelayOrDeployRequest): Promise<string> {
+  async sign(relayRequest: EnvelopingRequest): Promise<string> {
     const callForwarder = relayRequest.relayData.callForwarder.toString();
     const fromAddress: string = getAddress(
       relayRequest.request.from.toString()
