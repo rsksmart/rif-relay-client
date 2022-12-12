@@ -25,15 +25,21 @@ import type {
 } from './common/relayRequest.types';
 import { isDeployRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
-import { MISSING_CALL_FORWARDER } from './constants/errorMessages';
 import {
   ESTIMATED_GAS_CORRECTION_FACTOR,
-  INTERNAL_ESTIMATION_CORRECTION,
-} from './constants/relay.const';
+  INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+  applyGasCorrectionFactor,
+  applyInternalEstimationCorrection,
+  getEnvelopingConfig
+} from './utils';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from './events/EnvelopingEventEmitter';
-import { getEnvelopingConfig } from './utils';
+import { IERC20__factory } from '@rsksmart/rif-relay-contracts';
+import {
+  MISSING_SMART_WALLET_ADDRESS,
+  MISSING_CALL_FORWARDER,
+} from './constants/errorMessages';
 
 type RequestConfig = {
   isSmartWalletDeploy?: boolean;
@@ -47,25 +53,22 @@ type RequestConfig = {
   retries?: number;
   initialBackoff?: number;
   internalEstimationCorrection?: BigNumberish;
-  addExternalCorrection?: boolean;
+  estimatedGasCorrectionFactor?: BigNumberish;
 };
 
 type TokenGasEstimationParams = Pick<
   EnvelopingRequest['request'],
   'tokenAmount' | 'tokenContract'
 > &
-  Pick<EnvelopingRequest['relayData'], 'gasPrice' | 'callForwarder'> &
-  Pick<RequestConfig, 'isSmartWalletDeploy' | 'preDeploySWAddress'> & {
-    internalTransactionEstimateCorrection?: number;
-    estimatedGasCorrectionFactor?: number;
-  };
+  Pick<EnvelopingRequest['relayData'], 'gasPrice' | 'callForwarder' | 'feesReceiver'> &
+  Pick<RequestConfig, 'isSmartWalletDeploy' | 'preDeploySWAddress' | 'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'>;
 
 type EstimateInternalGasParams = Pick<
   RelayRequestBody,
   'data' | 'to' | 'from'
 > &
   Pick<EnvelopingRequestData, 'gasPrice'> &
-  Pick<RequestConfig, 'internalEstimationCorrection' | 'addExternalCorrection'>;
+  Pick<RequestConfig, 'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'>;
 
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _provider: providers.Provider;
@@ -79,12 +82,6 @@ class RelayClient extends EnvelopingEventEmitter {
     this._envelopingConfig = getEnvelopingConfig();
   }
 
-  public estimateTokenTransferGas = async (
-    _props: TokenGasEstimationParams
-  ): Promise<BigNumber> => {
-    return Promise.resolve(constants.Zero);
-  };
-
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore FIXME: remove the ts ignore once the method is consumed
   private _getEnvelopingRequestDetails = async (
@@ -93,9 +90,7 @@ class RelayClient extends EnvelopingEventEmitter {
       isSmartWalletDeploy,
       preDeploySWAddress,
       forceGasLimit,
-      forceGasPrice,
-      internalEstimationCorrection,
-      addExternalCorrection: addCorrection,
+      forceGasPrice
     }: RequestConfig
   ): Promise<EnvelopingRequest> => {
     const isDeployment: boolean = isDeployRequest(
@@ -113,7 +108,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const callVerifier: PromiseOrValue<string> =
       envelopingRequest.relayData.callVerifier ||
       this._envelopingConfig[
-        isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
+      isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
       ];
 
     if (!callVerifier) {
@@ -175,12 +170,13 @@ class RelayClient extends EnvelopingEventEmitter {
     const tokenGas =
       envelopingRequest.request.tokenGas ??
       (await this.estimateTokenTransferGas({
-        gasPrice,
         tokenContract,
         tokenAmount,
-        callForwarder,
+        feesReceiver: constants.AddressZero,
         isSmartWalletDeploy,
         preDeploySWAddress,
+        callForwarder,
+        gasPrice
       })) ??
       constants.Zero;
 
@@ -190,9 +186,7 @@ class RelayClient extends EnvelopingEventEmitter {
         data,
         from,
         to,
-        gasPrice,
-        internalEstimationCorrection,
-        addExternalCorrection: addCorrection,
+        gasPrice
       }));
 
     if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
@@ -230,24 +224,24 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const completeRequest: EnvelopingRequest = isDeployment
       ? {
-          request: {
-            ...commonRequestBody,
-            ...{
-              index,
-              recoverer,
-            },
+        request: {
+          ...commonRequestBody,
+          ...{
+            index,
+            recoverer,
           },
-          relayData,
-        }
+        },
+        relayData,
+      }
       : {
-          request: {
-            ...commonRequestBody,
-            ...{
-              gas: BigNumber.from(gasLimit),
-            },
+        request: {
+          ...commonRequestBody,
+          ...{
+            gas: BigNumber.from(gasLimit),
           },
-          relayData,
-        };
+        },
+        relayData,
+      };
 
     return completeRequest;
   };
@@ -339,39 +333,74 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   public estimateInternalCallGas = async ({
-    internalEstimationCorrection = INTERNAL_ESTIMATION_CORRECTION,
-    addExternalCorrection,
+    internalEstimationCorrection = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+    estimatedGasCorrectionFactor = ESTIMATED_GAS_CORRECTION_FACTOR,
     ...estimateGasParams
   }: EstimateInternalGasParams): Promise<BigNumber> => {
-    const estimation: BigNumber = await this._provider.estimateGas(
+    let estimation: BigNumber = await this._provider.estimateGas(
       estimateGasParams
     );
-    const differenceToCorrection = estimation.sub(internalEstimationCorrection);
-    const internalEstimation = differenceToCorrection.gt(0)
-      ? differenceToCorrection
-      : estimation;
 
-    // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
-    // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
-    // Because of this, the estimated maxPossibleGas in the server (which estimates the whole transaction) might not be enough to successfully pass
-    // the following verification made in the SmartWallet:
-    // require(gasleft() > req.gas, "Not enough gas left"). This is done right before calling the destination internally
-    return addExternalCorrection
-      ? this._applyGasCorrectionFactor(internalEstimation)
-      : internalEstimation;
+    estimation = applyInternalEstimationCorrection(estimation, internalEstimationCorrection);
+
+    return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
   };
 
-  private _applyGasCorrectionFactor(
-    estimation: BigNumberish,
-    esimatedGasCorrectFactor: BigNumberish = ESTIMATED_GAS_CORRECTION_FACTOR
-  ): BigNumber {
-    const bigGasCorrection = BigNumberJs(esimatedGasCorrectFactor.toString());
-    const bigEstimation = BigNumberJs(estimation.toString()).multipliedBy(
-      bigGasCorrection
+
+  public async estimateTokenTransferGas(
+    {
+      internalEstimationCorrection = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+      estimatedGasCorrectionFactor = ESTIMATED_GAS_CORRECTION_FACTOR,
+      tokenContract,
+      tokenAmount,
+      feesReceiver,
+      isSmartWalletDeploy,
+      preDeploySWAddress,
+      callForwarder,
+      gasPrice
+    }: TokenGasEstimationParams
+  ): Promise<BigNumber> {
+
+    if (
+      tokenContract === constants.AddressZero ||
+      tokenAmount.toString() === '0'
+    ) {
+      return constants.Zero;
+    }
+
+    let tokenOrigin: string | undefined;
+
+    if (isSmartWalletDeploy) {
+      tokenOrigin = preDeploySWAddress;
+
+      // If it is a deploy and tokenGas was not defined, then the smartwallet address
+      // is required to estimate the token gas. This value should be calculated prior to
+      // the call to this function
+      if (!tokenOrigin || tokenOrigin === constants.AddressZero) {
+        throw Error(MISSING_SMART_WALLET_ADDRESS);
+      }
+    } else {
+      tokenOrigin = callForwarder.toString();
+
+      if (tokenOrigin === constants.AddressZero) {
+        throw Error(MISSING_CALL_FORWARDER);
+      }
+    }
+
+    const erc20 = IERC20__factory.connect(tokenContract.toString(), this._provider);
+    const gasCost = await erc20.estimateGas.transfer(
+      feesReceiver,
+      tokenAmount,
+      { from: tokenOrigin, gasPrice }
     );
 
-    return BigNumber.from(bigEstimation.toFixed());
+    const internalCallCost = applyInternalEstimationCorrection(gasCost, internalEstimationCorrection);
+
+    return applyGasCorrectionFactor(internalCallCost, estimatedGasCorrectionFactor);
   }
+
+
+
 }
 
 export default RelayClient;

@@ -77,4 +77,3 @@ export default HttpClient;
 
 export { PATHS as RELAY_PATHS, VERIFIER_SUFFIX };
 export type { RelayPath, SignedTransactionDetails };
-
