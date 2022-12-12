@@ -1,16 +1,9 @@
 import type { AxiosResponse } from 'axios';
 import log from 'loglevel';
-import type {
-    HubInfo,
-    RelayEstimation,
-    RelayOrDeployRequest
-} from '../../common/relay.types';
-import HttpWrapper from './HttpWrapper';
-import { requestInterceptors } from './HttpWrapper';
-import type {
-    AxiosRequestConfig,
-} from 'axios';
-import type { LogLevelDesc } from 'loglevel';
+import type { RelayEstimation } from 'src/common/estimation.types';
+import type { HubInfo } from 'src/common/relayHub.types';
+import type { UserDefinedEnvelopingRequest } from 'src/common/relayRequest.types';
+import HttpWrapper, { requestInterceptors } from './HttpWrapper';
 
 const PATHS = {
   GET_INFO: '/getaddr',
@@ -19,12 +12,14 @@ const PATHS = {
 } as const;
 const VERIFIER_SUFFIX = '?verifier=';
 
+type RelayPath = typeof PATHS[keyof typeof PATHS];
+
 type SignedTransactionDetails = {
   transactionHash: string;
   signedTx: string;
 };
 
-export default class HttpClient {
+class HttpClient {
   private readonly _httpWrapper: HttpWrapper;
 
   constructor(httpWrapper: HttpWrapper) {
@@ -37,14 +32,16 @@ export default class HttpClient {
       relayUrl + PATHS.GET_INFO + verifierSuffix
     );
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
-    requestInterceptors.logRequest.onErrorResponse({ data: {error: (hubInfo as unknown as { message: string; }).message} } as unknown as AxiosResponse); //FIXME: the server return data should not morph like this. In any case, the response should be same across all endpoints, meaning this too should contain "error" property instead of "message"
+    requestInterceptors.logRequest.onErrorResponse({
+      data: { error: (hubInfo as unknown as { message: string }).message },
+    } as unknown as AxiosResponse); //FIXME: the server return data should not morph like this. In any case, the response should be same across all endpoints, meaning this too should contain "error" property instead of "message"
 
     return hubInfo;
   }
 
   async relayTransaction(
     relayUrl: string,
-    request: RelayOrDeployRequest
+    request: UserDefinedEnvelopingRequest
   ): Promise<string> {
     const { signedTx } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
@@ -64,7 +61,7 @@ export default class HttpClient {
 
   async estimateMaxPossibleGas(
     relayUrl: string,
-    request: RelayOrDeployRequest
+    request: UserDefinedEnvelopingRequest
   ): Promise<RelayEstimation> {
     const response = await this._httpWrapper.sendPromise<RelayEstimation>(
       relayUrl + PATHS.POST_ESTIMATE,
@@ -76,9 +73,7 @@ export default class HttpClient {
   }
 }
 
-export type RelayPath = typeof PATHS[keyof typeof PATHS];
-export const RELAY_PATHS = PATHS;
-export const getDefaultHttpClient = (
-  opts: AxiosRequestConfig = {},
-  logLevel: LogLevelDesc = 'error'
-) => new HttpClient(new HttpWrapper(opts, logLevel));
+export default HttpClient;
+
+export { PATHS as RELAY_PATHS, VERIFIER_SUFFIX };
+export type { RelayPath, SignedTransactionDetails };

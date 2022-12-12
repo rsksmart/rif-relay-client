@@ -37,12 +37,12 @@ export const requestType = [
 ];
 
 export const relayRequestType = [
-  ...relayDataType,
+  ...requestType,
   { name: 'gas', type: 'uint256' },
 ];
 
 export const deployRequestType = [
-  ...relayDataType,
+  ...requestType,
   { name: 'recoverer', type: 'address' },
   { name: 'index', type: 'uint256' },
 ];
