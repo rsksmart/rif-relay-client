@@ -1,5 +1,5 @@
 import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts';
-import type { Modify } from './utility.types';
+import type { Either, Modify } from './utility.types';
 
 type RelayRequest = EnvelopingTypes.RelayRequestStruct;
 type DeployRequest = EnvelopingTypes.DeployRequestStruct;
@@ -7,7 +7,7 @@ type DeployRequest = EnvelopingTypes.DeployRequestStruct;
 type RelayRequestBody = RelayRequest['request'];
 type DeployRequestBody = DeployRequest['request'];
 
-type EnvelopingRequest = RelayRequest | DeployRequest;
+type EnvelopingRequest = Either<RelayRequest, DeployRequest>;
 
 type UserDefinedRelayRequestBody = Modify<
   RelayRequestBody,
@@ -43,8 +43,10 @@ type DeployOnlyRequestKey = keyof Omit<
   keyof RelayRequestBody
 >;
 
-type CommonEnvelopingRequestBody = Omit<RelayRequestBody, RelayOnlyRequestKey> &
-  Omit<DeployRequestBody, DeployOnlyRequestKey>;
+type CommonEnvelopingRequestBody = Omit<
+  RelayRequestBody,
+  RelayOnlyRequestKey | DeployOnlyRequestKey
+>;
 
 type UserDefinedRelayRequest = Modify<
   RelayRequest,
@@ -62,9 +64,10 @@ type UserDefinedDeployRequest = Modify<
   }
 >;
 
-type UserDefinedEnvelopingRequest =
-  | UserDefinedRelayRequest
-  | UserDefinedDeployRequest;
+type UserDefinedEnvelopingRequest = Either<
+  UserDefinedRelayRequest,
+  UserDefinedDeployRequest
+>;
 
 export type {
   UserDefinedRelayRequestBody,
