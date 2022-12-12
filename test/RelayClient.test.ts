@@ -299,6 +299,7 @@ describe('RelayClient', function () {
       const estimateGas = BigNumber.from(10000);
       provider.getGasPrice.returns(Promise.resolve(estimateGas));
       const gasPrice = await relayClient._calculateGasPrice();
+
       expect(gasPrice.toString()).to.be.equal(
         envelopingConfig.minGasPrice.toString()
       );
@@ -315,6 +316,7 @@ describe('RelayClient', function () {
       const estimatedGas = bigEstimateGas.multipliedBy(
         bigGasPriceFactorPercent.plus(1).toString()
       );
+
       expect(gasPrice.toString()).to.be.equal(estimatedGas.toString());
     });
   });
