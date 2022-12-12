@@ -56,8 +56,7 @@ class RelayClient extends EnvelopingEventEmitter {
     { feesReceiver }: HubInfo,
     { request, relayData: data }: RelayRequest
   ): Promise<EnvelopingTxRequest> => {
-    const callForwarder =
-      data.callForwarder?.toString() ?? this._envelopingConfig.forwarderAddress;
+    const callForwarder = data.callForwarder.toString();
 
     if (!callForwarder) {
       throw new Error('Call forwarder must be defined.');
@@ -86,7 +85,7 @@ class RelayClient extends EnvelopingEventEmitter {
       this._envelopingConfig.maxRelayNonceGap;
 
     const metadata: EnvelopingMetadata = {
-      relayHubAddress: request.relayHub?.toString() ?? '',
+      relayHubAddress: request.relayHub.toString(),
       signature: await accountManager.sign({
         request: updatedRequest,
         relayData: updatedData,

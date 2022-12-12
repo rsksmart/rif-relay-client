@@ -25,7 +25,6 @@ import type {
   UserDefinedRelayData,
 } from '../src/common/relayRequest.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
-import { ENVELOPING_ROOT } from '../src/constants/configs';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
@@ -47,6 +46,7 @@ describe('RelayClient', function () {
   });
 
   describe('_prepareRelayHttpRequest', function () {
+    const originalConfig = { ...config };
     let relayClient: RelayClientExposed;
     let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
     let connectForwarderFactoryStub: Sinon.SinonStub<
@@ -62,6 +62,16 @@ describe('RelayClient', function () {
         request: EnvelopingTypes.RelayRequestStruct
       ) => Promise<EnvelopingTxRequest>;
     };
+
+    before(function () {
+      config.util.extendDeep(config, {
+        EnvelopingConfig: FAKE_ENVELOPING_CONFIG,
+      });
+    });
+
+    after(function () {
+      config.util.extendDeep(config, originalConfig);
+    });
 
     beforeEach(function () {
       relayClient = new RelayClient() as unknown as RelayClientExposed;
@@ -86,12 +96,6 @@ describe('RelayClient', function () {
           .stub(AccountManager.prototype, 'sign')
           .resolves(FAKE_SIGNATURE),
       } as typeof accountManagerStub;
-
-      const configStub = sandbox.stub(config);
-      configStub.get.withArgs(ENVELOPING_ROOT).returns({
-        ...FAKE_ENVELOPING_CONFIG,
-        forwarderAddress: Wallet.createRandom().address,
-      });
     });
 
     it('should connect to forwarder', async function () {
@@ -169,29 +173,6 @@ describe('RelayClient', function () {
 
       expect(actualFeesReceiver).to.equal(expectedFeesReceiver);
     });
-
-    // FIXME: find way to stub/mock config
-    // it('should return tx request with updated call forwarder from config if one not given', async function () {
-    //   const expectedCallForwarder = 'FAKE_CALL_FORWARDER';
-    //   // const modifiedConfig: EnvelopingConfig = {
-    //   //   ...FAKE_ENVELOPING_CONFIG,
-    //   //   forwarderAddress: expectedCallForwarder,
-    //   // };
-    //   // // getConfigStub.returns(modifiedConfig);
-    //   const {
-    //     relayRequest: {
-    //       relayData: { callForwarder: actualCallForwarder },
-    //     },
-    //   } = await relayClient._prepareRelayHttpRequest({} as HubInfo, {
-    //     ...FAKE_RELAY_REQUEST,
-    //     relayData: {
-    //       callForwarder: undefined,
-    //     } as unknown as EnvelopingRequestData,
-    //   });
-
-    //   expect(actualCallForwarder).to.equal(expectedCallForwarder);
-    // });
-    // it('should throw if no call forwarder given or configured', async function (){});
 
     it('should return relay metadata with relay hub address from request', async function () {
       const expectedRelayHubAddress = 'RELAY_HUB_ADDRESS';
