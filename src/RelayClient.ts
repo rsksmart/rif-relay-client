@@ -2,7 +2,8 @@ import {
   EnvelopingTypes,
   IForwarder__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { getDefaultProvider, providers } from 'ethers';
+import { BigNumber as BigNumberJs } from 'bignumber.js';
+import { BigNumber, getDefaultProvider, providers } from 'ethers';
 import AccountManager from './AccountManager';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
@@ -102,6 +103,27 @@ class RelayClient extends EnvelopingEventEmitter {
       },
       metadata,
     };
+  };
+
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore FIXME: remove tsignore once method is consumed
+  private _calculateGasPrice = async (): Promise<BigNumber> => {
+    const { minGasPrice, gasPriceFactorPercent } = this._envelopingConfig;
+
+    const bigMinGasPrice = BigNumberJs(minGasPrice);
+    const bigGasPriceFactorPercent = BigNumberJs(gasPriceFactorPercent);
+    const networkGasPrice = await this._provider.getGasPrice();
+    const bigNetworkPrice = BigNumberJs(networkGasPrice.toString());
+
+    const gasPrice = bigNetworkPrice.multipliedBy(
+      bigGasPriceFactorPercent.plus(1)
+    );
+
+    if (gasPrice.lt(bigMinGasPrice)) {
+      return BigNumber.from(bigMinGasPrice.toFixed());
+    }
+
+    return BigNumber.from(gasPrice.toFixed());
   };
 }
 
