@@ -4,6 +4,7 @@ import {
   IForwarder,
   IForwarder__factory,
 } from '@rsksmart/rif-relay-contracts';
+import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import config from 'config';
@@ -17,6 +18,7 @@ import {
 } from 'ethers';
 import Sinon, { SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
+import type { EnvelopingConfig } from 'src/common/config.types';
 import AccountManager from '../src/AccountManager';
 import type { HubInfo } from '../src/common/relayHub.types';
 import type {
@@ -241,6 +243,81 @@ describe('RelayClient', function () {
       });
 
       expect(actualSignature).to.equal(expectedSignature);
+    });
+  });
+
+  describe('_calculateGasPrice', function () {
+    type RelayClientExposed = {
+      _calculateGasPrice: () => Promise<BigNumber>;
+    };
+    let provider: SinonStubbedInstance<providers.BaseProvider>;
+    let relayClient: RelayClientExposed;
+    let envelopingConfig: EnvelopingConfig;
+
+    beforeEach(function () {
+      envelopingConfig = {
+        chainId: 33,
+        clientId: 1,
+        deployVerifierAddress: '',
+        forwarderAddress: '',
+        gasPriceFactorPercent: 0.2,
+        relayVerifierAddress: '',
+        relayHubAddress: '',
+        smartWalletFactoryAddress: '',
+        sliceSize: 0,
+        relayTimeoutGrace: 0,
+        relayLookupWindowParts: 0,
+        relayLookupWindowBlocks: 0,
+        maxRelayNonceGap: 0,
+        minGasPrice: 60000,
+        methodSuffix: '',
+        preferredRelays: [],
+        onlyPreferredRelays: true,
+        jsonStringifyRequest: true,
+        logLevel: 0,
+      };
+
+      relayClient = new RelayClient() as unknown as RelayClientExposed;
+      provider = sandbox.createStubInstance(providers.JsonRpcProvider);
+      (
+        relayClient as unknown as {
+          _envelopingConfig: EnvelopingConfig;
+        }
+      )._envelopingConfig = envelopingConfig;
+      (
+        relayClient as unknown as {
+          _provider: providers.Provider;
+        }
+      )._provider = provider;
+    });
+
+    afterEach(function () {
+      sandbox.restore();
+    });
+
+    it('should return minGasPrice', async function () {
+      const estimateGas = BigNumber.from(10000);
+      provider.getGasPrice.returns(Promise.resolve(estimateGas));
+      const gasPrice = await relayClient._calculateGasPrice();
+
+      expect(gasPrice.toString()).to.be.equal(
+        envelopingConfig.minGasPrice.toString()
+      );
+    });
+
+    it('should return gas price with factor', async function () {
+      const estimateGas = BigNumber.from(60000);
+      provider.getGasPrice.returns(Promise.resolve(estimateGas));
+      const gasPrice = await relayClient._calculateGasPrice();
+      const bigGasPriceFactorPercent = BigNumberJs(
+        envelopingConfig.gasPriceFactorPercent
+      );
+      const bigEstimateGas = BigNumberJs(estimateGas.toString());
+      const estimatedGas = bigEstimateGas.multipliedBy(
+        bigGasPriceFactorPercent.plus(1).toString()
+      );
+
+      expect(gasPrice.toString()).to.be.equal(estimatedGas.toString());
     });
   });
 });
