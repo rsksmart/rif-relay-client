@@ -53,6 +53,7 @@ describe('AccountManager', function () {
     after(function () {
       sandbox.restore();
     });
+    
     afterEach(function () {
       sandbox.restore();
     });
