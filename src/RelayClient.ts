@@ -14,7 +14,10 @@ import type {
   UserDefinedRelayRequest,
 } from './common/relayRequest.types';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
-import { ESTIMATED_GAS_CORRECTION_FACTOR } from './constants/relay.const';
+import {
+  ESTIMATED_GAS_CORRECTION_FACTOR,
+  INTERNAL_ESTIMATION_CORRECTION,
+} from './constants/relay.const';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from './events/EnvelopingEventEmitter';
