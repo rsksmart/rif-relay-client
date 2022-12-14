@@ -45,8 +45,6 @@ const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;
 const FAKE_SIGNATURE = 'FAKE_SIGNATURE';
 
-const createRandomAddress = () => Wallet.createRandom().address;
-
 describe('RelayClient', function () {
   afterEach(function () {
     sandbox.restore();
@@ -60,6 +58,7 @@ describe('RelayClient', function () {
 
       (relayClient as unknown as { _provider: providers.Provider })._provider =
         expectedProvider;
+
       expect(relayClient).to.be.instanceOf(RelayClient);
       expect(
         (relayClient as unknown as { _provider: providers.Provider })._provider,
@@ -68,7 +67,7 @@ describe('RelayClient', function () {
     });
   });
 
-  describe('getInternalGasEstimation', function () {
+  describe('estimateInternalCallGas', function () {
     let provider: SinonStubbedInstance<providers.BaseProvider>;
     let relayClient: RelayClient;
     let relayRequest: EnvelopingTypes.RelayRequestStruct;
@@ -103,6 +102,7 @@ describe('RelayClient', function () {
         internalGasCorrection
       );
       const expectedEstimation = estimateGas.sub(internalGasCorrection);
+
       expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
     });
 
@@ -115,6 +115,7 @@ describe('RelayClient', function () {
         internalGasCorrection
       );
       const expectedEstimation = estimateGas;
+
       expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
     });
 
@@ -136,6 +137,7 @@ describe('RelayClient', function () {
         false
       );
       const expectedEstimation = estimateGas.sub(internalGasCorrection);
+
       expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
       expect(stubApplyGasCorrection.calledOnce).to.be.false;
     });
@@ -157,6 +159,7 @@ describe('RelayClient', function () {
         relayRequest,
         internalGasCorrection
       );
+
       expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
       expect(stubApplyGasCorrection.calledOnce).to.be.true;
     });
@@ -474,11 +477,13 @@ describe('RelayClient', function () {
 
     it('should return true if its the owner of the smart wallet', async function () {
       const verify = await relayClient.isSmartWalletOwner(smartWalletAddress, owner);
+      
       expect(verify).to.be.true;
     });
 
     it('shoudl return false if its not the owner of the smart wallet', async function () {
       const verify = await relayClient.isSmartWalletOwner(smartWalletAddress, '0x02');
+
       expect(verify).to.be.false;
     });
     
