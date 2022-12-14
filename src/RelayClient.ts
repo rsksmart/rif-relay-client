@@ -3,7 +3,7 @@ import {
   IForwarder__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import { BigNumber, getDefaultProvider, providers } from 'ethers';
+import { BigNumber, getDefaultProvider, providers, utils } from 'ethers';
 import AccountManager from './AccountManager';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
@@ -31,6 +31,7 @@ type RequestConfig = {
   retries?: number;
   initialBackoff?: number;
 };
+
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _provider: providers.Provider;
 
@@ -125,6 +126,15 @@ class RelayClient extends EnvelopingEventEmitter {
 
     return BigNumber.from(gasPrice.toFixed());
   };
+  public async isSmartWalletOwner(smartWalletAddress: string, owner:string): Promise<boolean>{
+    const iForwarder = IForwarder__factory.connect(smartWalletAddress, this._provider);
+    if(await iForwarder.getOwner()  !== utils.solidityKeccak256(['address'], [owner])){
+      return false;
+    }
+
+    return true;
+  }
+  
 }
 
 export default RelayClient;
