@@ -56,6 +56,7 @@ type RequestConfig = {
   estimatedGasCorrectionFactor?: BigNumberish;
 };
 
+//FIXME name standardization
 type TokenGasEstimationParams = Pick<
   EnvelopingRequest['request'],
   'tokenAmount' | 'tokenContract'
@@ -72,6 +73,7 @@ type TokenGasEstimationParams = Pick<
     | 'estimatedGasCorrectionFactor'
   >;
 
+//FIXME name standardization
 type EstimateInternalGasParams = Pick<
   RelayRequestBody,
   'data' | 'to' | 'from'
@@ -348,11 +350,11 @@ class RelayClient extends EnvelopingEventEmitter {
     );
   }
 
-  public estimateInternalCallGas = async ({
+  public async estimateInternalCallGas({
     internalEstimationCorrection,
     estimatedGasCorrectionFactor,
     ...estimateGasParams
-  }: EstimateInternalGasParams): Promise<BigNumber> => {
+  }: EstimateInternalGasParams): Promise<BigNumber> {
     let estimation: BigNumber = await this._provider.estimateGas(
       estimateGasParams
     );
@@ -363,7 +365,7 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
-  };
+  }
 
   public async estimateTokenTransferGas({
     internalEstimationCorrection,

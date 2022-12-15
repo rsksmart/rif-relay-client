@@ -64,7 +64,7 @@ const applyGasCorrectionFactor = (
   return BigNumber.from(estimation);
 };
 
-const applyInternalTransactionCorrection = (
+const applyInternalEstimationCorrection = (
   estimation: BigNumberish,
   internalTransactionEstimationCorrection: BigNumberish = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
 ) => {
@@ -81,7 +81,7 @@ export {
   getEnvelopingConfig,
   selectNextRelay,
   applyGasCorrectionFactor,
-  applyInternalTransactionCorrection as applyInternalEstimationCorrection,
+  applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
 };
