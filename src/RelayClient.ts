@@ -3,7 +3,7 @@ import {
   IForwarder__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import { BigNumber, getDefaultProvider, providers, utils } from 'ethers';
+import { BigNumber, BigNumberish, getDefaultProvider, providers, utils } from 'ethers';
 import AccountManager from './AccountManager';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
@@ -14,6 +14,10 @@ import type {
   UserDefinedRelayRequest,
 } from './common/relayRequest.types';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
+import {
+  ESTIMATED_GAS_CORRECTION_FACTOR,
+  INTERNAL_ESTIMATION_CORRECTION,
+} from './constants/relay.const';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from './events/EnvelopingEventEmitter';
@@ -126,6 +130,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     return BigNumber.from(gasPrice.toFixed());
   };
+  
   public async isSmartWalletOwner(smartWalletAddress: string, owner:string): Promise<boolean>{
     const iForwarder = IForwarder__factory.connect(smartWalletAddress, this._provider);
     if(await iForwarder.getOwner()  !== utils.solidityKeccak256(['address'], [owner])){
@@ -133,6 +138,48 @@ class RelayClient extends EnvelopingEventEmitter {
     }
 
     return true;
+  }
+
+  public estimateInternalCallGas = async (
+    { request, relayData }: EnvelopingTypes.RelayRequestStruct,
+    internalEstimationCorrection: BigNumberish = INTERNAL_ESTIMATION_CORRECTION,
+    addCorrection = true
+  ): Promise<BigNumber> => {
+    let estimation = await this._provider.estimateGas({
+      from: request.from,
+      to: request.to,
+      gasPrice: relayData.gasPrice,
+      data: request.data,
+    });
+
+    // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
+    // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
+    // Because of this, the estimated maxPossibleGas in the server (which estimates the whole transaction) might not be enough to successfully pass
+    // the following verification made in the SmartWallet:
+    // require(gasleft() > req.gas, "Not enough gas left"). This is done right before calling the destination internally
+    if (estimation.gt(internalEstimationCorrection)) {
+      estimation = estimation.sub(internalEstimationCorrection);
+    }
+
+    if (addCorrection) {
+      estimation = this._applyGasCorrectionFactor(estimation);
+    }
+
+    return estimation;
+  };
+
+  private _applyGasCorrectionFactor(
+    estimation: BigNumberish,
+    esimatedGasCorrectFactor: BigNumberish = ESTIMATED_GAS_CORRECTION_FACTOR
+  ): BigNumber {
+    let bigEstimation = BigNumberJs(estimation.toString());
+    const bigGasCorrection = BigNumberJs(esimatedGasCorrectFactor.toString());
+
+    if (!bigGasCorrection.isEqualTo(1)) {
+      bigEstimation = bigEstimation.multipliedBy(bigGasCorrection);
+    }
+
+    return BigNumber.from(bigEstimation.toFixed());
   }
   
 }
