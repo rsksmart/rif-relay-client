@@ -22,7 +22,7 @@ type SignedTransactionDetails = {
 class HttpClient {
   private readonly _httpWrapper: HttpWrapper;
 
-  constructor(httpWrapper: HttpWrapper) {
+  constructor(httpWrapper: HttpWrapper = new HttpWrapper()) {
     this._httpWrapper = httpWrapper;
   }
 
@@ -77,3 +77,4 @@ export default HttpClient;
 
 export { PATHS as RELAY_PATHS, VERIFIER_SUFFIX };
 export type { RelayPath, SignedTransactionDetails };
+

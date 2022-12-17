@@ -14,7 +14,7 @@ import type {
 } from '../src/common/relayTransaction.types';
 
 const COMMON_REQUEST_BODY: CommonEnvelopingRequestBody = {
-  data: '',
+  data: 'FAKE_REQUEST_DATA',
   tokenGas: constants.Two,
   nonce: constants.Two,
   relayHub: Wallet.createRandom().address,
