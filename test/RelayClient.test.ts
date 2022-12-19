@@ -815,7 +815,7 @@ describe('RelayClient', function () {
           from: relayRequest.request.from,
           to: relayRequest.request.to,
           gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection,
+          internalEstimationCorrection
         });
         const expectedEstimation = estimateGas.sub(
           internalEstimationCorrection
@@ -1021,7 +1021,7 @@ describe('RelayClient', function () {
         sandbox.stub(IERC20__factory, 'connect').returns(ierc20Stub);
       });
 
-      it('Should return 0 if token contract is zero address', async function () {
+      it('should return 0 if token contract is zero address', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           tokenContract: constants.AddressZero
@@ -1034,7 +1034,7 @@ describe('RelayClient', function () {
         ).to.be.equal(BigNumber.from(0).toString());
       });
 
-      it('Should return 0 if token amount is 0', async function () {
+      it('should return 0 if token amount is 0', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           tokenAmount: constants.Zero
@@ -1047,7 +1047,7 @@ describe('RelayClient', function () {
         ).to.be.equal(constants.Zero.toString());
       });
 
-      it('Should fail if it is a deploy and the smartWallet is missing', async function () {
+      it('should fail if it is a deploy and the smartWallet is missing', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           preDeploySWAddress: undefined
@@ -1058,7 +1058,7 @@ describe('RelayClient', function () {
         ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
       });
 
-      it('Should fail if it is a deploy and the smartWallet is the zero address', async function () {
+      it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           preDeploySWAddress: constants.AddressZero
@@ -1069,7 +1069,7 @@ describe('RelayClient', function () {
         ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
       });
 
-      it('Should fail if it is a relay transaction and the callForwarder is missing', async function () {
+      it('should fail if it is a relay transaction and the callForwarder is missing', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           preDeploySWAddress: constants.AddressZero,
@@ -1082,7 +1082,7 @@ describe('RelayClient', function () {
         ).to.be.rejectedWith(MISSING_CALL_FORWARDER);
       });
 
-      it('Should correct the value of the estimation when the gas cost is greater than the correction', async function () {
+      it('should correct the value of the estimation when the gas cost is greater than the correction', async function () {
         const FAKE_GAS_COST = 30000;
         const INTERNAL_CORRECTION = 20000;
         const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
@@ -1102,7 +1102,7 @@ describe('RelayClient', function () {
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
 
-      it('Should not correct the value of the estimation when the gas cost is lower than the correction', async function () {
+      it('should not correct the value of the estimation when the gas cost is lower than the correction', async function () {
         const FAKE_GAS_COST = 10000;
         const INTERNAL_CORRECTION = 20000;
         const EXPECTED_ESTIMATION = FAKE_GAS_COST;
@@ -1122,7 +1122,7 @@ describe('RelayClient', function () {
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
 
-      it('Should apply the correction factor', async function () {
+      it('should apply the correction factor', async function () {
         const FAKE_GAS_COST = 10000;
         const INTERNAL_CORRECTION = 20000;
         const CORRECTION_FACTOR = 1.5;
@@ -1144,7 +1144,7 @@ describe('RelayClient', function () {
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
 
-      it('Should use by-default values when not sent as parameters', async function () {
+      it('should use by-default values when not sent as parameters', async function () {
         //Just to be sure that the gas cost is lower than the estimate correction
         const FAKE_GAS_COST = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION - 1;
         const EXPECTED_ESTIMATION = FAKE_GAS_COST;

@@ -66,7 +66,7 @@ const applyGasCorrectionFactor = (
 
 const applyInternalTransactionCorrection = (
   estimation: BigNumberish,
-  internalTransactionEstimationCorrection: BigNumberish
+  internalTransactionEstimationCorrection: BigNumberish = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
 ) => {
   const estimationBN = BigNumber.from(estimation);
 

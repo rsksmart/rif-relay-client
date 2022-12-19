@@ -1,5 +1,4 @@
-import { IForwarder__factory } from '@rsksmart/rif-relay-contracts';
-import type { PromiseOrValue } from '@rsksmart/rif-relay-contracts/dist/typechain-types/common';
+import { IForwarder__factory, PromiseOrValue } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   BigNumber,
@@ -26,8 +25,6 @@ import type {
 import { isDeployRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 import {
-  ESTIMATED_GAS_CORRECTION_FACTOR,
-  INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   applyGasCorrectionFactor,
   applyInternalEstimationCorrection,
   getEnvelopingConfig
@@ -333,8 +330,8 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   public estimateInternalCallGas = async ({
-    internalEstimationCorrection = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
-    estimatedGasCorrectionFactor = ESTIMATED_GAS_CORRECTION_FACTOR,
+    internalEstimationCorrection,
+    estimatedGasCorrectionFactor,
     ...estimateGasParams
   }: EstimateInternalGasParams): Promise<BigNumber> => {
     let estimation: BigNumber = await this._provider.estimateGas(
@@ -349,15 +346,15 @@ class RelayClient extends EnvelopingEventEmitter {
 
   public async estimateTokenTransferGas(
     {
-      internalEstimationCorrection = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
-      estimatedGasCorrectionFactor = ESTIMATED_GAS_CORRECTION_FACTOR,
+      internalEstimationCorrection,
+      estimatedGasCorrectionFactor,
       tokenContract,
       tokenAmount,
       feesReceiver,
       isSmartWalletDeploy,
       preDeploySWAddress,
       callForwarder,
-      gasPrice
+      gasPrice,
     }: TokenGasEstimationParams
   ): Promise<BigNumber> {
 
