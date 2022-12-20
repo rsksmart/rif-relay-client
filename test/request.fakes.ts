@@ -1,4 +1,5 @@
 import { constants, ethers, Wallet } from 'ethers';
+import type { RequestConfig, TokenGasEstimationParams } from 'src/RelayClient';
 import type { EnvelopingMetadata } from '../src/common/relayHub.types';
 import type {
   CommonEnvelopingRequestBody,
@@ -69,6 +70,29 @@ const DEPLOY_TRANSACTION_REQUEST: DeployTransactionRequest = {
   relayRequest: DEPLOY_REQUEST,
 };
 
+const REQUEST_CONFIG: RequestConfig = {
+  isSmartWalletDeploy: true,
+  preDeploySWAddress: Wallet.createRandom().address,
+  clientId: '', // TODO: verify utility of this parameter
+  useEnveloping: true,
+  forceGasPrice: '',
+  forceGasLimit: '',
+  onlyPreferredRelays: true,
+  ignoreTransactionReceipt: true,
+  retries: 1,
+  initialBackoff: 1,
+};
+
+const TOKEN_GAS_ESTIMATIONS_PARAMS: TokenGasEstimationParams = {
+  tokenAmount: constants.Two,
+  tokenContract: Wallet.createRandom().address,
+  feesReceiver: Wallet.createRandom().address,
+  isSmartWalletDeploy: true,
+  preDeploySWAddress: Wallet.createRandom().address,
+  callForwarder: Wallet.createRandom().address,
+  gasPrice: constants.One
+};
+
 export {
   COMMON_REQUEST_BODY as FAKE_COMMON_REQUEST_BODY,
   RELAY_REQUEST_BODY as FAKE_RELAY_REQUEST_BODY,
@@ -78,4 +102,6 @@ export {
   ENVELOPING_REQUEST_METADATA as FAKE_ENVELOPING_REQUEST_METADATA,
   RELAY_TRANSACTION_REQUEST as FAKE_RELAY_TRANSACTION_REQUEST,
   DEPLOY_TRANSACTION_REQUEST as FAKE_DEPLOY_TRANSACTION_REQUEST,
+  REQUEST_CONFIG as FAKE_REQUEST_CONFIG,
+  TOKEN_GAS_ESTIMATIONS_PARAMS as FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS
 };
