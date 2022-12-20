@@ -1,4 +1,4 @@
-import type { BigNumber } from 'ethers';
+import { BigNumber, utils } from 'ethers';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import RelayClient from '../RelayClient';
@@ -16,7 +16,7 @@ const estimateRelayMaxPossibleGas = async (
     metadata: { signature },
   } = request;
 
-  const { tokenContract, tokenAmount } = relayRequest.request;
+  const { tokenContract } = relayRequest.request;
   const { feesReceiver, callForwarder, gasPrice } = relayRequest.relayData;
 
   const relayClient = new RelayClient();
@@ -28,7 +28,7 @@ const estimateRelayMaxPossibleGas = async (
 
   const tokenEstimation = await relayClient.estimateTokenTransferGas({
     tokenContract,
-    tokenAmount,
+    tokenAmount: utils.formatUnits(1, 'wei'),// tokenAmount should be a value different from zero to simulate the transfer estimation
     feesReceiver,
     isSmartWalletDeploy,
     preDeploySWAddress,
