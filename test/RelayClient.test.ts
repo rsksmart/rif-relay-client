@@ -1,6 +1,8 @@
 import type { Network } from '@ethersproject/networks';
 import {
   EnvelopingTypes,
+  IERC20,
+  IERC20__factory,
   IForwarder,
   IForwarder__factory,
 } from '@rsksmart/rif-relay-contracts';
@@ -11,9 +13,10 @@ import chaiAsPromised from 'chai-as-promised';
 import config from 'config';
 import { BigNumber, BigNumberish, constants, providers, Wallet } from 'ethers';
 import { solidityKeccak256 } from 'ethers/lib/utils';
-import Sinon, { SinonStubbedInstance } from 'sinon';
+import Sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
-import type { EnvelopingConfig } from 'src/common/config.types';
+import type { EnvelopingConfig } from '../src/common/config.types';
+import { INTERNAL_TRANSACTION_ESTIMATED_CORRECTION } from '../src/utils';
 import AccountManager from '../src/AccountManager';
 import type { HubInfo } from '../src/common/relayHub.types';
 import type {
@@ -25,7 +28,7 @@ import type {
   UserDefinedRelayRequest,
 } from '../src/common/relayRequest.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
-import { MISSING_CALL_FORWARDER } from '../src/constants/errorMessages';
+import { MISSING_CALL_FORWARDER, MISSING_SMART_WALLET_ADDRESS } from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
@@ -40,6 +43,7 @@ import {
   FAKE_ENVELOPING_REQUEST_DATA,
   FAKE_RELAY_REQUEST,
   FAKE_RELAY_REQUEST_BODY,
+  FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
 } from './request.fakes';
 
 use(sinonChai);
@@ -103,8 +107,8 @@ describe('RelayClient', function () {
         esimatedGasCorrectFactor: BigNumberish
       ) => BigNumber;
     } & {
-      [key in keyof RelayClient]: RelayClient[key];
-    };
+        [key in keyof RelayClient]: RelayClient[key];
+      };
 
     let relayClient: RelayClientExposed;
     let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
@@ -628,12 +632,13 @@ describe('RelayClient', function () {
           preDeploySWAddress: Wallet.createRandom().address,
         };
         const expectedEstimationProps: TokenGasEstimationParams = {
-          callForwarder: request.relayData.callForwarder,
-          gasPrice: request.relayData.gasPrice as PromiseOrValue<BigNumberish>,
-          tokenAmount: request.request.tokenAmount,
           tokenContract: request.request.tokenContract,
-          preDeploySWAddress: requestConfig.preDeploySWAddress,
+          tokenAmount: request.request.tokenAmount,
+          feesReceiver: constants.AddressZero,
           isSmartWalletDeploy: requestConfig.isSmartWalletDeploy,
+          preDeploySWAddress: requestConfig.preDeploySWAddress,
+          callForwarder: request.relayData.callForwarder,
+          gasPrice: request.relayData.gasPrice as PromiseOrValue<BigNumberish>
         };
 
         const {
@@ -810,7 +815,7 @@ describe('RelayClient', function () {
           from: relayRequest.request.from,
           to: relayRequest.request.to,
           gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection,
+          internalEstimationCorrection
         });
         const expectedEstimation = estimateGas.sub(
           internalEstimationCorrection
@@ -859,7 +864,7 @@ describe('RelayClient', function () {
           to: relayRequest.request.to,
           gasPrice: relayRequest.relayData.gasPrice,
           internalEstimationCorrection,
-          addExternalCorrection: false,
+          estimatedGasCorrectionFactor: '1',
         });
         const expectedEstimation = estimateGas.sub(
           internalEstimationCorrection
@@ -871,12 +876,8 @@ describe('RelayClient', function () {
         expect(stubApplyGasCorrection.calledOnce).to.be.false;
       });
 
-      it('should return estimation applying gas correction factor when addExternalCorrection is set to true', async function () {
+      it('should return estimation applying gas correction factor when estimatedGasCorrectionFactor different from 1', async function () {
         const expectedEstimation = BigNumber.from(7_500);
-        const stubApplyGasCorrection = sandbox
-          .stub()
-          .returns(expectedEstimation);
-        relayClient._applyGasCorrectionFactor = stubApplyGasCorrection;
         relayClient._provider.estimateGas = sandbox
           .stub()
           .resolves(BigNumber.from(10_000));
@@ -887,11 +888,10 @@ describe('RelayClient', function () {
           to: relayRequest.request.to,
           gasPrice: relayRequest.relayData.gasPrice,
           internalEstimationCorrection,
-          addExternalCorrection: true,
+          estimatedGasCorrectionFactor: '1.5',
         });
 
-        expect(estimation).to.be.equal(expectedEstimation);
-        expect(stubApplyGasCorrection).to.be.calledOnce;
+        expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
       });
     });
 
@@ -1000,5 +1000,171 @@ describe('RelayClient', function () {
         expect(verify).to.be.false;
       });
     });
+
+    describe('estimateTokenTransferGas', function () {
+      let relayClient: RelayClient;
+
+      let ierc20TransferStub: SinonStub;
+
+      beforeEach(function () {
+        relayClient = new RelayClient();
+
+        ierc20TransferStub = sandbox.stub();
+        const estimateGas = {
+          transfer: ierc20TransferStub,
+        };
+
+        const ierc20Stub = {
+          estimateGas,
+        } as unknown as Sinon.SinonStubbedInstance<IERC20>;
+
+        sandbox.stub(IERC20__factory, 'connect').returns(ierc20Stub);
+      });
+
+      it('should return 0 if token contract is zero address', async function () {
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          tokenContract: constants.AddressZero
+        };
+
+        expect(
+          (
+            await relayClient.estimateTokenTransferGas(request)
+          ).toString()
+        ).to.be.equal(BigNumber.from(0).toString());
+      });
+
+      it('should return 0 if token amount is 0', async function () {
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          tokenAmount: constants.Zero
+        };
+
+        expect(
+          (
+            await relayClient.estimateTokenTransferGas(request)
+          ).toString()
+        ).to.be.equal(constants.Zero.toString());
+      });
+
+      it('should fail if it is a deploy and the smartWallet is missing', async function () {
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          preDeploySWAddress: undefined
+        };
+
+        await expect(
+          relayClient.estimateTokenTransferGas(request)
+        ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
+      });
+
+      it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          preDeploySWAddress: constants.AddressZero
+        };
+
+        await expect(
+          relayClient.estimateTokenTransferGas(request)
+        ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
+      });
+
+      it('should fail if it is a relay transaction and the callForwarder is missing', async function () {
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          preDeploySWAddress: constants.AddressZero,
+          isSmartWalletDeploy: false,
+          callForwarder: constants.AddressZero
+        };
+
+        await expect(
+          relayClient.estimateTokenTransferGas(request)
+        ).to.be.rejectedWith(MISSING_CALL_FORWARDER);
+      });
+
+      it('should correct the value of the estimation when the gas cost is greater than the correction', async function () {
+        const FAKE_GAS_COST = 30000;
+        const INTERNAL_CORRECTION = 20000;
+        const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
+
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          gasPrice: FAKE_GAS_COST,
+          internalEstimationCorrection: INTERNAL_CORRECTION
+        };
+
+        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
+
+        const estimation = await relayClient.estimateTokenTransferGas(
+          request
+        );
+
+        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
+      });
+
+      it('should not correct the value of the estimation when the gas cost is lower than the correction', async function () {
+        const FAKE_GAS_COST = 10000;
+        const INTERNAL_CORRECTION = 20000;
+        const EXPECTED_ESTIMATION = FAKE_GAS_COST;
+
+        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
+
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          gasPrice: FAKE_GAS_COST,
+          internalEstimationCorrection: INTERNAL_CORRECTION
+        };
+
+        const estimation = await relayClient.estimateTokenTransferGas(
+          request
+        );
+
+        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
+      });
+
+      it('should apply the correction factor', async function () {
+        const FAKE_GAS_COST = 10000;
+        const INTERNAL_CORRECTION = 20000;
+        const CORRECTION_FACTOR = 1.5;
+        const EXPECTED_ESTIMATION = FAKE_GAS_COST * CORRECTION_FACTOR;
+
+        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
+
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          gasPrice: FAKE_GAS_COST,
+          internalEstimationCorrection: INTERNAL_CORRECTION,
+          estimatedGasCorrectionFactor: CORRECTION_FACTOR
+        };
+
+        const estimation = await relayClient.estimateTokenTransferGas(
+          request
+        );
+
+        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
+      });
+
+      it('should use by-default values when not sent as parameters', async function () {
+        //Just to be sure that the gas cost is lower than the estimate correction
+        const FAKE_GAS_COST = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION - 1;
+        const EXPECTED_ESTIMATION = FAKE_GAS_COST;
+
+        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
+
+        const request: TokenGasEstimationParams = {
+          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          gasPrice: FAKE_GAS_COST
+        };
+
+        const estimation = await relayClient.estimateTokenTransferGas(
+          request
+        );
+
+        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
+      });
+    });
+
   });
 });
+
+
