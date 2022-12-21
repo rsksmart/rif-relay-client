@@ -28,7 +28,7 @@ const estimateRelayMaxPossibleGas = async (
 
   const tokenEstimation = await relayClient.estimateTokenTransferGas({
     tokenContract,
-    tokenAmount: utils.formatUnits(1, 'wei'),// tokenAmount should be a value different from zero to simulate the transfer estimation
+    tokenAmount: utils.formatUnits(1, 'wei'), // tokenAmount should be a value different from zero to simulate the transfer estimation
     feesReceiver,
     isSmartWalletDeploy,
     preDeploySWAddress,
