@@ -1,9 +1,12 @@
 import type { Provider } from '@ethersproject/abstract-provider';
 import * as addressUtils from '@ethersproject/address';
 import * as solidityUtils from '@ethersproject/solidity';
-import { ERC20, ERC20__factory } from '@rsksmart/rif-relay-contracts';
-import type { SmartWalletFactory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/factory/SmartWalletFactory';
-import { SmartWalletFactory__factory } from '@rsksmart/rif-relay-contracts/dist/typechain-types/factories/contracts/factory';
+import {
+  ERC20,
+  ERC20__factory,
+  SmartWalletFactory,
+  SmartWalletFactory__factory,
+} from '@rsksmart/rif-relay-contracts';
 import { expect, use } from 'chai';
 import crypto from 'crypto';
 import { BigNumber, constants, providers, Signer } from 'ethers';

@@ -2,7 +2,7 @@ import type { AxiosResponse } from 'axios';
 import log from 'loglevel';
 import type { RelayEstimation } from 'src/common/estimation.types';
 import type { HubInfo } from 'src/common/relayHub.types';
-import type { UserDefinedEnvelopingRequest } from 'src/common/relayRequest.types';
+import type { EnvelopingTxRequest } from 'src/common/relayTransaction.types';
 import HttpWrapper, { requestInterceptors } from './HttpWrapper';
 
 const PATHS = {
@@ -41,7 +41,7 @@ class HttpClient {
 
   async relayTransaction(
     relayUrl: string,
-    request: UserDefinedEnvelopingRequest
+    request: EnvelopingTxRequest
   ): Promise<string> {
     const { signedTx } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
@@ -61,7 +61,7 @@ class HttpClient {
 
   async estimateMaxPossibleGas(
     relayUrl: string,
-    request: UserDefinedEnvelopingRequest
+    request: EnvelopingTxRequest
   ): Promise<RelayEstimation> {
     const response = await this._httpWrapper.sendPromise<RelayEstimation>(
       relayUrl + PATHS.POST_ESTIMATE,

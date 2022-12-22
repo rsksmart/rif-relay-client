@@ -1,10 +1,10 @@
 import { BigNumberish, BigNumber, getDefaultProvider } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import {
-  RelayHub__factory,
-  EnvelopingTypes,
-} from '@rsksmart/rif-relay-contracts';
-import type { EnvelopingRequest } from '../common/relayRequest.types';
+import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import type {
+  EnvelopingRequest,
+  RelayRequest,
+} from '../common/relayRequest.types';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import RelayClient from '../RelayClient';
@@ -33,9 +33,8 @@ const standardMaxPossibleGasEstimation = async (
 
   const methodToEstimate = isDeployRequest(relayRequest)
     ? await relayHub.populateTransaction.deployCall(relayRequest, signature)
-    : // FIXME: incompatible types
-      await relayHub.populateTransaction.relayCall(
-        relayRequest as unknown as EnvelopingTypes.RelayRequestStruct,
+    : await relayHub.populateTransaction.relayCall(
+        relayRequest as RelayRequest,
         signature
       );
 
