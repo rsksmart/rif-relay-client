@@ -15,20 +15,23 @@ import { BigNumber, BigNumberish, constants, providers, Wallet } from 'ethers';
 import { solidityKeccak256 } from 'ethers/lib/utils';
 import Sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
-import type { EnvelopingConfig } from '../src/common/config.types';
-import { INTERNAL_TRANSACTION_ESTIMATED_CORRECTION } from '../src/utils';
+import type { EnvelopingConfig } from 'src/common/config.types';
+import type { HubInfo } from 'src/common/relayHub.types';
 import AccountManager from '../src/AccountManager';
-import type { HubInfo } from '../src/common/relayHub.types';
 import type {
   DeployRequest,
   EnvelopingRequest,
+  EnvelopingRequestData,
   RelayRequest,
   UserDefinedEnvelopingRequest,
   UserDefinedRelayData,
   UserDefinedRelayRequest,
 } from '../src/common/relayRequest.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
-import { MISSING_CALL_FORWARDER, MISSING_SMART_WALLET_ADDRESS } from '../src/constants/errorMessages';
+import {
+  MISSING_CALL_FORWARDER,
+  MISSING_SMART_WALLET_ADDRESS,
+} from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
@@ -36,6 +39,7 @@ import RelayClient, {
   RequestConfig,
   TokenGasEstimationParams,
 } from '../src/RelayClient';
+import { INTERNAL_TRANSACTION_ESTIMATED_CORRECTION } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
 import {
@@ -93,8 +97,8 @@ describe('RelayClient', function () {
     type RelayClientExposed = {
       _envelopingConfig: EnvelopingConfig;
       _provider: providers.Provider;
-      _prepareRelayHttpRequest: (
-        hubInfo: Required<Pick<HubInfo, 'feesReceiver'>>,
+      _prepareHttpRequest: (
+        _hubInfo: HubInfo,
         request: EnvelopingTypes.RelayRequestStruct
       ) => Promise<EnvelopingTxRequest>;
       _getEnvelopingRequestDetails: (
@@ -107,8 +111,8 @@ describe('RelayClient', function () {
         esimatedGasCorrectFactor: BigNumberish
       ) => BigNumber;
     } & {
-        [key in keyof RelayClient]: RelayClient[key];
-      };
+      [key in keyof RelayClient]: RelayClient[key];
+    };
 
     let relayClient: RelayClientExposed;
     let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
@@ -132,7 +136,7 @@ describe('RelayClient', function () {
       sandbox.stub(IForwarder__factory, 'connect').returns(forwarderStub);
     });
 
-    describe('_prepareRelayHttpRequest', function () {
+    describe('_prepareHttpRequest', function () {
       let accountManagerStub: SinonStubbedInstance<AccountManager>;
 
       beforeEach(function () {
@@ -143,43 +147,14 @@ describe('RelayClient', function () {
         } as typeof accountManagerStub;
       });
 
-      it('should return tx request with given relay request data with fees receiver from given hub info', async function () {
-        const expectedRelayRequestData: UserDefinedRelayData = {
-          ...FAKE_ENVELOPING_REQUEST_DATA,
-          feesReceiver: FAKE_HUB_INFO.feesReceiver,
-        };
-        const {
-          relayRequest: { relayData: actualRelayRequestData },
-        } = await relayClient._prepareRelayHttpRequest(
-          FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST
-        );
-
-        expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
-      });
-
-      it('should return tx request with updated fees receiver from given hub info', async function () {
-        const expectedFeesReceiver = FAKE_HUB_INFO.feesReceiver;
-        const {
-          relayRequest: {
-            relayData: { feesReceiver: actualFeesReceiver },
-          },
-        } = await relayClient._prepareRelayHttpRequest(
-          FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST
-        );
-
-        expect(actualFeesReceiver).to.equal(expectedFeesReceiver);
-      });
-
       it('should return relay metadata with relay hub address from request', async function () {
         const expectedRelayHubAddress = 'RELAY_HUB_ADDRESS';
         const {
           metadata: { relayHubAddress: actualRelayHubAddress },
-        } = await relayClient._prepareRelayHttpRequest(FAKE_HUB_INFO, {
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, {
           ...FAKE_RELAY_REQUEST,
           request: {
-            ...FAKE_RELAY_REQUEST_BODY,
+            ...FAKE_RELAY_REQUEST.request,
             relayHub: expectedRelayHubAddress,
           },
         });
@@ -187,52 +162,100 @@ describe('RelayClient', function () {
         expect(actualRelayHubAddress).to.equal(expectedRelayHubAddress);
       });
 
+      it('should return tx request with fees receiver from given request if it is a valid address', async function () {
+        const expectedFeesReceiver = FAKE_RELAY_REQUEST.relayData.feesReceiver;
+        const {
+          relayRequest: {
+            relayData: { feesReceiver: actualFeesReceiver },
+          },
+        } = await relayClient._prepareHttpRequest(
+          FAKE_HUB_INFO,
+          FAKE_RELAY_REQUEST
+        );
+
+        expect(actualFeesReceiver).to.equal(expectedFeesReceiver);
+      });
+
+      it('should return tx request with fees receiver in request data from given hub info if no fees receiver given in request', async function () {
+        const expectedRelayRequestData: UserDefinedRelayData = {
+          ...FAKE_ENVELOPING_REQUEST_DATA,
+          feesReceiver: FAKE_HUB_INFO.feesReceiver,
+        };
+        const {
+          relayRequest: { relayData: actualRelayRequestData },
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_RELAY_REQUEST.relayData,
+            feesReceiver: undefined,
+          } as unknown as EnvelopingRequestData,
+        });
+
+        expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
+      });
+
       it('should thow error when feesReceiver in hub info is zero address or not defined', async function () {
         await expect(
-          relayClient._prepareRelayHttpRequest(
+          relayClient._prepareHttpRequest(
             {
               feesReceiver: constants.AddressZero,
             } as HubInfo,
-            FAKE_RELAY_REQUEST
+            {
+              ...FAKE_RELAY_REQUEST,
+              relayData: {
+                ...FAKE_RELAY_REQUEST.relayData,
+                feesReceiver: constants.AddressZero,
+              },
+            }
           ),
           'feesReceiver is zero address'
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
         await expect(
-          relayClient._prepareRelayHttpRequest(
-            {} as HubInfo,
-            FAKE_RELAY_REQUEST
-          ),
+          relayClient._prepareHttpRequest({} as HubInfo, {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              feesReceiver: undefined,
+            } as unknown as EnvelopingRequestData,
+          }),
           'feesReceiver is undefined'
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
       });
 
-      it('should sign the updated request', async function () {
-        forwarderStub.nonce.resolves(
-          BigNumber.from(await FAKE_RELAY_REQUEST.request.nonce)
-        );
-        const signStub = accountManagerStub.sign;
-        const expectedFeesReceiver = FAKE_HUB_INFO.feesReceiver;
-        await relayClient._prepareRelayHttpRequest(FAKE_HUB_INFO, {
+      it('should return tx request with fees receiver in request data from given hub info if fees receiver given in request is zero', async function () {
+        const expectedRelayRequestData: UserDefinedRelayData = {
+          ...FAKE_ENVELOPING_REQUEST_DATA,
+          feesReceiver: FAKE_HUB_INFO.feesReceiver,
+        };
+        const {
+          relayRequest: { relayData: actualRelayRequestData },
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, {
           ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_RELAY_REQUEST.relayData,
+            feesReceiver: constants.AddressZero,
+          },
         });
 
+        expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
+      });
+
+      it('should sign the request', async function () {
+        forwarderStub.nonce.resolves(constants.Two);
+        const signStub = accountManagerStub.sign;
+        await relayClient._prepareHttpRequest(
+          FAKE_HUB_INFO,
+          FAKE_RELAY_REQUEST
+        );
+
         expect(signStub).to.have.been.called;
-        expect(signStub).to.have.been.calledWith({
-          request: {
-            ...FAKE_RELAY_REQUEST_BODY,
-            nonce: await forwarderStub.nonce(),
-          },
-          relayData: {
-            ...FAKE_ENVELOPING_REQUEST_DATA,
-            feesReceiver: expectedFeesReceiver,
-          },
-        } as RelayRequest);
+        expect(signStub).to.have.been.calledWith(FAKE_RELAY_REQUEST);
       });
 
       it(`should emit sign request 'sign-request' `, async function () {
         const emitStub = sandbox.stub();
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
-        await relayClient._prepareRelayHttpRequest(
+        await relayClient._prepareHttpRequest(
           FAKE_HUB_INFO,
           FAKE_RELAY_REQUEST
         );
@@ -247,10 +270,10 @@ describe('RelayClient', function () {
         const expectedSignature = FAKE_SIGNATURE;
         const {
           metadata: { signature: actualSignature },
-        } = await relayClient._prepareRelayHttpRequest(FAKE_HUB_INFO, {
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, {
           ...FAKE_RELAY_REQUEST,
           request: {
-            ...FAKE_RELAY_REQUEST_BODY,
+            ...FAKE_RELAY_REQUEST.request,
           },
         });
 
@@ -638,7 +661,7 @@ describe('RelayClient', function () {
           isSmartWalletDeploy: requestConfig.isSmartWalletDeploy,
           preDeploySWAddress: requestConfig.preDeploySWAddress,
           callForwarder: request.relayData.callForwarder,
-          gasPrice: request.relayData.gasPrice as PromiseOrValue<BigNumberish>
+          gasPrice: request.relayData.gasPrice as PromiseOrValue<BigNumberish>,
         };
 
         const {
@@ -815,7 +838,7 @@ describe('RelayClient', function () {
           from: relayRequest.request.from,
           to: relayRequest.request.to,
           gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection
+          internalEstimationCorrection,
         });
         const expectedEstimation = estimateGas.sub(
           internalEstimationCorrection
@@ -891,7 +914,9 @@ describe('RelayClient', function () {
           estimatedGasCorrectionFactor: '1.5',
         });
 
-        expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
+        expect(estimation.toString()).to.be.equal(
+          expectedEstimation.toString()
+        );
       });
     });
 
@@ -1024,33 +1049,29 @@ describe('RelayClient', function () {
       it('should return 0 if token contract is zero address', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          tokenContract: constants.AddressZero
+          tokenContract: constants.AddressZero,
         };
 
         expect(
-          (
-            await relayClient.estimateTokenTransferGas(request)
-          ).toString()
+          (await relayClient.estimateTokenTransferGas(request)).toString()
         ).to.be.equal(BigNumber.from(0).toString());
       });
 
       it('should return 0 if token amount is 0', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          tokenAmount: constants.Zero
+          tokenAmount: constants.Zero,
         };
 
         expect(
-          (
-            await relayClient.estimateTokenTransferGas(request)
-          ).toString()
+          (await relayClient.estimateTokenTransferGas(request)).toString()
         ).to.be.equal(constants.Zero.toString());
       });
 
       it('should fail if it is a deploy and the smartWallet is missing', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          preDeploySWAddress: undefined
+          preDeploySWAddress: undefined,
         };
 
         await expect(
@@ -1061,7 +1082,7 @@ describe('RelayClient', function () {
       it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          preDeploySWAddress: constants.AddressZero
+          preDeploySWAddress: constants.AddressZero,
         };
 
         await expect(
@@ -1074,7 +1095,7 @@ describe('RelayClient', function () {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           preDeploySWAddress: constants.AddressZero,
           isSmartWalletDeploy: false,
-          callForwarder: constants.AddressZero
+          callForwarder: constants.AddressZero,
         };
 
         await expect(
@@ -1090,14 +1111,12 @@ describe('RelayClient', function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           gasPrice: FAKE_GAS_COST,
-          internalEstimationCorrection: INTERNAL_CORRECTION
+          internalEstimationCorrection: INTERNAL_CORRECTION,
         };
 
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
-        const estimation = await relayClient.estimateTokenTransferGas(
-          request
-        );
+        const estimation = await relayClient.estimateTokenTransferGas(request);
 
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
@@ -1112,12 +1131,10 @@ describe('RelayClient', function () {
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           gasPrice: FAKE_GAS_COST,
-          internalEstimationCorrection: INTERNAL_CORRECTION
+          internalEstimationCorrection: INTERNAL_CORRECTION,
         };
 
-        const estimation = await relayClient.estimateTokenTransferGas(
-          request
-        );
+        const estimation = await relayClient.estimateTokenTransferGas(request);
 
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
@@ -1134,12 +1151,10 @@ describe('RelayClient', function () {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
           gasPrice: FAKE_GAS_COST,
           internalEstimationCorrection: INTERNAL_CORRECTION,
-          estimatedGasCorrectionFactor: CORRECTION_FACTOR
+          estimatedGasCorrectionFactor: CORRECTION_FACTOR,
         };
 
-        const estimation = await relayClient.estimateTokenTransferGas(
-          request
-        );
+        const estimation = await relayClient.estimateTokenTransferGas(request);
 
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
@@ -1153,18 +1168,13 @@ describe('RelayClient', function () {
 
         const request: TokenGasEstimationParams = {
           ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST
+          gasPrice: FAKE_GAS_COST,
         };
 
-        const estimation = await relayClient.estimateTokenTransferGas(
-          request
-        );
+        const estimation = await relayClient.estimateTokenTransferGas(request);
 
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
     });
-
   });
 });
-
-

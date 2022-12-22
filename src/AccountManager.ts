@@ -43,16 +43,16 @@ export default class AccountManager {
     return 'index' in request;
   }
 
-  async sign(relayRequest: EnvelopingRequest): Promise<string> {
-    const callForwarder = relayRequest.relayData.callForwarder.toString();
+  async sign(envelopingRequest: EnvelopingRequest): Promise<string> {
+    const callForwarder = envelopingRequest.relayData.callForwarder.toString();
     const fromAddress: string = getAddress(
-      relayRequest.request.from.toString()
+      envelopingRequest.request.from.toString()
     );
-    const isDeploy = this.isDeployRequest(relayRequest);
+    const isDeploy = this.isDeployRequest(envelopingRequest);
     const data = getEnvelopingRequestDataV4Field({
       chainId: this.chainId,
       verifier: callForwarder,
-      relayRequest,
+      envelopingRequest,
       requestTypes: isDeploy ? deployRequestType : relayRequestType,
     });
     const wallet = this._accounts.find(

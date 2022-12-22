@@ -7,7 +7,10 @@ type DeployRequest = EnvelopingTypes.DeployRequestStruct;
 type RelayRequestBody = RelayRequest['request'];
 type DeployRequestBody = DeployRequest['request'];
 
-type EnvelopingRequest = Either<RelayRequest, DeployRequest>;
+type EnvelopingRequest = {
+  request: Either<RelayRequestBody, DeployRequestBody>;
+  relayData: EnvelopingRequestData;
+};
 
 type UserDefinedRelayRequestBody = Modify<
   RelayRequestBody,
