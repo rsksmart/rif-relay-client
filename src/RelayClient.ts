@@ -1,4 +1,8 @@
-import { IForwarder__factory, PromiseOrValue } from '@rsksmart/rif-relay-contracts';
+import {
+  IERC20__factory,
+  IForwarder__factory,
+} from '@rsksmart/rif-relay-contracts';
+import type { PromiseOrValue } from '@rsksmart/rif-relay-contracts/dist/typechain-types/common';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   BigNumber,
@@ -8,6 +12,7 @@ import {
   providers,
 } from 'ethers';
 import { isAddress, solidityKeccak256 } from 'ethers/lib/utils';
+import log from 'loglevel';
 import AccountManager from './AccountManager';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EnvelopingMetadata, HubInfo } from './common/relayHub.types';
@@ -16,7 +21,6 @@ import type {
   DeployRequestBody,
   EnvelopingRequest,
   EnvelopingRequestData,
-  RelayRequest,
   RelayRequestBody,
   UserDefinedDeployRequestBody,
   UserDefinedEnvelopingRequest,
@@ -25,18 +29,17 @@ import type {
 import { isDeployRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 import {
-  applyGasCorrectionFactor,
-  applyInternalEstimationCorrection,
-  getEnvelopingConfig
-} from './utils';
+  MISSING_CALL_FORWARDER,
+  MISSING_SMART_WALLET_ADDRESS,
+} from './constants/errorMessages';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from './events/EnvelopingEventEmitter';
-import { IERC20__factory } from '@rsksmart/rif-relay-contracts';
 import {
-  MISSING_SMART_WALLET_ADDRESS,
-  MISSING_CALL_FORWARDER,
-} from './constants/errorMessages';
+  applyGasCorrectionFactor,
+  applyInternalEstimationCorrection,
+  getEnvelopingConfig,
+} from './utils';
 
 type RequestConfig = {
   isSmartWalletDeploy?: boolean;
@@ -57,15 +60,27 @@ type TokenGasEstimationParams = Pick<
   EnvelopingRequest['request'],
   'tokenAmount' | 'tokenContract'
 > &
-  Pick<EnvelopingRequest['relayData'], 'gasPrice' | 'callForwarder' | 'feesReceiver'> &
-  Pick<RequestConfig, 'isSmartWalletDeploy' | 'preDeploySWAddress' | 'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'>;
+  Pick<
+    EnvelopingRequest['relayData'],
+    'gasPrice' | 'callForwarder' | 'feesReceiver'
+  > &
+  Pick<
+    RequestConfig,
+    | 'isSmartWalletDeploy'
+    | 'preDeploySWAddress'
+    | 'internalEstimationCorrection'
+    | 'estimatedGasCorrectionFactor'
+  >;
 
 type EstimateInternalGasParams = Pick<
   RelayRequestBody,
   'data' | 'to' | 'from'
 > &
   Pick<EnvelopingRequestData, 'gasPrice'> &
-  Pick<RequestConfig, 'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'>;
+  Pick<
+    RequestConfig,
+    'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'
+  >;
 
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _provider: providers.Provider;
@@ -87,7 +102,7 @@ class RelayClient extends EnvelopingEventEmitter {
       isSmartWalletDeploy,
       preDeploySWAddress,
       forceGasLimit,
-      forceGasPrice
+      forceGasPrice,
     }: RequestConfig
   ): Promise<EnvelopingRequest> => {
     const isDeployment: boolean = isDeployRequest(
@@ -105,7 +120,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const callVerifier: PromiseOrValue<string> =
       envelopingRequest.relayData.callVerifier ||
       this._envelopingConfig[
-      isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
+        isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
       ];
 
     if (!callVerifier) {
@@ -173,7 +188,7 @@ class RelayClient extends EnvelopingEventEmitter {
         isSmartWalletDeploy,
         preDeploySWAddress,
         callForwarder,
-        gasPrice
+        gasPrice,
       })) ??
       constants.Zero;
 
@@ -183,7 +198,7 @@ class RelayClient extends EnvelopingEventEmitter {
         data,
         from,
         to,
-        gasPrice
+        gasPrice,
       }));
 
     if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
@@ -221,79 +236,83 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const completeRequest: EnvelopingRequest = isDeployment
       ? {
-        request: {
-          ...commonRequestBody,
-          ...{
-            index,
-            recoverer,
+          request: {
+            ...commonRequestBody,
+            ...{
+              index,
+              recoverer,
+            },
           },
-        },
-        relayData,
-      }
+          relayData,
+        }
       : {
-        request: {
-          ...commonRequestBody,
-          ...{
-            gas: BigNumber.from(gasLimit),
+          request: {
+            ...commonRequestBody,
+            ...{
+              gas: BigNumber.from(gasLimit),
+            },
           },
-        },
-        relayData,
-      };
+          relayData,
+        };
 
     return completeRequest;
   };
 
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore FIXME: remove the ts ignore once the method is consumed
-  private _prepareRelayHttpRequest = async (
-    { feesReceiver }: HubInfo,
-    { request, relayData }: RelayRequest
+  private _prepareHttpRequest = async (
+    { feesReceiver: feesReceiverFromHubInfo }: HubInfo,
+    relayRequest: EnvelopingRequest
   ): Promise<EnvelopingTxRequest> => {
-    const { callForwarder } = relayData;
-    const { relayHub: relayHubAddress } = request;
-
-    if (!callForwarder) {
-      throw new Error('Call forwarder must be defined.');
-    }
-
-    if (
-      !feesReceiver ||
-      feesReceiver === constants.AddressZero ||
-      !isAddress(feesReceiver)
-    ) {
-      throw new Error('FeesReceiver has to be a valid non-zero address');
-    }
-
-    const updatedData: EnvelopingRequestData = {
-      ...relayData,
-      feesReceiver,
-    };
-
+    const {
+      request: { relayHub },
+      relayData: { callForwarder, feesReceiver: feesReceiverFromRequest },
+    } = relayRequest;
     const chainId = (await this._provider.getNetwork()).chainId;
     const accountManager = new AccountManager(this._provider, chainId);
-
     const relayMaxNonce =
       (await this._provider.getTransactionCount(callForwarder)) +
       this._envelopingConfig.maxRelayNonceGap;
 
+    const feesReceiver =
+      feesReceiverFromRequest &&
+      (await feesReceiverFromRequest) !== constants.AddressZero
+        ? feesReceiverFromRequest
+        : feesReceiverFromHubInfo;
+    if (
+      !feesReceiver ||
+      feesReceiver === constants.AddressZero ||
+      !isAddress(await feesReceiver)
+    ) {
+      throw new Error('FeesReceiver has to be a valid non-zero address');
+    }
+
+    const updatedRelayRequest: EnvelopingRequest = {
+      ...relayRequest,
+      relayData: {
+        ...relayRequest.relayData,
+        feesReceiver,
+      },
+    };
+
     const metadata: EnvelopingMetadata = {
-      signature: await accountManager.sign({
-        request,
-        relayData: updatedData,
-      }),
-      relayHubAddress,
+      relayHubAddress: await relayHub,
+      signature: await accountManager.sign(updatedRelayRequest),
       relayMaxNonce,
+    };
+    const httpRequest: EnvelopingTxRequest = {
+      relayRequest: updatedRelayRequest,
+      metadata,
     };
 
     this.emit(envelopingEvents['sign-request']);
+    log.info(
+      `Created HTTP ${
+        isDeployRequest(relayRequest) ? 'deploy' : 'relay'
+      } request: ${JSON.stringify(httpRequest)}`
+    );
 
-    return {
-      relayRequest: {
-        request,
-        relayData: updatedData,
-      },
-      metadata,
-    };
+    return httpRequest;
   };
 
   private _calculateGasPrice = async (): Promise<BigNumber> => {
@@ -338,26 +357,25 @@ class RelayClient extends EnvelopingEventEmitter {
       estimateGasParams
     );
 
-    estimation = applyInternalEstimationCorrection(estimation, internalEstimationCorrection);
+    estimation = applyInternalEstimationCorrection(
+      estimation,
+      internalEstimationCorrection
+    );
 
     return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
   };
 
-
-  public async estimateTokenTransferGas(
-    {
-      internalEstimationCorrection,
-      estimatedGasCorrectionFactor,
-      tokenContract,
-      tokenAmount,
-      feesReceiver,
-      isSmartWalletDeploy,
-      preDeploySWAddress,
-      callForwarder,
-      gasPrice,
-    }: TokenGasEstimationParams
-  ): Promise<BigNumber> {
-
+  public async estimateTokenTransferGas({
+    internalEstimationCorrection,
+    estimatedGasCorrectionFactor,
+    tokenContract,
+    tokenAmount,
+    feesReceiver,
+    isSmartWalletDeploy,
+    preDeploySWAddress,
+    callForwarder,
+    gasPrice,
+  }: TokenGasEstimationParams): Promise<BigNumber> {
     if (
       tokenContract === constants.AddressZero ||
       tokenAmount.toString() === '0'
@@ -384,20 +402,26 @@ class RelayClient extends EnvelopingEventEmitter {
       }
     }
 
-    const erc20 = IERC20__factory.connect(tokenContract.toString(), this._provider);
+    const erc20 = IERC20__factory.connect(
+      tokenContract.toString(),
+      this._provider
+    );
     const gasCost = await erc20.estimateGas.transfer(
       feesReceiver,
       tokenAmount,
       { from: tokenOrigin, gasPrice }
     );
 
-    const internalCallCost = applyInternalEstimationCorrection(gasCost, internalEstimationCorrection);
+    const internalCallCost = applyInternalEstimationCorrection(
+      gasCost,
+      internalEstimationCorrection
+    );
 
-    return applyGasCorrectionFactor(internalCallCost, estimatedGasCorrectionFactor);
+    return applyGasCorrectionFactor(
+      internalCallCost,
+      estimatedGasCorrectionFactor
+    );
   }
-
-
-
 }
 
 export default RelayClient;
