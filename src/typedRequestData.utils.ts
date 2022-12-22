@@ -5,7 +5,7 @@ import {
   TypedDataUtils,
   TypedMessage,
 } from '@metamask/eth-sig-util';
-import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
+import type { EnvelopingRequest } from './common/relayRequest.types';
 
 export type EIP712Domain = TypedMessage<EnvelopingMessageTypes>['domain'];
 
@@ -78,16 +78,14 @@ export const getDomainSeparatorHash = (
 type GetRequestDataFieldProps = {
   chainId: number;
   verifier: string;
-  relayRequest:
-    | EnvelopingTypes.RelayRequestStruct
-    | EnvelopingTypes.DeployRequestStruct;
+  envelopingRequest: EnvelopingRequest;
   requestTypes: MessageTypeProperty[];
 };
 
 export const getEnvelopingRequestDataV4Field = ({
   chainId,
-  verifier, // is this separated from the relay request by design?
-  relayRequest,
+  verifier,
+  envelopingRequest,
   requestTypes,
 }: GetRequestDataFieldProps): TypedMessage<EnvelopingMessageTypes> => ({
   types: {
@@ -95,10 +93,10 @@ export const getEnvelopingRequestDataV4Field = ({
     RelayRequest: requestTypes,
     RelayData: relayDataType,
   },
-  primaryType: 'RelayRequest', // what if it's deploy request?
+  primaryType: 'RelayRequest',
   domain: getDomainSeparator(verifier, chainId),
   message: {
-    ...relayRequest.request,
-    relayData: relayRequest.relayData,
+    ...envelopingRequest.request,
+    relayData: envelopingRequest.relayData,
   },
 });

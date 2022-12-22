@@ -1,5 +1,9 @@
 import type { EnvelopingMetadata } from './relayHub.types';
-import type { DeployRequest, RelayRequest } from './relayRequest.types';
+import type {
+  DeployRequest,
+  EnvelopingRequest,
+  RelayRequest,
+} from './relayRequest.types';
 
 type RelayTransactionRequest = {
   relayRequest: RelayRequest;
@@ -11,7 +15,10 @@ type DeployTransactionRequest = {
   metadata: EnvelopingMetadata;
 };
 
-type EnvelopingTxRequest = RelayTransactionRequest | DeployTransactionRequest;
+type EnvelopingTxRequest = {
+  relayRequest: EnvelopingRequest;
+  metadata: EnvelopingMetadata;
+};
 
 export {
   RelayTransactionRequest,
