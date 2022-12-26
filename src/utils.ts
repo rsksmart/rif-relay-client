@@ -29,11 +29,11 @@ const selectNextRelay = async (
 ): Promise<RelayInfo | undefined> => {
   const { preferredRelays } = getEnvelopingConfig();
 
-  for (const relayInfo of preferredRelays ?? []) {
+  for (const managerData of preferredRelays ?? []) {
     let hubInfo;
 
     try {
-      hubInfo = await httpClient.getChainInfo(relayInfo.url);
+      hubInfo = await httpClient.getChainInfo(managerData.url);
     } catch (error) {
       continue;
     }
@@ -41,7 +41,7 @@ const selectNextRelay = async (
     if (hubInfo.ready) {
       return {
         hubInfo,
-        relayInfo,
+        managerData,
       };
     }
   }

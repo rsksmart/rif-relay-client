@@ -1134,7 +1134,7 @@ describe('RelayClient', function () {
 
       const relayInfo: RelayInfo = {
         hubInfo: FAKE_HUB_INFO,
-        relayInfo: {
+        managerData: {
           url: 'fake_url'
         } as RelayManagerData
       };
@@ -1152,7 +1152,7 @@ describe('RelayClient', function () {
       
       beforeEach(function () {
         attemptRelayTransactionStub = sandbox.stub().returns(Promise.resolve(transaction));
-        relayClient._getEnvelopingRequestDetails = sandbox.stub();
+        relayClient._getEnvelopingRequestDetails = sandbox.stub().returns(FAKE_RELAY_REQUEST);
         relayClient._prepareHttpRequest = sandbox.stub();
         relayClient._verifyEnvelopingRequest = sandbox.stub().returns(Promise.resolve(true));
         relayClient._attemptRelayTransaction = attemptRelayTransactionStub;
@@ -1221,7 +1221,7 @@ describe('RelayClient', function () {
 
       const relayInfo: RelayInfo = {
         hubInfo: FAKE_HUB_INFO,
-        relayInfo: {
+        managerData: {
           url: 'fake_url'
         } as RelayManagerData
       };

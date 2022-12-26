@@ -102,7 +102,7 @@ describe('utils', function () {
       const { url: expectedUrl } = preferredRelays[1] as RelayManagerData;
 
       const {
-        relayInfo: { url: actualUrl },
+        managerData: { url: actualUrl },
       } = (await selectNextRelay(httpClientStub)) as RelayInfo;
 
       expect(actualUrl).to.equal(expectedUrl);
@@ -123,7 +123,7 @@ describe('utils', function () {
         .onSecondCall()
         .resolves(availableRelayHub);
       const {
-        relayInfo: { url: actualUrl },
+        managerData: { url: actualUrl },
       } = (await selectNextRelay(httpClientStub)) as RelayInfo;
 
       expect(actualUrl).to.equal(expectedUrl);

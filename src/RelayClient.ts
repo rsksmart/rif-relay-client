@@ -427,6 +427,10 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<Transaction> {
     const httpClient = new HttpClient();
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(envelopingRequest, requestConfig);
+
+    log.debug('Relay Client - Relaying transaction');
+    log.debug(`Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`);
+
     let activeRelay = await selectNextRelay(httpClient);
 
     while (activeRelay) {
@@ -435,8 +439,10 @@ class RelayClient extends EnvelopingEventEmitter {
       if (await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)) {
 
         const transaction = await this._attemptRelayTransaction(activeRelay, envelopingTx, httpClient)
-       
+
         if (transaction) {
+          log.debug('Relay Client - Relayed done');
+
           return transaction;
         }
       }
@@ -448,15 +454,22 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   private async _attemptRelayTransaction(
-    { relayInfo: { url }, hubInfo }: RelayInfo,
+    relayInfo: RelayInfo,
     envelopingTx: EnvelopingTxRequest,
     httpClient: HttpClient
   ): Promise<Transaction | undefined> {
     try {
+      const { managerData: { url }, hubInfo } = relayInfo;
       this.emit('send-to-relayer');
+      log.info(
+        `attempting relay: ${JSON.stringify(
+          relayInfo
+        )} transaction: ${JSON.stringify(envelopingTx)}`
+    );
       const signedTx = await httpClient.relayTransaction(url, envelopingTx);
       const transaction = parseTransaction(signedTx);
       validateRelayResponse(envelopingTx, transaction, hubInfo.relayWorkerAddress);
+      this.emit('relayer-response');
       await this._broadcastTx(signedTx);
 
       return transaction;
