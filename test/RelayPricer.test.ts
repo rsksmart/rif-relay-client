@@ -8,8 +8,8 @@ import type BaseExchangeApi from '../src/api/pricer/ExchangeApi';
 
 chai.use(chaiAsPromised);
 
-const randomBigNumberJs = (base: number) =>
-    BigNumberJs((Math.random() * base));
+const randomBigNumberJs = (max: number) =>
+    BigNumberJs(Math.random() * max);
 
 describe('RelayPricer', function () {
     let pricer: RelayPricer;
