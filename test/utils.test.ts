@@ -5,7 +5,6 @@ import { BigNumber, constants, Transaction, Wallet } from 'ethers';
 import type Sinon from 'sinon';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import type { DeployTransactionRequest, RelayTransactionRequest } from '../src/common/relayTransaction.types';
 import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
 import type {
@@ -17,7 +16,7 @@ import { ENVELOPING_ROOT } from '../src/constants/configs';
 import { selectNextRelay, validateRelayResponse } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
-import { FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
+import { FAKE_DEPLOY_TRANSACTION_REQUEST, FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
 import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 
 use(sinonChai);
@@ -132,42 +131,12 @@ describe('utils', function () {
 
 
   describe('validateRelayResponse', function () {
-    let deployRequest: DeployTransactionRequest;
     let relayWorkerAddress: string;
     let relayHubAddress: string;
 
     beforeEach(function () {
       relayWorkerAddress = createRandomAddress();
       relayHubAddress = FAKE_ENVELOPING_CONFIG.relayHubAddress;
-
-      deployRequest = {
-        metadata: {
-          relayHubAddress,
-          relayMaxNonce: 6,
-          signature: '',
-        },
-        relayRequest: {
-          relayData: {
-            callForwarder: '',
-            callVerifier: '',
-            feesReceiver: '',
-            gasPrice: '',
-          },
-          request: {
-            from: '',
-            to: '',
-            index: 0,
-            nonce: 0,
-            recoverer: createRandomAddress(),
-            relayHub: '',
-            tokenAmount: 0,
-            tokenContract: '',
-            tokenGas: 0,
-            value: 0,
-            data: '',
-          },
-        },
-      };
 
       const encodeFunctionDataStub = sinon.stub();
 
@@ -186,9 +155,8 @@ describe('utils', function () {
     });
 
     it('Should perform checks on deploy transaction and not throw errors', function () {
-      // FIXME: this test sounds meaningless.
       const transaction: Transaction = {
-        nonce: 5,
+        nonce: 2,
         chainId: 33,
         data: 'Dummy Deploy Data',
         gasLimit: constants.Zero,
@@ -199,7 +167,7 @@ describe('utils', function () {
 
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
@@ -218,12 +186,10 @@ describe('utils', function () {
         to: relayHubAddress,
         from: relayWorkerAddress,
       };
-      const relayRequest: RelayTransactionRequest =
-        FAKE_RELAY_TRANSACTION_REQUEST;
 
       expect(() =>
         validateRelayResponse(
-          relayRequest,
+          FAKE_RELAY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
@@ -243,7 +209,7 @@ describe('utils', function () {
 
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
@@ -263,7 +229,7 @@ describe('utils', function () {
 
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
@@ -281,20 +247,22 @@ describe('utils', function () {
         from: relayWorkerAddress,
       };
 
+      const { metadata: { relayMaxNonce } } = FAKE_DEPLOY_TRANSACTION_REQUEST;
+
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
       ).to.throw(
-        `Relay used a tx nonce higher than requested. Requested ${deployRequest.metadata.relayMaxNonce.toString()} got ${transaction.nonce}`
+        `Relay used a tx nonce higher than requested. Requested ${relayMaxNonce.toString()} got ${transaction.nonce}`
       );
     });
 
     it('Should throw error if Transaction recipient is not the RelayHubAddress', function () {
       const transaction: Transaction = {
-        nonce: 5,
+        nonce: 2,
         chainId: 33,
         data: 'Dummy Deploy Data',
         gasLimit: constants.Zero,
@@ -305,7 +273,7 @@ describe('utils', function () {
 
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
@@ -314,7 +282,7 @@ describe('utils', function () {
 
     it('Should throw error if Relay request Encoded data is not the same as Transaction data', function () {
       const transaction: Transaction = {
-        nonce: 5,
+        nonce: 2,
         chainId: 33,
         data: 'Dummy Different Data',
         gasLimit: constants.Zero,
@@ -325,7 +293,7 @@ describe('utils', function () {
 
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )
@@ -335,9 +303,8 @@ describe('utils', function () {
     });
 
     it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
-      // FIXME: fix test
       const transaction: Transaction = {
-        nonce: 5,
+        nonce: 2,
         chainId: 33,
         data: 'Dummy Deploy Data',
         gasLimit: constants.Zero,
@@ -348,7 +315,7 @@ describe('utils', function () {
 
       expect(() =>
         validateRelayResponse(
-          deployRequest,
+          FAKE_DEPLOY_TRANSACTION_REQUEST,
           transaction,
           relayWorkerAddress
         )

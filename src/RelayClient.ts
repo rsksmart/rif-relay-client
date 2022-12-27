@@ -59,6 +59,7 @@ type RequestConfig = {
   useEnveloping?: boolean;
   forceGasPrice?: string;
   forceGasLimit?: string;
+  forceTokenGasLimit?: string;
   onlyPreferredRelays?: boolean;
   ignoreTransactionReceipt?: boolean;
   retries?: number;
@@ -100,11 +101,14 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private readonly _envelopingConfig: EnvelopingConfig;
 
+  private readonly _httpClient: HttpClient;
+
   constructor() {
     super();
 
     this._provider = getDefaultProvider();
     this._envelopingConfig = getEnvelopingConfig();
+    this._httpClient = new HttpClient();
   }
 
   private _getEnvelopingRequestDetails = async (
@@ -256,10 +260,11 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _prepareHttpRequest(
     { feesReceiver }: HubInfo,
-    relayRequest: EnvelopingRequest
+    relayRequest: EnvelopingRequest,
+    { forceTokenGasLimit }: RequestConfig
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub, tokenContract, tokenAmount, tokenGas },
+      request: { relayHub, tokenContract, tokenAmount },
       relayData: { callForwarder, gasPrice },
     } = relayRequest;
     const chainId = (await this._provider.getNetwork()).chainId;
@@ -276,10 +281,7 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('FeesReceiver has to be a valid non-zero address');
     }
 
-    const currentTokenGas = BigNumber.from(tokenGas);
-
-    const newTokenGas = currentTokenGas.gt(constants.Zero) ?
-      currentTokenGas :
+    const tokenGas =  forceTokenGasLimit ?? 
       (await this.estimateTokenTransferGas({
         tokenContract,
         tokenAmount,
@@ -291,7 +293,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const updatedRelayRequest: EnvelopingRequest = {
       request: {
         ...relayRequest.request,
-        tokenGas: newTokenGas
+        tokenGas: BigNumber.from(tokenGas)
       },
       relayData: {
         ...relayRequest.relayData,
@@ -425,20 +427,19 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     requestConfig: RequestConfig
   ): Promise<Transaction> {
-    const httpClient = new HttpClient();
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(envelopingRequest, requestConfig);
 
     log.debug('Relay Client - Relaying transaction');
     log.debug(`Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`);
 
-    let activeRelay = await selectNextRelay(httpClient);
+    let activeRelay = await selectNextRelay(this._httpClient);
 
     while (activeRelay) {
-      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails);
+      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails, requestConfig);
 
       if (await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)) {
 
-        const transaction = await this._attemptRelayTransaction(activeRelay, envelopingTx, httpClient)
+        const transaction = await this._attemptRelayTransaction(activeRelay, envelopingTx);
 
         if (transaction) {
           log.debug('Relay Client - Relayed done');
@@ -447,7 +448,7 @@ class RelayClient extends EnvelopingEventEmitter {
         }
       }
 
-      activeRelay = await selectNextRelay(httpClient);
+      activeRelay = await selectNextRelay(this._httpClient);
     }
 
     throw Error(NOT_RELAYED_TRANSACTION);
@@ -455,8 +456,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _attemptRelayTransaction(
     relayInfo: RelayInfo,
-    envelopingTx: EnvelopingTxRequest,
-    httpClient: HttpClient
+    envelopingTx: EnvelopingTxRequest
   ): Promise<Transaction | undefined> {
     try {
       const { managerData: { url }, hubInfo } = relayInfo;
@@ -466,7 +466,7 @@ class RelayClient extends EnvelopingEventEmitter {
           relayInfo
         )} transaction: ${JSON.stringify(envelopingTx)}`
     );
-      const signedTx = await httpClient.relayTransaction(url, envelopingTx);
+      const signedTx = await this._httpClient.relayTransaction(url, envelopingTx);
       const transaction = parseTransaction(signedTx);
       validateRelayResponse(envelopingTx, transaction, hubInfo.relayWorkerAddress);
       this.emit('relayer-response');
