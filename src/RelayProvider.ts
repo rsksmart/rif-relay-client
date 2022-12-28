@@ -25,7 +25,7 @@ export default class RelayProvider extends JsonRpcProvider {
     
     private readonly jsonRpcProvider: JsonRpcProvider;
 
-    constructor(url?: ConnectionInfo | string, network?: Networkish, relayClient?: RelayClient){
+    constructor(url?: ConnectionInfo | string, network?: Networkish, relayClient = new RelayClient()){
         super(url, network);
         this.jsonRpcProvider = new JsonRpcProvider(url, network);
         //TODO: remove this when relayTransaction PR is merged and rebased
