@@ -1,44 +1,49 @@
-import { constants } from 'ethers';
+import { constants, Transaction } from 'ethers';
 import type { Networkish } from "@ethersproject/networks";
-import { JsonRpcProvider, TransactionReceipt, TransactionResponse } from "@ethersproject/providers";
+import { JsonRpcProvider, TransactionReceipt } from "@ethersproject/providers";
 import type { ConnectionInfo } from "@ethersproject/web";
 import { getEnvelopingConfig } from './utils';
 import { hexValue } from "@ethersproject/bytes";
-import type EnvelopingTransactionDetails from '@rsksmart/rif-relay-common/dist/types/EnvelopingTransactionDetails';
-import RelayClient from './RelayClient';
+import RelayClient, { RequestConfig } from './RelayClient';
 import log from 'loglevel';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
+import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 
 export interface RelayingResult {
     validUntilTime?: string;
-    transaction?: TransactionResponse;
-    receipt?: TransactionReceipt;
-    pingErrors: Map<string, Error>;
-    relayingErrors: Map<string, Error>;
+    transaction: Transaction;
+    receipt: TransactionReceipt;
 }
 
 export default class RelayProvider extends JsonRpcProvider {
 
-    private readonly relayClient!: RelayClient;
+    //TODO: remove & when relayTransaction PR is merged and rebased
+    private readonly relayClient!: RelayClient & { relayTransaction: (
+        envelopingRequest: UserDefinedEnvelopingRequest,
+        requestConfig: RequestConfig) => Promise<Transaction> };
+    
+    private readonly jsonRpcProvider: JsonRpcProvider;
 
     constructor(url?: ConnectionInfo | string, network?: Networkish, relayClient?: RelayClient){
         super(url, network);
+        this.jsonRpcProvider = new JsonRpcProvider(url, network);
+        //TODO: remove this when relayTransaction PR is merged and rebased
+        //@ts-ignore
         this.relayClient =
             relayClient ??
             new RelayClient();
     }
 
-    private _useEnveloping(payload: { method: string, params: Array<EnvelopingTransactionDetails> }): boolean {
-        if (payload.method === 'eth_accounts') {
+    private _useEnveloping(method: string, requestConfig: RequestConfig): boolean {
+        if (method === 'eth_accounts') {
             return true;
         }
-        if (payload.params[0] === undefined) {
+        if (!requestConfig) {
             return false;
         }
-        const [transactionDetails] = payload.params;
 
-        return transactionDetails.useEnveloping ?? false;
+        return requestConfig.useEnveloping ?? false;
     }
 
     private _getRelayStatus(respResult: TransactionReceipt): {
@@ -104,88 +109,55 @@ export default class RelayProvider extends JsonRpcProvider {
         };
     }
 
-
-    private async processTransactionReceipt(
-        txHash: string,
-        //retries: number,
-        //initialBackoff: number
-    ): Promise<TransactionReceipt> {
-        // Will this be implemented?
-        //const receipt = this.relayClient.getTransactionReceipt(txHash, retries, initialBackoff);
-        const receipt = await this.getTransactionReceipt(txHash);
-        const relayStatus = this._getRelayStatus(receipt);
-        if (relayStatus.relayRevertedOnRecipient && relayStatus.reason) {
-            throw new Error(
-                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-            );
-        }
-
-        return receipt;
-    }
-
     private async executeRelayTransaction(
-        transactionDetails: EnvelopingTransactionDetails
+        envelopingRequest: UserDefinedEnvelopingRequest,
+        requestConfig: RequestConfig
     ): Promise<RelayingResult> {
         try {
-            //const relayingResult = await this.relayClient.relayTransaction(
-            //    transactionDetails
-            //);
 
-            const relayingResult = {} as RelayingResult;
+            const transaction = await this.relayClient.relayTransaction(
+                envelopingRequest, requestConfig
+            );
 
-            if (
-                relayingResult.transaction !== undefined &&
-                relayingResult.transaction !== null
-            ) {
+            const { hash } = transaction;
 
-                const { hash } = relayingResult.transaction;
-
-                if (!transactionDetails.ignoreTransactionReceipt) {
-                    //const { retries, initialBackoff } = transactionDetails;
-                    const receipt: TransactionReceipt =
-                        await this.processTransactionReceipt(
-                            hash,
-                            //retries,
-                            //initialBackoff
-                        );
-                    relayingResult.receipt = receipt;
-                }
-
-                return relayingResult;
-            } else {
-                //const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
-                //    relayingResult
-                //)}`;
-
-                const message = 'Failed to relay call';
-
-                log.error(message);
-                throw new Error(message);
+            if(!hash){
+                throw new Error('Transaction has no hash!');
             }
+            const receipt = await this.getTransactionReceipt(hash);
+
+            const { relayRevertedOnRecipient, reason } = this._getRelayStatus(receipt);
+
+            if (relayRevertedOnRecipient) {
+                throw new Error(
+                        `Transaction Relayed but reverted on recipient - TxHash: ${hash} , Reason: ${reason ?? 'unknown'}`
+                );
+            }
+
+            return {
+                transaction,
+                receipt,
+            };
         } catch (error) {
-            const reasonStr =
-                error instanceof Error ? error.message : JSON.stringify(error);
-            log.info('Rejected relayTransaction call', error);
+            log.error('Rejected relayTransaction call', error);
             throw new Error(
-                `Rejected relayTransaction call - Reason: ${reasonStr}`
+                `Rejected relayTransaction call - Reason: ${(error as Error).message}`
             );
         }
     }
 
     private async _ethSendTransaction(
-        params: Array<EnvelopingTransactionDetails>
-    ) {
+        envelopingRequest: UserDefinedEnvelopingRequest,
+        requestConfig: RequestConfig
+    ): Promise<RelayingResult> {
         const config = getEnvelopingConfig();
-        let transactionDetails = params[0];
 
-        if(!transactionDetails){
-            throw new Error('No transaction details');
-        }
+        const { relayData, request } = envelopingRequest;
 
-        let callForwarderValue = transactionDetails.callForwarder;
-        let relayHubValue = transactionDetails.relayHub;
-        let onlyPreferredRelaysValue = transactionDetails.onlyPreferredRelays;
-        let gasToSend = transactionDetails.forceGas;
+        let callForwarderValue = relayData.callForwarder;
+        let relayHubValue = request.relayHub;
+        let onlyPreferredRelaysValue = requestConfig.onlyPreferredRelays;
+        let gasToSend = requestConfig.forceGasPrice;
 
         if (
             callForwarderValue === undefined ||
@@ -223,40 +195,30 @@ export default class RelayProvider extends JsonRpcProvider {
          * we cannot differentiate between a user-entered gas value from the auto-calculated (and a very poor calculation)
          * value that comes from the original provider
          */
-        transactionDetails = {
-            ...transactionDetails,
-            callForwarder: callForwarderValue,
-            relayHub: relayHubValue,
-            onlyPreferredRelays: onlyPreferredRelaysValue,
-            gas: gasToSend // it is either undefined or a user-entered value
-        };
 
-        const relayingResult = await this.executeRelayTransaction(transactionDetails);
-        const { transaction, receipt } = relayingResult;
-
-        if(!transaction) {
-            throw new Error('No transaction found!');
+        const fullEnvelopingRequest: UserDefinedEnvelopingRequest = {
+            relayData: {
+                ...envelopingRequest.relayData,
+                callForwarder: callForwarderValue,
+            }, 
+            request: {
+                ...envelopingRequest.request,
+                relayHub: relayHubValue,
+                gas: gasToSend,
+            }
         }
 
-        if(!receipt) {
-            throw new Error('No Tx receipt found!');
+        const fullRequestConfig: RequestConfig = {
+            ...requestConfig,
+            onlyPreferredRelays: onlyPreferredRelaysValue
         }
 
-        const { hash } = transaction;
-        const { relayRevertedOnRecipient, reason } = this._getRelayStatus(receipt);
-
-        if (relayRevertedOnRecipient) {
-            throw new Error(
-                    `Transaction Relayed but reverted on recipient - TxHash: ${hash} , Reason: ${reason ?? 'unknown'}`
-            );
-        }
-
-        return relayingResult;
+        return this.executeRelayTransaction(fullEnvelopingRequest, fullRequestConfig);
     }
 
-    private async _getAccounts(method: string, params: Array<EnvelopingTransactionDetails>) {
+    private async _getAccounts(method: string, params: Array<{ requestConfig: RequestConfig, envelopingTx: UserDefinedEnvelopingRequest }>) {
 
-        const response = await this.send(method, params) as { result: unknown[] };
+        const response = await this.jsonRpcProvider.send(method, params) as { result: unknown[] };
 
         if (response != null && Array.isArray(response.result)) {
             const { chainId } = await this.getNetwork();
@@ -271,27 +233,29 @@ export default class RelayProvider extends JsonRpcProvider {
         return response;
     }
 
-    override send(method: string, params: Array<EnvelopingTransactionDetails>): Promise<unknown> {
+    override send(method: string, params: Array<{ requestConfig: RequestConfig, envelopingTx: UserDefinedEnvelopingRequest }>): Promise<unknown> {
 
-        if (this._useEnveloping({ method, params })) {
+        const [ envelopingData ] = params;
+        if(!envelopingData) {
+            throw new Error('No data to send!');
+        }
+
+        const { requestConfig, envelopingTx: { request } } = envelopingData;
+
+        if (this._useEnveloping(method, requestConfig)) {
             if (method === 'eth_sendTransaction') {
-                const [ firstElement ] = params;
 
-                if(!firstElement){
-                    throw new Error('No data');
-                }
-
-                if (!firstElement.to) {
+                if (!request.to) {
                     throw new Error(
                         'Relay Provider cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.'
                     );
                 }
 
-                return this._ethSendTransaction(params);
+                return this._ethSendTransaction(envelopingData.envelopingTx, requestConfig);
             }
 
             if (method === 'eth_getTransactionReceipt') {
-                return this.send(method, params);
+                return this.jsonRpcProvider.send(method, params);
             }
 
             if (method === 'eth_accounts') {
@@ -301,6 +265,6 @@ export default class RelayProvider extends JsonRpcProvider {
             throw new Error(`Rif Relay unsupported method: ${ method }`);
         }
 
-        return this.send(method, params);
+        return this.jsonRpcProvider.send(method, params);
     }
 }
