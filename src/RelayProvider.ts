@@ -7,6 +7,7 @@ import { hexValue } from "@ethersproject/bytes";
 import RelayClient, { RequestConfig } from './RelayClient';
 import log from 'loglevel';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import AccountManager from './AccountManager';
 import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 
 export interface RelayingResult {
@@ -36,14 +37,18 @@ export default class RelayProvider extends JsonRpcProvider {
     }
 
     //I am aware this sucks
-    private _useEnveloping(params: Array<Record<string, unknown>>): boolean {
-        const [envelopingData] = params;
+    private _useEnveloping(method: string, params: Array<Record<string, unknown>>): boolean {
+        if(method === 'eth_accounts'){
+            return true;
+        }
 
-        if(!envelopingData){
+        const [a] = params;
+
+        if(!a){
             return false;
         }
 
-        const { envelopingTx, requestConfig } = envelopingData; 
+        const { envelopingTx, requestConfig } = a; 
         if(envelopingTx && requestConfig && (requestConfig as RequestConfig).useEnveloping){
             return true;
         }
@@ -230,18 +235,39 @@ export default class RelayProvider extends JsonRpcProvider {
         return relayingResult;
     }
 
+    override async listAccounts() {
+        let response = await this.jsonRpcProvider.listAccounts();
+
+        if (response != null && Array.isArray(response)) {
+            const { chainId } = await this.getNetwork();
+            const accountManager = new AccountManager(this, chainId);
+
+            const ephemeralAccounts =
+                accountManager.getAccounts();
+
+            response = response.concat(ephemeralAccounts);
+        }
+
+        return response;
+    }
+
     override send(method: string, params: Array<Record<string, unknown>>): Promise<unknown> {
-        if (this._useEnveloping(params)) {
+        if (this._useEnveloping(method, params)) {
             const { requestConfig, envelopingTx } = params[0] as { requestConfig: RequestConfig, envelopingTx: UserDefinedEnvelopingRequest }
             const { request } = envelopingTx;
             if (method === 'eth_sendTransaction') {
+
                 if (!request.to) {
                     throw new Error(
                         'Relay Provider cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.'
                     );
                 }
-                
+
                 return this._ethSendTransaction(envelopingTx, requestConfig);
+            }
+
+            if (method === 'eth_accounts') {
+                return this.listAccounts();
             }
 
             throw new Error(`Rif Relay unsupported method: ${ method }`);
