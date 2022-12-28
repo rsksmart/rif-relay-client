@@ -59,8 +59,7 @@ import {
   FAKE_RELAY_REQUEST,
   FAKE_RELAY_REQUEST_BODY,
   FAKE_RELAY_TRANSACTION_REQUEST,
-  FAKE_REQUEST_CONFIG,
-  FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+  FAKE_REQUEST_CONFIG
 } from './request.fakes';
 
 import * as relayUtils from '../src/utils';
@@ -1007,8 +1006,14 @@ describe('RelayClient', function () {
 
       it('should return 0 if token contract is zero address', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          tokenContract: constants.AddressZero,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
+              tokenContract: constants.AddressZero,
+            }
+          },
+          ...FAKE_REQUEST_CONFIG
         };
 
         expect(
@@ -1018,8 +1023,14 @@ describe('RelayClient', function () {
 
       it('should return 0 if token amount is 0', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          tokenAmount: constants.Zero,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
+              tokenAmount: constants.Zero,
+            }
+          },
+          ...FAKE_REQUEST_CONFIG
         };
 
         expect(
@@ -1029,7 +1040,7 @@ describe('RelayClient', function () {
 
       it('should fail if it is a deploy and the smartWallet is missing', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          relayRequest: {...FAKE_DEPLOY_REQUEST},
           preDeploySWAddress: undefined,
         };
 
@@ -1040,7 +1051,7 @@ describe('RelayClient', function () {
 
       it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          relayRequest: {...FAKE_DEPLOY_REQUEST},
           preDeploySWAddress: constants.AddressZero,
         };
 
@@ -1051,10 +1062,14 @@ describe('RelayClient', function () {
 
       it('should fail if it is a relay transaction and the callForwarder is missing', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          preDeploySWAddress: constants.AddressZero,
-          isSmartWalletDeploy: false,
-          callForwarder: constants.AddressZero,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              callForwarder: constants.AddressZero,
+            }
+          },
+          preDeploySWAddress: constants.AddressZero
         };
 
         await expect(
@@ -1068,9 +1083,14 @@ describe('RelayClient', function () {
         const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
-          internalEstimationCorrection: INTERNAL_CORRECTION,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          },
+          internalEstimationCorrection: INTERNAL_CORRECTION
         };
 
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
@@ -1088,9 +1108,14 @@ describe('RelayClient', function () {
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
-          internalEstimationCorrection: INTERNAL_CORRECTION,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          },
+          internalEstimationCorrection: INTERNAL_CORRECTION
         };
 
         const estimation = await relayClient.estimateTokenTransferGas(request);
@@ -1107,8 +1132,13 @@ describe('RelayClient', function () {
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          },
           internalEstimationCorrection: INTERNAL_CORRECTION,
           estimatedGasCorrectionFactor: CORRECTION_FACTOR,
         };
@@ -1126,8 +1156,13 @@ describe('RelayClient', function () {
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          }
         };
 
         const estimation = await relayClient.estimateTokenTransferGas(request);

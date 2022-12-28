@@ -35,7 +35,7 @@ const selectNextRelay = async (
     try {
       hubInfo = await httpClient.getChainInfo(managerData.url);
     } catch (error) {
-      log.warn('failed to getChainInfo from hub', error);
+      log.warn('Failed to getChainInfo from hub', error);
       continue;
     }
 
@@ -46,6 +46,8 @@ const selectNextRelay = async (
       };
     }
   }
+
+  log.error('No more hubs available to select');
 
   return undefined;
 };

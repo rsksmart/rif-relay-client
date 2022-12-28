@@ -154,26 +154,6 @@ describe('utils', function () {
       sinon.restore();
     });
 
-    it('Should perform checks on deploy transaction and not throw errors', function () {
-      const transaction: Transaction = {
-        nonce: 2,
-        chainId: 33,
-        data: 'Dummy Deploy Data',
-        gasLimit: constants.Zero,
-        value: constants.Zero,
-        to: relayHubAddress,
-        from: relayWorkerAddress,
-      };
-
-      expect(() =>
-        validateRelayResponse(
-          FAKE_DEPLOY_TRANSACTION_REQUEST,
-          transaction,
-          relayWorkerAddress
-        )
-      ).to.not.throw();
-    });
-
     it('Should perform checks on relay transaction and not throw errors', function () {
       const transaction: Transaction = {
         nonce: BigNumber.from(

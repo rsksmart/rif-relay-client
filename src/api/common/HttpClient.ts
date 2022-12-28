@@ -1,8 +1,8 @@
 import type { AxiosResponse } from 'axios';
 import log from 'loglevel';
-import type { RelayEstimation } from 'src/common/estimation.types';
-import type { HubInfo } from 'src/common/relayHub.types';
-import type { EnvelopingTxRequest } from 'src/common/relayTransaction.types';
+import type { RelayEstimation } from '../../common/estimation.types';
+import type { HubInfo } from '../../common/relayHub.types';
+import type { EnvelopingTxRequest } from '../../common/relayTransaction.types';
 import HttpWrapper, { requestInterceptors } from './HttpWrapper';
 
 const PATHS = {

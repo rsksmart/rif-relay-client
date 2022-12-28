@@ -36,6 +36,7 @@
     }
   ],
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "dist": "scripts/dist",
     "format": "npx prettier test/**/*.ts src/**/*.ts !.gitignore  --check --ignore-unknown",
