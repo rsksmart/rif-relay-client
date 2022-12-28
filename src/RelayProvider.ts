@@ -36,14 +36,7 @@ export default class RelayProvider extends JsonRpcProvider {
     }
 
     private _useEnveloping(method: string, requestConfig: RequestConfig): boolean {
-        if (method === 'eth_accounts') {
-            return true;
-        }
-        if (!requestConfig) {
-            return false;
-        }
-
-        return requestConfig.useEnveloping ?? false;
+        return method === 'eth_accounts' || Boolean(requestConfig.useEnveloping);
     }
 
     private _getRelayStatus(respResult: TransactionReceipt): {
