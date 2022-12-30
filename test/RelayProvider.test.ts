@@ -3,7 +3,7 @@ import { Interface, LogDescription } from "@ethersproject/abi";
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import config from 'config';
-import Sinon from 'sinon';
+import Sinon, { SinonStub } from 'sinon';
 import sinonChai from 'sinon-chai';
 import RelayProvider, { RelayingResult } from '../src/RelayProvider';
 import RelayClient, { RequestConfig } from '../src/RelayClient';
@@ -395,6 +395,7 @@ describe('RelayProvider', function () {
     describe('send', function () {
 
       let relayingResult: RelayingResult;
+      let useEnvelopingStub: SinonStub;
 
       beforeEach(function(){
 
@@ -413,7 +414,7 @@ describe('RelayProvider', function () {
           receipt,
         };
 
-        sandbox.stub(relayProvider, '_useEnveloping')
+        useEnvelopingStub = sandbox.stub(relayProvider, '_useEnveloping')
           .returns(true);
       })
 
@@ -492,8 +493,7 @@ describe('RelayProvider', function () {
       })
 
       it('should use JsonRpcProvider send method if not a relay transaction', async function () {
-        sandbox.stub(relayProvider, '_useEnveloping')
-          .returns(false);
+        useEnvelopingStub.returns(false);
 
         const params = [{}];
 
