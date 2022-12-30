@@ -4,7 +4,8 @@ import {
   IForwarder__factory,
   RelayHub__factory,
   RelayVerifier__factory,
-  PromiseOrValue
+  PromiseOrValue,
+  IWalletFactory__factory
 } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
@@ -59,7 +60,6 @@ type RequestConfig = {
   useEnveloping?: boolean;
   forceGasPrice?: string;
   forceGasLimit?: string;
-  forceTokenGasLimit?: string;
   onlyPreferredRelays?: boolean;
   ignoreTransactionReceipt?: boolean;
   retries?: number;
@@ -173,11 +173,15 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const nonce =
       (envelopingRequest.request.nonce ||
-        (await IForwarder__factory.connect(
+        (isDeployment ? await IWalletFactory__factory.connect(
           callForwarder.toString(),
-          this._provider
-        ).nonce())) ??
-      constants.Zero;
+          this._provider).nonce(from) :
+          await IForwarder__factory.connect(
+            callForwarder.toString(),
+            this._provider
+          ).nonce()))
+        ??
+        constants.Zero;
 
     const relayHub =
       envelopingRequest.request.relayHub?.toString() ||
@@ -256,10 +260,10 @@ class RelayClient extends EnvelopingEventEmitter {
   private async _prepareHttpRequest(
     { feesReceiver }: HubInfo,
     relayRequest: EnvelopingRequest,
-    { forceTokenGasLimit, preDeploySWAddress }: RequestConfig
+    { preDeploySWAddress }: RequestConfig
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub },
+      request: { relayHub, tokenGas },
       relayData: { callForwarder },
     } = relayRequest;
     const chainId = (await this._provider.getNetwork()).chainId;
@@ -276,8 +280,11 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('FeesReceiver has to be a valid non-zero address');
     }
 
-    const tokenGas = forceTokenGasLimit ??
-      (await this.estimateTokenTransferGas({
+    const currentTokenGas = BigNumber.from(tokenGas);
+
+    const newTokenGas = currentTokenGas.gt(constants.Zero)
+      ? currentTokenGas :
+      await this.estimateTokenTransferGas({
         relayRequest: {
           ...relayRequest,
           relayData: {
@@ -286,12 +293,12 @@ class RelayClient extends EnvelopingEventEmitter {
           }
         },
         preDeploySWAddress
-      }));
+      });
 
     const updatedRelayRequest: EnvelopingRequest = {
       request: {
         ...relayRequest.request,
-        tokenGas: BigNumber.from(tokenGas)
+        tokenGas: newTokenGas
       },
       relayData: {
         ...relayRequest.relayData,

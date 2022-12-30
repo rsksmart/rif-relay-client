@@ -7,6 +7,8 @@ import {
   IERC20__factory,
   IForwarder,
   IForwarder__factory,
+  ISmartWalletFactory,
+  IWalletFactory__factory,
   RelayHub,
   RelayHub__factory,
   RelayVerifier,
@@ -136,6 +138,7 @@ describe('RelayClient', function () {
 
     let relayClient: RelayClientExposed;
     let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
+    let factoryStub: Sinon.SinonStubbedInstance<ISmartWalletFactory>;
     let ethersLogger: utils.Logger;
 
     beforeEach(function () {
@@ -154,7 +157,12 @@ describe('RelayClient', function () {
         getOwner: sandbox.stub(),
       } as typeof forwarderStub;
 
+      factoryStub = {
+        nonce: sandbox.stub()
+      } as typeof factoryStub;
+
       sandbox.stub(IForwarder__factory, 'connect').returns(forwarderStub);
+      sandbox.stub(IWalletFactory__factory, 'connect').returns(factoryStub);
       ethersLogger = new utils.Logger('1');
     });
 
@@ -600,9 +608,9 @@ describe('RelayClient', function () {
         );
       });
 
-      it('should get nonce value from forwarder if none defined in request body', async function () {
+      it('should get nonce value from factory if none defined in request body', async function () {
         const expectedNonce = BigNumber.from((Math.random() * 100).toFixed(0));
-        forwarderStub.nonce.resolves(expectedNonce);
+        factoryStub.nonce.resolves(expectedNonce);
         const {
           request: { nonce: actualNonce },
         } = await relayClient._getEnvelopingRequestDetails(
@@ -610,6 +618,25 @@ describe('RelayClient', function () {
             ...FAKE_DEPLOY_REQUEST,
             request: {
               ...FAKE_DEPLOY_REQUEST.request,
+              nonce: undefined,
+            },
+          } as unknown as EnvelopingRequest,
+          {}
+        );
+
+        expect(actualNonce).to.equal(expectedNonce);
+      });
+
+      it('should get nonce value from forwarder if none defined in request body', async function () {
+        const expectedNonce = BigNumber.from((Math.random() * 100).toFixed(0));
+        forwarderStub.nonce.resolves(expectedNonce);
+        const {
+          request: { nonce: actualNonce },
+        } = await relayClient._getEnvelopingRequestDetails(
+          {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
               nonce: undefined,
             },
           } as unknown as EnvelopingRequest,
@@ -699,7 +726,7 @@ describe('RelayClient', function () {
         expect(actualGas).to.equal(expectedGas);
       });
 
-      it('should return given force gas limnit from request config in the request body for relay request', async function () {
+      it('should return given forceGasLimit from request config in the request body for relay request', async function () {
         const expectedGas = BigNumber.from((Math.random() * 100).toFixed(0));
         const {
           request: { gas: actualGas },
