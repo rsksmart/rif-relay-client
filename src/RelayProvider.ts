@@ -189,7 +189,7 @@ export default class RelayProvider extends JsonRpcProvider {
         }
 
         if (gasToSend !== undefined && gasToSend !== null) {
-            gasToSend = hexValue(gasToSend);
+            gasToSend = hexValue(BigInt(gasToSend));
         }
 
         /**
@@ -236,19 +236,19 @@ export default class RelayProvider extends JsonRpcProvider {
     }
 
     override async listAccounts() {
-        let response = await this.jsonRpcProvider.listAccounts();
+        let accountsList = await this.jsonRpcProvider.listAccounts();
 
-        if (response != null && Array.isArray(response)) {
+        if (accountsList && Array.isArray(accountsList)) {
             const { chainId } = await this.getNetwork();
             const accountManager = new AccountManager(this, chainId);
 
             const ephemeralAccounts =
                 accountManager.getAccounts();
 
-            response = response.concat(ephemeralAccounts);
+            accountsList = accountsList.concat(ephemeralAccounts);
         }
 
-        return response;
+        return accountsList;
     }
 
     override send(method: string, params: Array<Record<string, unknown>>): Promise<unknown> {
