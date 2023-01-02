@@ -1,2 +1,2 @@
-export * as common from './common';
-export * as pricer from './pricer';
+export * from './common';
+export * from './pricer';

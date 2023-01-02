@@ -1,7 +1,7 @@
-import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
 import { expect, use } from 'chai';
 import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
+import type { EnvelopingTxRequest } from '../../../src/common/relayTransaction.types';
 import { HttpClient, HttpWrapper } from '../../../src/api/common';
 
 const sandbox = createSandbox();
@@ -17,6 +17,7 @@ describe('HttpClient', function () {
   afterEach(function () {
     sandbox.restore();
   });
+
   describe('constructor', function () {
     it('should store http wrapper', function () {
      const expectedHttpWrapper = new HttpWrapper();
@@ -82,7 +83,7 @@ describe('HttpClient', function () {
 
   describe('relayTransaction', function () {
     it(`should call httpWrapper.sendPromise with given url + ${RELAY_PATH}`, async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
       const expectedSendPromiseUrl = fakeURL + RELAY_PATH;
       const httpWrapperSendPromiseSpy = sandbox
         .stub(HttpWrapper.prototype, 'sendPromise').resolves({ signedTx: '0x123',
@@ -96,7 +97,7 @@ describe('HttpClient', function () {
     });
 
     it('should call httpWrapper.sendPromise with given request', async function () {
-        const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+        const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
         const httpWrapperSendPromiseSpy = sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ signedTx: '0x123' });
         const httpClient = new HttpClient(new HttpWrapper());
         await httpClient.relayTransaction(fakeURL, request);
@@ -109,7 +110,7 @@ describe('HttpClient', function () {
     });
 
     it('shouold return signedTx', async function () {
-        const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+        const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
         const expectedSignedTx = '0x123';
         sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ signedTx: expectedSignedTx });
         const httpClient = new HttpClient(new HttpWrapper());
@@ -119,7 +120,7 @@ describe('HttpClient', function () {
     });
     
     it('should throw error if response object does not contain signedTx', async function () {
-        const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+        const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
         const expectedError = 'Got invalid response from relay: signedTx field missing.';
         sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ foo: 'bar' });
         const httpClient = new HttpClient(new HttpWrapper());
@@ -130,7 +131,7 @@ describe('HttpClient', function () {
 
   describe('estimateMaxPossibleGas', function () {
     it('should call httpWrapper.sendPromise with given url + POST_ESTIMATE', async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
       const expectedSendPromiseUrl = fakeURL + POST_ESTIMATE;
       const httpWrapperSendPromiseSpy = sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ gas: '123' });
       const httpClient = new HttpClient(new HttpWrapper());
@@ -143,7 +144,7 @@ describe('HttpClient', function () {
     });
 
     it('should call httpWrapper.sendPromise with given request', async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
       const httpWrapperSendPromiseSpy = sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves({ gas: '123' });
       const httpClient = new HttpClient(new HttpWrapper());
       await httpClient.estimateMaxPossibleGas(fakeURL, request);
@@ -156,7 +157,7 @@ describe('HttpClient', function () {
     });
 
     it('should return the response', async function () {
-      const request = { foo: 'bar' } as unknown as EnvelopingTypes.DeployRequestStruct;
+      const request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
       const expectedGasEstimation = {foo: 'bar'};
       sandbox.stub(HttpWrapper.prototype, 'sendPromise').resolves(expectedGasEstimation);
       const httpClient = new HttpClient(new HttpWrapper());

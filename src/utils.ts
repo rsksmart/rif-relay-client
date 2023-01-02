@@ -3,8 +3,13 @@ import type { HttpClient } from './api/common';
 import type { EnvelopingConfig } from './common/config.types';
 import type { RelayInfo } from './common/relayHub.types';
 import { ENVELOPING_ROOT } from './constants/configs';
-import { BigNumberish, BigNumber } from 'ethers';
+import { BigNumberish, BigNumber, getDefaultProvider, Transaction } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
+import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import log from 'loglevel';
+import type { DeployRequest, RelayRequest } from './common/relayRequest.types';
+import { isDeployTransaction } from './common/relayRequest.utils';
+import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
@@ -24,22 +29,25 @@ const selectNextRelay = async (
 ): Promise<RelayInfo | undefined> => {
   const { preferredRelays } = getEnvelopingConfig();
 
-  for (const relayInfo of preferredRelays ?? []) {
+  for (const managerData of preferredRelays ?? []) {
     let hubInfo;
 
     try {
-      hubInfo = await httpClient.getChainInfo(relayInfo.url);
+      hubInfo = await httpClient.getChainInfo(managerData.url);
     } catch (error) {
+      log.warn('Failed to getChainInfo from hub', error);
       continue;
     }
 
     if (hubInfo.ready) {
       return {
         hubInfo,
-        relayInfo,
+        managerData,
       };
     }
   }
+
+  log.error('No more hubs available to select');
 
   return undefined;
 };
@@ -77,6 +85,77 @@ const applyInternalEstimationCorrection = (
   return estimationBN;
 };
 
+/**
+   * Decode the signed transaction returned from the Relay Server, compare it to the
+   * requested transaction and validate its signature.
+   */
+const validateRelayResponse = (
+  request: EnvelopingTxRequest,
+  transaction: Transaction,
+  relayWorkerAddress: string,
+): void =>  {
+  const {
+    to: txDestination,
+    from: txOrigin,
+    nonce: txNonce,
+    data: txData,
+  } = transaction;
+  const {
+    metadata: { signature, relayMaxNonce },
+    relayRequest,
+  } = request;
+  const requestMaxNonce = BigNumber.from(relayMaxNonce).toNumber();
+  log.debug('validateRelayResponse - Transaction is', transaction);
+
+  if (!txDestination) {
+    throw Error('Transaction has no recipient address');
+  }
+
+  if (!txOrigin) {
+    throw Error('Transaction has no signer');
+  }
+
+  const isDeploy = isDeployTransaction(request);
+
+  const provider = getDefaultProvider();
+  const envelopingConfig = getEnvelopingConfig();
+
+  const relayHub = RelayHub__factory.connect(envelopingConfig.relayHubAddress, provider);
+
+  const encodedEnveloping = isDeploy ? 
+    relayHub.interface.encodeFunctionData('deployCall', [relayRequest as DeployRequest, signature])
+    : relayHub.interface.encodeFunctionData('relayCall', [relayRequest as RelayRequest, signature]);
+
+
+  if (txNonce > requestMaxNonce) {
+    // TODO: need to validate that client retries the same request and doesn't double-spend.
+    // Note that this transaction is totally valid from the EVM's point of view
+    throw new Error(
+      `Relay used a tx nonce higher than requested. Requested ${requestMaxNonce} got ${txNonce}`
+    );
+  }
+
+  if (
+    txDestination.toLowerCase() !== envelopingConfig.relayHubAddress.toLowerCase()
+  ) {
+    throw new Error('Transaction recipient must be the RelayHubAddress');
+  }
+
+  if (encodedEnveloping !== txData) {
+    throw new Error(
+      'Relay request Encoded data must be the same as Transaction data'
+    );
+  }
+
+  if (relayWorkerAddress.toLowerCase() !== txOrigin.toLowerCase()) {
+    throw new Error(
+      'Transaction sender address must be the same as configured relayWorker address'
+    );
+  }
+
+  log.info('validateRelayResponse - valid transaction response');
+}
+
 export {
   getEnvelopingConfig,
   selectNextRelay,
@@ -84,4 +163,5 @@ export {
   applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
+  validateRelayResponse
 };

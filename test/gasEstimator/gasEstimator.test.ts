@@ -29,8 +29,8 @@ use(chaiAsPromised);
 
 const sandbox = createSandbox();
 
-const randomBigNumber = (base: number) =>
-  BigNumber.from((Math.random() * base).toFixed(0));
+const randomBigNumber = (max: number) =>
+  BigNumber.from((Math.random() * max).toFixed(0));
 
 describe('GasEstimator', function () {
   afterEach(function () {

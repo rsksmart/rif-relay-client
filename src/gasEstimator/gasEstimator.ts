@@ -16,9 +16,6 @@ const estimateRelayMaxPossibleGas = async (
     metadata: { signature },
   } = request;
 
-  const { tokenContract } = relayRequest.request;
-  const { feesReceiver, callForwarder, gasPrice } = relayRequest.relayData;
-
   const relayClient = new RelayClient();
 
   const isSmartWalletDeploy = isDeployRequest(relayRequest);
@@ -27,13 +24,14 @@ const estimateRelayMaxPossibleGas = async (
   const preDeploySWAddress = isSmartWalletDeploy ? undefined : undefined;
 
   const tokenEstimation = await relayClient.estimateTokenTransferGas({
-    tokenContract,
-    tokenAmount: utils.formatUnits(1, 'wei'), // tokenAmount should be a value different from zero to simulate the transfer estimation
-    feesReceiver,
-    isSmartWalletDeploy,
+    relayRequest: {
+      ...relayRequest,
+      request: {
+        ...relayRequest.request,
+        tokenAmount: utils.formatUnits(1, 'wei'),
+      },
+    },
     preDeploySWAddress,
-    callForwarder,
-    gasPrice,
   });
 
   if (signature > '0x0') {
