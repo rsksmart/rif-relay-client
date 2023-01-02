@@ -28,6 +28,7 @@ const ENVELOPING_CONFIG: EnvelopingConfig = {
   relayVerifierAddress: Wallet.createRandom().address,
   sliceSize: 3,
   smartWalletFactoryAddress: Wallet.createRandom().address,
+  requestValidSeconds: 172800
 };
 
 export { ENVELOPING_CONFIG as FAKE_ENVELOPING_CONFIG };

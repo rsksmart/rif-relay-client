@@ -180,8 +180,8 @@ class RelayClient extends EnvelopingEventEmitter {
             callForwarder.toString(),
             this._provider
           ).nonce()))
-        ??
-        constants.Zero;
+      ??
+      constants.Zero;
 
     const relayHub =
       envelopingRequest.request.relayHub?.toString() ||
@@ -221,6 +221,11 @@ class RelayClient extends EnvelopingEventEmitter {
       gasPrice,
     };
 
+    const secondsNow = Math.round(Date.now() / 1000);
+    const validUntilTime = (
+      secondsNow + this._envelopingConfig.requestValidSeconds
+    );
+
     const commonRequestBody: CommonEnvelopingRequestBody = {
       data,
       from,
@@ -231,6 +236,7 @@ class RelayClient extends EnvelopingEventEmitter {
       tokenContract,
       tokenGas: constants.Zero,
       value,
+      validUntilTime
     };
 
     const completeRequest: EnvelopingRequest = isDeployment

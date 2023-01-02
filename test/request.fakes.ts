@@ -24,6 +24,7 @@ const COMMON_REQUEST_BODY: CommonEnvelopingRequestBody = {
   tokenAmount: constants.Two,
   tokenContract: Wallet.createRandom().address,
   value: constants.Two,
+  validUntilTime: 0
 };
 
 const RELAY_REQUEST_BODY: RelayRequestBody = {

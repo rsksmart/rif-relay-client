@@ -18,6 +18,7 @@
       "forwarderAddress": "0x0000000000000000000000000000000000000000",
       "smartWalletFactoryAddress": "0x0000000000000000000000000000000000000000",
       "logLevel": 0,
-      "clientId": "1"
+      "clientId": "1",
+      "requestValidSeconds": 172800
     }
 }

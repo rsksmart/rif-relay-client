@@ -20,5 +20,6 @@ type EnvelopingConfig = {
   smartWalletFactoryAddress: string;
   logLevel: number;
   clientId: number;
+  requestValidSeconds: number;
 };
 export { EnvelopingConfig };

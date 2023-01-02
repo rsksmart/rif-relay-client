@@ -30,6 +30,7 @@ const relayOrDeployRequest = {
     tokenContract: createRandomAddress(),
     tokenGas: Math.random() * 1000,
     value: Math.random() * 1e16,
+    validUntilTime: 0
   },
 };
 const relayRequest = {
@@ -76,7 +77,7 @@ describe('AccountManager', function () {
       expect(accountManager.chainId, 'Chain ID').to.equal(expectedChainId);
     });
 
-    describe('', function () {
+    describe('methods', function () {
       let accountManager: AccountManager;
       let stubProvider: providers.JsonRpcProvider;
 

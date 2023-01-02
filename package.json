@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@metamask/eth-sig-util": "^5.0.0",
-    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#PP-602/RelayClient-validateSmartWallet",
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts",
     "axios": "~1.1.2",
     "bignumber.js": "^9.1.1",
     "config": "^3.3.8",
