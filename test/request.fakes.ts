@@ -1,5 +1,5 @@
 import { constants, ethers, Wallet } from 'ethers';
-import type { RequestConfig } from '../src/RelayClient';
+import type { RequestConfig } from '../src/common/relayClient.types';
 import type { EnvelopingMetadata } from '../src/common/relayHub.types';
 import type {
   CommonEnvelopingRequestBody,

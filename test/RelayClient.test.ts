@@ -48,8 +48,6 @@ import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
 import RelayClient, {
-  RequestConfig,
-  TokenGasEstimationParams,
 } from '../src/RelayClient';
 import { INTERNAL_TRANSACTION_ESTIMATED_CORRECTION } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
@@ -66,6 +64,7 @@ import {
 
 import * as relayUtils from '../src/utils';
 import * as gasEstimator from '../src/gasEstimator/gasEstimator';
+import type { TokenGasEstimationParams, RequestConfig } from '../src/common/relayClient.types';
 
 use(sinonChai);
 use(chaiAsPromised);
