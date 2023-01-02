@@ -1,22 +1,32 @@
 import type { Network } from '@ethersproject/networks';
 import {
+  DeployVerifier,
+  DeployVerifier__factory,
   EnvelopingTypes,
   IERC20,
   IERC20__factory,
   IForwarder,
   IForwarder__factory,
+  ISmartWalletFactory,
+  IWalletFactory__factory,
+  RelayHub,
+  RelayHub__factory,
+  RelayVerifier,
+  RelayVerifier__factory,
 } from '@rsksmart/rif-relay-contracts';
-import type { PromiseOrValue } from '@rsksmart/rif-relay-contracts/dist/typechain-types/common';
-import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import config from 'config';
-import { BigNumber, BigNumberish, constants, providers, Wallet } from 'ethers';
+import { BigNumber, BigNumberish, constants, providers, Transaction, Wallet, utils, errors } from 'ethers';
+
+import * as etherUtils from '@ethersproject/transactions';
+import type { TransactionResponse, TransactionReceipt } from '@ethersproject/providers';
 import { solidityKeccak256 } from 'ethers/lib/utils';
 import Sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
-import type { EnvelopingConfig } from 'src/common/config.types';
-import type { HubInfo } from 'src/common/relayHub.types';
+import { HttpClient } from '../src/api/common';
+import type { EnvelopingConfig } from '../src/common/config.types';
+import type { HubInfo, RelayInfo, RelayManagerData } from '../src/common/relayHub.types';
 import AccountManager from '../src/AccountManager';
 import type {
   DeployRequest,
@@ -26,11 +36,13 @@ import type {
   UserDefinedEnvelopingRequest,
   UserDefinedRelayData,
   UserDefinedRelayRequest,
+  UserDefinedRelayRequestBody,
 } from '../src/common/relayRequest.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
   MISSING_SMART_WALLET_ADDRESS,
+  NOT_RELAYED_TRANSACTION,
 } from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
   envelopingEvents,
@@ -44,16 +56,22 @@ import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
 import {
   FAKE_DEPLOY_REQUEST,
+  FAKE_DEPLOY_TRANSACTION_REQUEST,
   FAKE_ENVELOPING_REQUEST_DATA,
   FAKE_RELAY_REQUEST,
   FAKE_RELAY_REQUEST_BODY,
-  FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+  FAKE_RELAY_TRANSACTION_REQUEST,
+  FAKE_REQUEST_CONFIG
 } from './request.fakes';
+
+import * as relayUtils from '../src/utils';
+import * as gasEstimator from '../src/gasEstimator/gasEstimator';
 
 use(sinonChai);
 use(chaiAsPromised);
 const sandbox = Sinon.createSandbox();
 const createRandomAddress = () => Wallet.createRandom().address;
+const createRandomBigNumber = (base: number) => BigNumber.from((Math.random() * base).toFixed(0));
 
 const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;
@@ -97,25 +115,31 @@ describe('RelayClient', function () {
     type RelayClientExposed = {
       _envelopingConfig: EnvelopingConfig;
       _provider: providers.Provider;
+      _httpClient: HttpClient;
       _prepareHttpRequest: (
         _hubInfo: HubInfo,
-        request: EnvelopingTypes.RelayRequestStruct
+        request: EnvelopingTypes.RelayRequestStruct,
+        requestConfig: RequestConfig
       ) => Promise<EnvelopingTxRequest>;
       _getEnvelopingRequestDetails: (
         request: UserDefinedEnvelopingRequest,
         requestConfig: RequestConfig
       ) => Promise<EnvelopingRequest>;
-      _calculateGasPrice: () => Promise<BigNumberish>;
-      _applyGasCorrectionFactor: (
-        estimation: BigNumberish,
-        esimatedGasCorrectFactor: BigNumberish
-      ) => BigNumber;
+      _calculateGasPrice: () => Promise<BigNumber>;
+      _attemptRelayTransaction: (relayInfo: RelayInfo, envelopingTx: EnvelopingTxRequest) => Promise<Transaction>;
+      _broadcastTx: (signedTx: string) => Promise<void>;
+      _verifyEnvelopingRequest: (hubInfo: HubInfo, envelopingTx: EnvelopingTxRequest) => Promise<void>;
+      _verifyWorkerBalance: (relayWorkerAddress: string, maxPossibleGas: BigNumber, gasPrice: BigNumberish) => Promise<void>;
+      _verifyWithVerifiers: (envelopingTx: EnvelopingTxRequest) => Promise<void>;
+      _verifyWithRelayHub: (relayWorkerAddress: string, envelopingTx: EnvelopingTxRequest, maxPossibleGas: BigNumber) => Promise<void>;
     } & {
-      [key in keyof RelayClient]: RelayClient[key];
-    };
+        [key in keyof RelayClient]: RelayClient[key];
+      };
 
     let relayClient: RelayClientExposed;
     let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
+    let factoryStub: Sinon.SinonStubbedInstance<ISmartWalletFactory>;
+    let ethersLogger: utils.Logger;
 
     beforeEach(function () {
       relayClient = new RelayClient() as unknown as RelayClientExposed;
@@ -133,13 +157,22 @@ describe('RelayClient', function () {
         getOwner: sandbox.stub(),
       } as typeof forwarderStub;
 
+      factoryStub = {
+        nonce: sandbox.stub()
+      } as typeof factoryStub;
+
       sandbox.stub(IForwarder__factory, 'connect').returns(forwarderStub);
+      sandbox.stub(IWalletFactory__factory, 'connect').returns(factoryStub);
+      ethersLogger = new utils.Logger('1');
     });
 
     describe('_prepareHttpRequest', function () {
       let accountManagerStub: SinonStubbedInstance<AccountManager>;
+      let fakeTokenGasEstimation: BigNumber;
 
       beforeEach(function () {
+        fakeTokenGasEstimation = constants.Two;
+        relayClient.estimateTokenTransferGas = sandbox.stub().returns(fakeTokenGasEstimation);
         accountManagerStub = {
           sign: sandbox
             .stub(AccountManager.prototype, 'sign')
@@ -157,23 +190,9 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.request,
             relayHub: expectedRelayHubAddress,
           },
-        });
+        }, FAKE_REQUEST_CONFIG);
 
         expect(actualRelayHubAddress).to.equal(expectedRelayHubAddress);
-      });
-
-      it('should return tx request with fees receiver from given request if it is a valid address', async function () {
-        const expectedFeesReceiver = FAKE_RELAY_REQUEST.relayData.feesReceiver;
-        const {
-          relayRequest: {
-            relayData: { feesReceiver: actualFeesReceiver },
-          },
-        } = await relayClient._prepareHttpRequest(
-          FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST
-        );
-
-        expect(actualFeesReceiver).to.equal(expectedFeesReceiver);
       });
 
       it('should return tx request with fees receiver in request data from given hub info if no fees receiver given in request', async function () {
@@ -189,7 +208,7 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.relayData,
             feesReceiver: undefined,
           } as unknown as EnvelopingRequestData,
-        });
+        }, FAKE_REQUEST_CONFIG);
 
         expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
       });
@@ -206,7 +225,7 @@ describe('RelayClient', function () {
                 ...FAKE_RELAY_REQUEST.relayData,
                 feesReceiver: constants.AddressZero,
               },
-            }
+            }, FAKE_REQUEST_CONFIG
           ),
           'feesReceiver is zero address'
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
@@ -217,7 +236,7 @@ describe('RelayClient', function () {
               ...FAKE_RELAY_REQUEST.relayData,
               feesReceiver: undefined,
             } as unknown as EnvelopingRequestData,
-          }),
+          }, FAKE_REQUEST_CONFIG),
           'feesReceiver is undefined'
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
       });
@@ -235,21 +254,62 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.relayData,
             feesReceiver: constants.AddressZero,
           },
-        });
+        }, FAKE_REQUEST_CONFIG);
 
         expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
       });
 
+      it("should return transaction request with 'tokenGas' in request data if it's greater than zero", async function () {
+        const expectedRelayRequestData: UserDefinedRelayRequestBody = {
+          ...FAKE_RELAY_REQUEST_BODY
+        };
+
+        const {
+          relayRequest: { request: actualRelayRequest },
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, FAKE_RELAY_REQUEST, FAKE_REQUEST_CONFIG);
+
+        expect(actualRelayRequest).to.deep.equal(expectedRelayRequestData);
+      });
+
+      it("should estimate 'tokenGas' if it's zero in the request", async function () {
+        const expectedRelayRequestData: UserDefinedRelayRequestBody = {
+          ...FAKE_RELAY_REQUEST_BODY,
+          tokenGas: fakeTokenGasEstimation,
+        };
+        const {
+          relayRequest: { request: actualRelayRequest },
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, {
+          ...FAKE_RELAY_REQUEST,
+          request: {
+            ...FAKE_RELAY_REQUEST.request,
+            tokenGas: constants.Zero
+          },
+        }, FAKE_REQUEST_CONFIG);
+
+        expect(actualRelayRequest).to.deep.equal(expectedRelayRequestData);
+      });
+
       it('should sign the request', async function () {
+        const expectedRelayRequestData: RelayRequest = {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_RELAY_REQUEST.relayData,
+            feesReceiver: FAKE_HUB_INFO.feesReceiver
+          }
+        };
+
+        const fakeTokenGas = constants.Two;
+        sandbox.stub(RelayClient.prototype, 'estimateTokenTransferGas').returns(Promise.resolve(fakeTokenGas));
         forwarderStub.nonce.resolves(constants.Two);
         const signStub = accountManagerStub.sign;
         await relayClient._prepareHttpRequest(
           FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST
+          FAKE_RELAY_REQUEST,
+          FAKE_REQUEST_CONFIG
         );
 
         expect(signStub).to.have.been.called;
-        expect(signStub).to.have.been.calledWith(FAKE_RELAY_REQUEST);
+        expect(signStub).to.have.been.calledWith(expectedRelayRequestData);
       });
 
       it(`should emit sign request 'sign-request' `, async function () {
@@ -257,7 +317,8 @@ describe('RelayClient', function () {
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
         await relayClient._prepareHttpRequest(
           FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST
+          FAKE_RELAY_REQUEST,
+          FAKE_REQUEST_CONFIG
         );
 
         expect(emitStub).to.have.been.called;
@@ -275,7 +336,7 @@ describe('RelayClient', function () {
           request: {
             ...FAKE_RELAY_REQUEST.request,
           },
-        });
+        }, FAKE_REQUEST_CONFIG);
 
         expect(actualSignature).to.equal(expectedSignature);
       });
@@ -547,9 +608,9 @@ describe('RelayClient', function () {
         );
       });
 
-      it('should get nonce value from forwarder if none defined in request body', async function () {
+      it('should get nonce value from factory if none defined in request body', async function () {
         const expectedNonce = BigNumber.from((Math.random() * 100).toFixed(0));
-        forwarderStub.nonce.resolves(expectedNonce);
+        factoryStub.nonce.resolves(expectedNonce);
         const {
           request: { nonce: actualNonce },
         } = await relayClient._getEnvelopingRequestDetails(
@@ -557,6 +618,25 @@ describe('RelayClient', function () {
             ...FAKE_DEPLOY_REQUEST,
             request: {
               ...FAKE_DEPLOY_REQUEST.request,
+              nonce: undefined,
+            },
+          } as unknown as EnvelopingRequest,
+          {}
+        );
+
+        expect(actualNonce).to.equal(expectedNonce);
+      });
+
+      it('should get nonce value from forwarder if none defined in request body', async function () {
+        const expectedNonce = BigNumber.from((Math.random() * 100).toFixed(0));
+        forwarderStub.nonce.resolves(expectedNonce);
+        const {
+          request: { nonce: actualNonce },
+        } = await relayClient._getEnvelopingRequestDetails(
+          {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
               nonce: undefined,
             },
           } as unknown as EnvelopingRequest,
@@ -621,10 +701,7 @@ describe('RelayClient', function () {
         );
       });
 
-      it('should return request with given tokenGas', async function () {
-        const {
-          request: { tokenGas: expectedTokenGas },
-        } = FAKE_DEPLOY_REQUEST;
+      it('should return request with given tokenGas equals to zero', async function () {
         const {
           request: { tokenGas: actualTokenGas },
         } = await relayClient._getEnvelopingRequestDetails(
@@ -632,50 +709,7 @@ describe('RelayClient', function () {
           {}
         );
 
-        expect(actualTokenGas).to.equal(expectedTokenGas);
-      });
-
-      it('should return request with calculated tokenGas if none given', async function () {
-        const expectedTokenGas = BigNumber.from(
-          (Math.random() * 100).toFixed(0)
-        );
-        const estimateTokenTransferGasStub = sandbox
-          .stub()
-          .resolves(expectedTokenGas);
-        relayClient.estimateTokenTransferGas = estimateTokenTransferGasStub;
-        const request: UserDefinedEnvelopingRequest = {
-          ...FAKE_DEPLOY_REQUEST,
-          request: {
-            ...FAKE_DEPLOY_REQUEST.request,
-            tokenGas: undefined,
-          },
-        };
-        const requestConfig: RequestConfig = {
-          isSmartWalletDeploy: true,
-          preDeploySWAddress: Wallet.createRandom().address,
-        };
-        const expectedEstimationProps: TokenGasEstimationParams = {
-          tokenContract: request.request.tokenContract,
-          tokenAmount: request.request.tokenAmount,
-          feesReceiver: constants.AddressZero,
-          isSmartWalletDeploy: requestConfig.isSmartWalletDeploy,
-          preDeploySWAddress: requestConfig.preDeploySWAddress,
-          callForwarder: request.relayData.callForwarder,
-          gasPrice: request.relayData.gasPrice as PromiseOrValue<BigNumberish>,
-        };
-
-        const {
-          request: { tokenGas: actualTokenGas },
-        } = await relayClient._getEnvelopingRequestDetails(
-          request,
-          requestConfig
-        );
-
-        expect(estimateTokenTransferGasStub).to.have.been.called;
-        expect(estimateTokenTransferGasStub).to.have.been.calledWith(
-          expectedEstimationProps
-        );
-        expect(actualTokenGas).to.equal(expectedTokenGas);
+        expect(actualTokenGas).to.equal(constants.Zero);
       });
 
       it('should return given gas limit in the request body for relay request', async function () {
@@ -692,7 +726,7 @@ describe('RelayClient', function () {
         expect(actualGas).to.equal(expectedGas);
       });
 
-      it('should return given force gas limnit from request config in the request body for relay request', async function () {
+      it('should return given forceGasLimit from request config in the request body for relay request', async function () {
         const expectedGas = BigNumber.from((Math.random() * 100).toFixed(0));
         const {
           request: { gas: actualGas },
@@ -780,7 +814,7 @@ describe('RelayClient', function () {
         expect(actualIndex).to.equal(expectedIndex);
       });
 
-      it('should return given recoverer for a deoploy request', async function () {
+      it('should return given recoverer for a deploy request', async function () {
         const expectedRecoverer = FAKE_DEPLOY_REQUEST.request.recoverer;
         const {
           request: { recoverer: actualRecoverer },
@@ -867,15 +901,6 @@ describe('RelayClient', function () {
       });
 
       it('should return estimation without applying gas correction factor when addExternalCorrection is set to false', async function () {
-        relayClient._applyGasCorrectionFactor = () => BigNumber.from(7500);
-        const stubApplyGasCorrection = sandbox
-          .stub(
-            relayClient as unknown as {
-              _applyGasCorrectionFactor: () => BigNumber;
-            },
-            '_applyGasCorrectionFactor'
-          )
-          .returns(BigNumber.from(7500));
         const estimateGas = BigNumber.from(10000);
         relayClient._provider.estimateGas = sandbox
           .stub()
@@ -896,7 +921,6 @@ describe('RelayClient', function () {
         expect(estimation.toString()).to.be.equal(
           expectedEstimation.toString()
         );
-        expect(stubApplyGasCorrection.calledOnce).to.be.false;
       });
 
       it('should return estimation applying gas correction factor when estimatedGasCorrectionFactor different from 1', async function () {
@@ -921,73 +945,34 @@ describe('RelayClient', function () {
     });
 
     describe('_calculateGasPrice', function () {
-      type RelayClientExposed = {
-        _calculateGasPrice: () => Promise<BigNumber>;
-      };
-      let provider: SinonStubbedInstance<providers.BaseProvider>;
-      let relayClient: RelayClientExposed;
-      let envelopingConfig: EnvelopingConfig;
 
-      beforeEach(function () {
-        envelopingConfig = {
-          chainId: 33,
-          clientId: 1,
-          deployVerifierAddress: '',
-          forwarderAddress: '',
-          gasPriceFactorPercent: 0.2,
-          relayVerifierAddress: '',
-          relayHubAddress: '',
-          smartWalletFactoryAddress: '',
-          sliceSize: 0,
-          relayTimeoutGrace: 0,
-          relayLookupWindowParts: 0,
-          relayLookupWindowBlocks: 0,
-          maxRelayNonceGap: 0,
-          minGasPrice: 60000,
-          methodSuffix: '',
-          preferredRelays: [],
-          onlyPreferredRelays: true,
-          jsonStringifyRequest: true,
-          logLevel: 0,
-        };
+      it('should return minGasPrice when minGasPrice is higher than gas price from provider', async function () {
+        const expectedGasPrice = 30000;
+        relayClient._envelopingConfig.minGasPrice = expectedGasPrice;
+        relayClient._provider.getGasPrice = sandbox
+          .stub()
+          .callsFake(() => {
+            console.log('getGasPrice called');
+          })
+          .resolves(BigNumber.from(2000));
+        const actualGasPrice = await relayClient._calculateGasPrice();
 
-        relayClient = new RelayClient() as unknown as RelayClientExposed;
-        provider = sandbox.createStubInstance(providers.JsonRpcProvider);
-        (
-          relayClient as unknown as {
-            _envelopingConfig: EnvelopingConfig;
-          }
-        )._envelopingConfig = envelopingConfig;
-        (
-          relayClient as unknown as {
-            _provider: providers.Provider;
-          }
-        )._provider = provider;
+        expect(actualGasPrice.toNumber()).to.be.equal(expectedGasPrice);
       });
 
-      it('should return minGasPrice', async function () {
-        const estimateGas = BigNumber.from(10000);
-        provider.getGasPrice.returns(Promise.resolve(estimateGas));
-        const gasPrice = await relayClient._calculateGasPrice();
-
-        expect(gasPrice.toString()).to.be.equal(
-          envelopingConfig.minGasPrice.toString()
-        );
-      });
-
-      it('should return gas price with factor', async function () {
+      it('should return gas price multiplied by correction (factor + 1)', async function () {
         const estimateGas = BigNumber.from(60000);
-        provider.getGasPrice.returns(Promise.resolve(estimateGas));
-        const gasPrice = await relayClient._calculateGasPrice();
-        const bigGasPriceFactorPercent = BigNumberJs(
-          envelopingConfig.gasPriceFactorPercent
+        relayClient._provider.getGasPrice = sandbox
+          .stub()
+          .resolves(estimateGas);
+        const expectedGasEstimate = estimateGas.mul(
+          FAKE_ENVELOPING_CONFIG.gasPriceFactorPercent + 1
         );
-        const bigEstimateGas = BigNumberJs(estimateGas.toString());
-        const estimatedGas = bigEstimateGas.multipliedBy(
-          bigGasPriceFactorPercent.plus(1).toString()
-        );
+        const actualGasPrice = await relayClient._calculateGasPrice();
 
-        expect(gasPrice.toString()).to.be.equal(estimatedGas.toString());
+        expect(actualGasPrice.toString()).to.be.equal(
+          expectedGasEstimate.toString()
+        );
       });
     });
 
@@ -1048,8 +1033,14 @@ describe('RelayClient', function () {
 
       it('should return 0 if token contract is zero address', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          tokenContract: constants.AddressZero,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
+              tokenContract: constants.AddressZero,
+            }
+          },
+          ...FAKE_REQUEST_CONFIG
         };
 
         expect(
@@ -1059,8 +1050,14 @@ describe('RelayClient', function () {
 
       it('should return 0 if token amount is 0', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          tokenAmount: constants.Zero,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
+              tokenAmount: constants.Zero,
+            }
+          },
+          ...FAKE_REQUEST_CONFIG
         };
 
         expect(
@@ -1070,7 +1067,7 @@ describe('RelayClient', function () {
 
       it('should fail if it is a deploy and the smartWallet is missing', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          relayRequest: {...FAKE_DEPLOY_REQUEST},
           preDeploySWAddress: undefined,
         };
 
@@ -1081,7 +1078,7 @@ describe('RelayClient', function () {
 
       it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
+          relayRequest: {...FAKE_DEPLOY_REQUEST},
           preDeploySWAddress: constants.AddressZero,
         };
 
@@ -1092,10 +1089,14 @@ describe('RelayClient', function () {
 
       it('should fail if it is a relay transaction and the callForwarder is missing', async function () {
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          preDeploySWAddress: constants.AddressZero,
-          isSmartWalletDeploy: false,
-          callForwarder: constants.AddressZero,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              callForwarder: constants.AddressZero,
+            }
+          },
+          preDeploySWAddress: constants.AddressZero
         };
 
         await expect(
@@ -1109,9 +1110,14 @@ describe('RelayClient', function () {
         const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
-          internalEstimationCorrection: INTERNAL_CORRECTION,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          },
+          internalEstimationCorrection: INTERNAL_CORRECTION
         };
 
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
@@ -1129,9 +1135,14 @@ describe('RelayClient', function () {
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
-          internalEstimationCorrection: INTERNAL_CORRECTION,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          },
+          internalEstimationCorrection: INTERNAL_CORRECTION
         };
 
         const estimation = await relayClient.estimateTokenTransferGas(request);
@@ -1148,8 +1159,13 @@ describe('RelayClient', function () {
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          },
           internalEstimationCorrection: INTERNAL_CORRECTION,
           estimatedGasCorrectionFactor: CORRECTION_FACTOR,
         };
@@ -1167,14 +1183,486 @@ describe('RelayClient', function () {
         ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 
         const request: TokenGasEstimationParams = {
-          ...FAKE_TOKEN_GAS_ESTIMATIONS_PARAMS,
-          gasPrice: FAKE_GAS_COST,
+          relayRequest: {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              gasPrice: FAKE_GAS_COST,
+            }
+          }
         };
 
         const estimation = await relayClient.estimateTokenTransferGas(request);
 
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
+    });
+
+    describe('relayTransaction', function () {
+
+      const relayInfo: RelayInfo = {
+        hubInfo: FAKE_HUB_INFO,
+        managerData: {
+          url: 'fake_url'
+        } as RelayManagerData
+      };
+
+      const envelopingRequest = {
+        ...FAKE_RELAY_REQUEST,
+        relayData: {
+          ...FAKE_ENVELOPING_REQUEST_DATA
+        },
+      }
+
+      const transaction = {} as Transaction;
+      let selectNextRelayStub: SinonStub;
+      let attemptRelayTransactionStub: SinonStub;
+      
+      beforeEach(function () {
+        attemptRelayTransactionStub = sandbox.stub().returns(Promise.resolve(transaction));
+        relayClient._getEnvelopingRequestDetails = sandbox.stub().returns(FAKE_RELAY_REQUEST);
+        relayClient._prepareHttpRequest = sandbox.stub();
+        relayClient._verifyEnvelopingRequest = sandbox.stub().returns(Promise.resolve(true));
+        relayClient._attemptRelayTransaction = attemptRelayTransactionStub;
+        selectNextRelayStub = sandbox.stub(relayUtils, 'selectNextRelay').returns(Promise.resolve(relayInfo));
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      })
+
+      it('should relay the transaction in the first attempt', async function () {
+        const expectedTransaction = await relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+
+        expect(selectNextRelayStub).to.be.calledOnce;
+        expect(expectedTransaction).to.be.equals(transaction);
+      });
+
+      it('should relay the transaction after the first attempt', async function () {
+        attemptRelayTransactionStub.onFirstCall().returns(Promise.resolve(undefined));
+        attemptRelayTransactionStub.onSecondCall().returns(Promise.resolve(transaction));
+        const expectedTransaction = await relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+
+        expect(selectNextRelayStub).to.be.calledTwice;
+        expect(expectedTransaction).to.be.equals(transaction);
+      });
+
+      
+      it('should fail to relay transaction if details are missing', async function () {
+        relayClient._getEnvelopingRequestDetails = sandbox.stub().throws(new Error('missing details'));
+        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+
+        await expect(expectedTransaction).to.be.rejectedWith('missing details')
+      });
+
+      it('should fail to relay transaction if http request cannot be prepared', async function () {
+        const error = new Error('FeesReceiver has to be a valid non-zero address');
+        relayClient._prepareHttpRequest = sandbox.stub().throws(error);
+        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+
+        await expect(expectedTransaction).to.be.rejectedWith(error.message)
+      });
+      
+
+      it('should fail to relay transaction if there is no available relay server', async function () {
+        selectNextRelayStub.returns(Promise.resolve(undefined));
+        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+
+        await expect(expectedTransaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION)
+      });
+
+      it('should fail to relay transaction if cannot be verified locally on all servers', async function () {
+        relayClient._verifyEnvelopingRequest = sandbox.stub().returns(Promise.resolve(false));
+        selectNextRelayStub.onFirstCall().returns(Promise.resolve(relayInfo));
+        selectNextRelayStub.onSecondCall().returns(Promise.resolve(undefined));
+        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+
+        await expect(expectedTransaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION)
+      });
+
+    });
+
+    describe('_attemptRelayTransaction', function () {
+
+      let httpClient: SinonStubbedInstance<HttpClient>;
+      const transaction = {} as Transaction;
+      let parseTransactionStub: SinonStub;
+      let validateResponseStub: SinonStub;
+
+      const relayInfo: RelayInfo = {
+        hubInfo: FAKE_HUB_INFO,
+        managerData: {
+          url: 'fake_url'
+        } as RelayManagerData
+      };
+
+      beforeEach(function () {
+        httpClient = sandbox.createStubInstance(HttpClient);
+        relayClient._httpClient = httpClient;
+        parseTransactionStub = sandbox.stub(etherUtils, 'parse').returns(transaction);
+        validateResponseStub = sandbox.stub(relayUtils, 'validateRelayResponse').returns(undefined);
+        relayClient._broadcastTx = sandbox.stub().returns(Promise.resolve(undefined));
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      })
+
+      it('should return transaction if server relayed it properly', async function () {
+        const expectedTransaction = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(expectedTransaction).to.be.equals(transaction);
+      });
+
+      it('shoul throw if server cannot relay transaction', async function () {
+        httpClient.relayTransaction.throws('Got invalid response from relay: signedTx field missing.');
+        const attempRelay = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(attempRelay).to.be.undefined;
+
+      });
+
+      it('should throw if transaction cannot be parsed', async function () {
+        const error = ethersLogger.makeError('invalid arrayify value' , errors.INVALID_ARGUMENT);
+        parseTransactionStub.throws(error);
+        const attempRelay = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(attempRelay).to.be.undefined;
+      });
+
+      it('should throw if transaction cannot be validated due to transaction has no recipient address', async function () {
+        validateResponseStub.throws(new Error('Transaction has no recipient address'));
+        const attempRelay = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(attempRelay).to.be.undefined;
+      });
+
+      it(`should emit 'send-to-relayer' `, async function () {
+        const emitStub = sandbox.stub();
+        (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
+        await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(emitStub).to.have.been.called;
+        expect(emitStub).to.have.been.calledWith(
+          envelopingEvents['send-to-relayer']
+        );
+      });
+
+    });
+
+    describe('_broadcastTx', function () {
+      const fakeSignedTx = '0x01';
+      let sendTransactionStub: SinonStub;
+
+      beforeEach(function () {
+        sendTransactionStub = sandbox.stub();
+        relayClient._provider.sendTransaction = sendTransactionStub;
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      })
+
+      it('should send transaction if cannot find it in pool or receipt', async function () {
+        relayClient._provider.getTransaction = sandbox.stub().returns(undefined);
+        relayClient._provider.getTransactionReceipt = sandbox.stub().returns(undefined);
+        await relayClient._broadcastTx(fakeSignedTx);
+
+        expect(sendTransactionStub.called).to.be.true;
+      });
+
+      it('should not send transaction if the receipt is in the transaction pool', async function () {
+        const fakeResponse = {} as TransactionResponse;
+        relayClient._provider.getTransaction = sandbox.stub().returns(Promise.resolve(fakeResponse));
+        relayClient._provider.getTransactionReceipt = sandbox.stub().returns(undefined);
+        await relayClient._broadcastTx(fakeSignedTx);
+
+        expect(sendTransactionStub.called).to.be.false;
+      });
+
+      it('should not send transaction if receipt is found', async function () {
+        const fakeReceipt = {} as TransactionReceipt;
+        relayClient._provider.getTransactionReceipt = sandbox.stub().returns(Promise.resolve(fakeReceipt));
+        relayClient._provider.getTransaction = sandbox.stub().returns(undefined);
+        await relayClient._broadcastTx(fakeSignedTx);
+
+        expect(sendTransactionStub.called).to.be.false;
+      });
+
+    });
+
+    describe('_verifyEnvelopingRequest', function () {
+
+      beforeEach(function () {
+        sandbox.stub(gasEstimator, 'estimateRelayMaxPossibleGas').returns(Promise.resolve(constants.Two));
+        relayClient._verifyWorkerBalance = sandbox.stub().returns(undefined);
+        relayClient._verifyWithVerifiers = sandbox.stub().returns(undefined);
+        relayClient._verifyWithRelayHub = sandbox.stub().returns(undefined);
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      });
+
+      it('should allow if enveloping transaction pass all verifiers', async function () {
+        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(verification).to.be.true;
+      });
+
+      it('should fail if enveloping transaction fails on _verifyWorkerBalance', async function () {
+        relayClient._verifyWorkerBalance = sandbox.stub().throws(new Error('Worker does not have enough balance to pay'));
+        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(verification).to.be.false;
+      });
+
+      it('should fail if enveloping transaction fails on _verifyWithVerifiers', async function () {
+        const error = ethersLogger.makeError('SW different to template' , errors.CALL_EXCEPTION);
+        relayClient._verifyWithVerifiers = sandbox.stub().throws(error);
+        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(verification).to.be.false;
+      });
+
+      it('should fail if enveloping transaction fails on _verifyWithRelayHub', async function () {
+        const error = ethersLogger.makeError('RelayWorker cannot be a contract' , errors.CALL_EXCEPTION);
+        relayClient._verifyWithRelayHub = sandbox.stub().throws(error);
+        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(verification).to.be.false;
+      });
+
+      it(`should emit 'validate-request' `, async function () {
+        const emitStub = sandbox.stub();
+        (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
+        await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(emitStub).to.have.been.called;
+        expect(emitStub).to.have.been.calledWith(
+          envelopingEvents['validate-request']
+        );
+      });
+
+    });
+
+    describe('_verifyWorkerBalance', function () {
+
+      let relayWorkerAddress: string;
+      let fakeMaxPossibleGas: BigNumber;
+
+      beforeEach(function () {
+        relayWorkerAddress = createRandomAddress();
+        fakeMaxPossibleGas = BigNumber.from(10_000);
+      });
+
+      it('should succeed if worker has enough balance', async function () {
+        relayClient._provider.getBalance = sandbox.stub().returns(BigNumber.from(1_500_000));
+        const verifyWorkerBalance = relayClient._verifyWorkerBalance(relayWorkerAddress, fakeMaxPossibleGas, FAKE_GAS_PRICE);
+
+        await expect(verifyWorkerBalance).to.be.fulfilled;
+      });
+
+      it('should throw if worker has not enough balance', async function () {
+        relayClient._provider.getBalance = sandbox.stub().returns(BigNumber.from(500_000));
+        const verifyWorkerBalance = relayClient._verifyWorkerBalance(relayWorkerAddress, fakeMaxPossibleGas, FAKE_GAS_PRICE);
+
+        await expect(verifyWorkerBalance).to.be.rejectedWith('Worker does not have enough balance to pay');
+      });
+
+    });
+
+    describe('_verifyWithVerifiers', function () {
+
+      it('should allow if enveloping relay request will be verified', async function () {
+        const callStub = sandbox.stub().returns(undefined);
+        const relayVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as RelayVerifier;
+        sandbox.stub(RelayVerifier__factory, 'connect').returns(relayVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.fulfilled;
+      });
+
+      it('should allow if enveloping deploy request will be verified', async function () {
+        const callStub = sandbox.stub().returns(undefined);
+        const deployVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as DeployVerifier;
+        sandbox.stub(DeployVerifier__factory, 'connect').returns(deployVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_DEPLOY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.fulfilled;
+      });
+
+      it('should throw if enveloping relay request will not be verified due sw different to template', async function () {
+        const error = ethersLogger.makeError('SW different to template' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        const relayVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as RelayVerifier;
+        sandbox.stub(RelayVerifier__factory, 'connect').returns(relayVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_RELAY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping deploy request will not be verified due to invalid factory', async function () {
+        const error = ethersLogger.makeError('Invalid factory' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        const deployVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as DeployVerifier;
+        sandbox.stub(DeployVerifier__factory, 'connect').returns(deployVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_DEPLOY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping deploy request will not be verified due to address already created', async function () {
+        const error = ethersLogger.makeError('Address already created!' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        const deployVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as DeployVerifier;
+        sandbox.stub(DeployVerifier__factory, 'connect').returns(deployVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_DEPLOY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping request will not be verified due to token contract not allowed', async function () {
+        const error = ethersLogger.makeError('Token contract not allowed' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        const deployVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as DeployVerifier;
+        sandbox.stub(DeployVerifier__factory, 'connect').returns(deployVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_DEPLOY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping request will not be verified due to balance too low', async function () {
+        const error = ethersLogger.makeError('balance too low' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        const deployVerifierStub = {
+          callStatic: {
+            verifyRelayedCall: callStub
+          }
+        } as unknown as DeployVerifier;
+        sandbox.stub(DeployVerifier__factory, 'connect').returns(deployVerifierStub);
+        const verifyWithVerifiers = relayClient._verifyWithVerifiers(FAKE_DEPLOY_TRANSACTION_REQUEST);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
+      });
+
+    });
+
+    describe('_verifyWithRelayHub', function () {
+
+      let relayWorkerAddress: string;
+      let fakeMaxPossibleGas: BigNumber;
+      let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
+
+      beforeEach(function () {
+        relayWorkerAddress = createRandomAddress();
+        fakeMaxPossibleGas = createRandomBigNumber(10000);
+      });
+
+      it('should allow if enveloping relay request will succeed', async function () {
+        const callStub = sandbox.stub().returns(undefined);
+        relayHubStub = {
+          callStatic: {
+            relayCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_RELAY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.fulfilled;
+      });
+
+      it('should allow if enveloping deploy request will succeed', async function () {
+        const callStub = sandbox.stub().returns(undefined);
+        relayHubStub = {
+          callStatic: {
+            deployCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_DEPLOY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.fulfilled;
+      });
+
+      it('should throw if enveloping request will fail due to not enabled worker', async function () {
+        const error = ethersLogger.makeError('Not an enabled worker' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        relayHubStub = {
+          callStatic: {
+            relayCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_RELAY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+      });
+      
+      it('should throw if enveloping request will fail due to invalid gas price', async function () {
+        const error = ethersLogger.makeError('Invalid gas price' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        relayHubStub = {
+          callStatic: {
+            relayCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_RELAY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping request will fail due to the relayWorker cannot be a contract', async function () {
+        const error = ethersLogger.makeError('RelayWorker cannot be a contract' , errors.CALL_EXCEPTION);
+        const callStub = sandbox.stub().throws(error);
+        relayHubStub = {
+          callStatic: {
+            relayCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_RELAY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+      });
+
     });
   });
 });

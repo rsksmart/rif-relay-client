@@ -22,7 +22,7 @@ type HubInfo = {
 
 type RelayInfo = {
   hubInfo: HubInfo;
-  relayInfo: RelayManagerData;
+  managerData: RelayManagerData;
 };
 
 type EnvelopingMetadata = {

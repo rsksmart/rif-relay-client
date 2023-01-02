@@ -36,6 +36,7 @@
     }
   ],
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "dist": "scripts/dist",
     "format": "npx prettier test/**/*.ts src/**/*.ts !.gitignore  --check --ignore-unknown",
@@ -54,16 +55,13 @@
   },
   "dependencies": {
     "@metamask/eth-sig-util": "^5.0.0",
-    "@rsksmart/rif-relay-common": "github:rsksmart/rif-relay-common#feature/PP-278/PP-339/upgrade_with_ethers",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#PP-602/RelayClient-validateSmartWallet",
     "axios": "~1.1.2",
     "bignumber.js": "^9.1.1",
     "config": "^3.3.8",
-    "ethereum-cryptography": "~1.1.2",
     "ethers": "5.7.1",
     "loglevel": "~1.8.0",
-    "npmignore": "^0.3.0",
-    "semver": "~7.3.8"
+    "npmignore": "^0.3.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
@@ -74,7 +72,6 @@
     "@types/config": "^3.3.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "^18.8.4",
-    "@types/semver": "^7.3.12",
     "@types/sinon": "^10.0.13",
     "@types/sinon-chai": "^3.2.8",
     "@typescript-eslint/eslint-plugin": "^5.40.0",
@@ -104,6 +101,5 @@
       "test",
       ".github"
     ]
-  },
-  "FIXME:": "delete @rsksmart/rif-relay-common once RelayTransactionValidator implements the contract interactor methods"
+  }
 }
