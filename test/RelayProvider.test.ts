@@ -9,7 +9,7 @@ import RelayProvider, { RelayingResult } from '../src/RelayProvider';
 import RelayClient, { RequestConfig } from '../src/RelayClient';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import type { UserDefinedEnvelopingRequest } from "src/common/relayRequest.types";
-import { BigNumber } from "ethers";
+import { BigNumber, Transaction } from "ethers";
 import AccountManager from "../src/AccountManager";
 import { FAKE_RELAY_REQUEST } from "./request.fakes";
 import * as utils from '../src/utils';
@@ -159,11 +159,13 @@ describe('RelayProvider', function () {
       
     })
 
-    /*describe('executeRelayTransaction', function() {
+    describe('executeRelayTransaction', function() {
 
       let hashlessTrx: Transaction;
+      let relayTrxStub: SinonStub;
 
       beforeEach(function(){
+        sandbox.restore();
         hashlessTrx = {
           chainId: 31,
           data: 'string data',
@@ -171,16 +173,15 @@ describe('RelayProvider', function () {
           gasLimit: BigNumber.from(0),
           value: BigNumber.from(0)
         };
+        relayTrxStub = sandbox.stub(relayProvider.relayClient, 'relayTransaction').resolves(hashlessTrx);
       })
 
-      it('Should throw error if relayed transaction has no hash', function() {
-
-        sandbox.stub(relayProvider.relayClient, 'relayTransaction').resolves(hashlessTrx)
+      it('Should throw error if relayed transaction has no hash', async function() {
 
         const envelopingReq = {} as UserDefinedEnvelopingRequest;
         const reqConfig = {} as RequestConfig;
 
-        expect(relayProvider.executeRelayTransaction(envelopingReq, reqConfig)).to.throw('Transaction has no hash!');
+        await expect(relayProvider.executeRelayTransaction(envelopingReq, reqConfig)).to.be.rejectedWith('Transaction has no hash!');
       })
 
       it('Should wait for receipt if ignoreTransactionreceipt flag is false', async function() {
@@ -190,10 +191,9 @@ describe('RelayProvider', function () {
             hash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
         }
 
-        sandbox.stub(relayProvider.relayClient, 'relayTransaction')
-          .resolves(trxWithHash);
+        relayTrxStub.resolves(trxWithHash);
 
-        sandbox.stub(JsonRpcProvider.prototype, 'getTransactionReceipt')
+        sandbox.stub(JsonRpcProvider.prototype, 'waitForTransaction')
           .resolves({ 
             transactionHash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
            } as TransactionReceipt);
@@ -216,8 +216,7 @@ describe('RelayProvider', function () {
             hash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
         }
 
-        sandbox.stub(relayProvider.relayClient, 'relayTransaction')
-          .resolves(trxWithHash);
+        relayTrxStub.resolves(trxWithHash);
 
         const envelopingReq = {} as UserDefinedEnvelopingRequest;
         const reqConfig = {
@@ -227,10 +226,9 @@ describe('RelayProvider', function () {
         const relayingResult = await relayProvider.executeRelayTransaction(envelopingReq, reqConfig)
 
         expect(relayingResult.transaction).to.equal(trxWithHash);
-        expect(relayingResult.receipt).to.be.empty;
+        expect(relayingResult.receipt).to.be.undefined;
       })
-
-    });*/
+    });
 
     describe('_ethSendTransaction', function() {
 
