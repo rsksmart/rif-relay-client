@@ -13,11 +13,12 @@ import type {
   RelayManagerData,
 } from '../src/common/relayHub.types';
 import { ENVELOPING_ROOT } from '../src/constants/configs';
-import { selectNextRelay, validateRelayResponse } from '../src/utils';
-import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
-import { FAKE_HUB_INFO } from './relayHub.fakes';
+import { selectNextRelay, validateRelayResponse,  useEnveloping } from '../src/utils';
 import { FAKE_DEPLOY_TRANSACTION_REQUEST, FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
 import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
+import { FAKE_HUB_INFO } from './relayHub.fakes';
+import { FAKE_RELAY_REQUEST } from './request.fakes';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -304,4 +305,26 @@ describe('utils', function () {
       );
     });
   });
+  
+  describe('useEnveloping', function() {
+
+    it('Should return true if method is eth_accounts', function() {
+      expect(useEnveloping('eth_accounts', [])).to.be.true;
+    })
+
+    it('Should return false if params is empty', function() {
+      expect(useEnveloping('eth_other', [])).to.be.false;
+    })
+
+    it('Should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function() {
+      const result = useEnveloping('eth_sendTransaction', [{
+        envelopingTx: FAKE_RELAY_REQUEST,
+        requestConfig: { 
+          useEnveloping: true 
+        }
+      }]);
+
+      expect(result).to.be.true;
+    })
+  })
 });

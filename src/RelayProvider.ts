@@ -1,14 +1,15 @@
-import { constants, Transaction } from 'ethers';
+import type { Transaction } from 'ethers';
 import type { Networkish } from "@ethersproject/networks";
 import { JsonRpcProvider, TransactionReceipt } from "@ethersproject/providers";
 import type { ConnectionInfo } from "@ethersproject/web";
 import { getEnvelopingConfig } from './utils';
-import { hexValue } from "@ethersproject/bytes";
 import RelayClient, { RequestConfig } from './RelayClient';
 import log from 'loglevel';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
 import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
+import { useEnveloping } from './utils';
+import BigNumber from 'bignumber.js';
 
 export interface RelayingResult {
     validUntilTime?: string;
@@ -18,11 +19,8 @@ export interface RelayingResult {
 
 export default class RelayProvider extends JsonRpcProvider {
 
-    //TODO: remove & when relayTransaction PR is merged and rebased
-    private readonly relayClient!: RelayClient & { relayTransaction: (
-        envelopingRequest: UserDefinedEnvelopingRequest,
-        requestConfig: RequestConfig) => Promise<Transaction> };
-    
+    private readonly relayClient!: RelayClient;
+
     private readonly jsonRpcProvider: JsonRpcProvider;
 
     constructor(
@@ -32,28 +30,7 @@ export default class RelayProvider extends JsonRpcProvider {
         jsonRpcProvider = new JsonRpcProvider(url, network)){
         super(url, network);
         this.jsonRpcProvider = jsonRpcProvider;
-        //@ts-ignore
         this.relayClient = relayClient
-    }
-
-    //I am aware this sucks
-    private _useEnveloping(method: string, params: Array<Record<string, unknown>>): boolean {
-        if(method === 'eth_accounts'){
-            return true;
-        }
-
-        const [a] = params;
-
-        if(!a){
-            return false;
-        }
-
-        const { envelopingTx, requestConfig } = a; 
-        if(envelopingTx && requestConfig && (requestConfig as RequestConfig).useEnveloping){
-            return true;
-        }
-
-        return false;
     }
 
     private _getRelayStatus(respResult: TransactionReceipt): {
@@ -76,11 +53,7 @@ export default class RelayProvider extends JsonRpcProvider {
 
         if (recipientRejectedEvents) {
             const { reason } = recipientRejectedEvents.args;
-
-            const revertReason = (reason as string) ?? 'Unknown';
-            log.info(
-                `Recipient rejected on-chain: ${revertReason}`
-            );
+            const revertReason = (reason as string);
 
             return {
                 relayRevertedOnRecipient: true,
@@ -98,24 +71,14 @@ export default class RelayProvider extends JsonRpcProvider {
             };
         }
 
-        // Check if it wasn't a deploy call which does not emit TransactionRelayed events but Deployed events
-        const deployedEvent = parsedLogs.find(log => log.name == 'Deployed');
-
-        if (deployedEvent) {
-            return {
-                relayRevertedOnRecipient: false,
-                transactionRelayed: true
-            };
-        }
-
         log.info(
-            'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction '
+            'Neither TransactionRelayed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.'
         );
 
         return {
             relayRevertedOnRecipient: false,
             transactionRelayed: false,
-            reason: 'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction'
+            reason: 'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.'
         };
     }
 
@@ -137,7 +100,7 @@ export default class RelayProvider extends JsonRpcProvider {
 
             let receipt;
             if(!requestConfig.ignoreTransactionReceipt){
-                receipt = await this.getTransactionReceipt(hash);
+                receipt = await this.waitForTransaction(hash, 1);
             }
 
             return {
@@ -165,31 +128,20 @@ export default class RelayProvider extends JsonRpcProvider {
         let onlyPreferredRelaysValue = requestConfig.onlyPreferredRelays;
         let gasToSend = requestConfig.forceGasLimit;
 
-        if (
-            callForwarderValue === undefined ||
-            callForwarderValue === null ||
-            callForwarderValue === constants.AddressZero
-        ) {
+        if (!Number(callForwarderValue)) {
             callForwarderValue = config.forwarderAddress;
         }
 
-        if (
-            relayHubValue === undefined ||
-            relayHubValue === null ||
-            relayHubValue === constants.AddressZero
-        ) {
+        if (!Number(relayHubValue)) {
             relayHubValue = config.relayHubAddress;
         }
 
-        if (
-            onlyPreferredRelaysValue === undefined ||
-            onlyPreferredRelaysValue === null
-        ) {
+        if (!onlyPreferredRelaysValue) {
             onlyPreferredRelaysValue = config.onlyPreferredRelays;
         }
 
-        if (gasToSend !== undefined && gasToSend !== null) {
-            gasToSend = hexValue(BigInt(gasToSend));
+        if (gasToSend) {
+            gasToSend = BigNumber(gasToSend).toString();
         }
 
         /**
@@ -202,7 +154,7 @@ export default class RelayProvider extends JsonRpcProvider {
          * value that comes from the original provider
          */
 
-        const fullEnvelopingRequest: UserDefinedEnvelopingRequest = {
+        const userDefinedEnvelopingReq: UserDefinedEnvelopingRequest = {
             relayData: {
                 ...envelopingRequest.relayData,
                 callForwarder: callForwarderValue,
@@ -219,7 +171,7 @@ export default class RelayProvider extends JsonRpcProvider {
             onlyPreferredRelays: onlyPreferredRelaysValue
         }
 
-        const relayingResult = await this.executeRelayTransaction(fullEnvelopingRequest, fullRequestConfig);
+        const relayingResult = await this.executeRelayTransaction(userDefinedEnvelopingReq, fullRequestConfig);
 
         if(relayingResult.receipt){
             const { relayRevertedOnRecipient, reason } = this._getRelayStatus(relayingResult.receipt);
@@ -227,7 +179,7 @@ export default class RelayProvider extends JsonRpcProvider {
 
             if (relayRevertedOnRecipient) {
                 throw new Error(
-                        `Transaction Relayed but reverted on recipient - TxHash: ${transactionHash} , Reason: ${reason ?? 'unknown'}`
+                        `Transaction Relayed but reverted on recipient - TxHash: ${transactionHash} , Reason: ${reason as string}`
                 );
             }
         }
@@ -252,7 +204,7 @@ export default class RelayProvider extends JsonRpcProvider {
     }
 
     override send(method: string, params: Array<Record<string, unknown>>): Promise<unknown> {
-        if (this._useEnveloping(method, params)) {
+        if (useEnveloping(method, params)) {
             const { requestConfig, envelopingTx } = params[0] as { requestConfig: RequestConfig, envelopingTx: UserDefinedEnvelopingRequest }
             const { request } = envelopingTx;
             if (method === 'eth_sendTransaction') {

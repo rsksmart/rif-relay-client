@@ -12,6 +12,7 @@ import type { UserDefinedEnvelopingRequest } from "src/common/relayRequest.types
 import { BigNumber } from "ethers";
 import AccountManager from "../src/AccountManager";
 import { FAKE_RELAY_REQUEST } from "./request.fakes";
+import * as utils from '../src/utils';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -35,7 +36,6 @@ describe('RelayProvider', function () {
 
   describe('methods', function () {
     type RelayProviderExposed = {
-      _useEnveloping: (method: string, params: Array<Record<string, unknown>>) => boolean;
       _getRelayStatus: (respResult: TransactionReceipt) => {
         relayRevertedOnRecipient: boolean;
         transactionRelayed: boolean;
@@ -62,32 +62,6 @@ describe('RelayProvider', function () {
       const stubbedProvider = sandbox.createStubInstance(JsonRpcProvider);
       relayProvider = new RelayProvider(undefined, undefined, stubbedRelayClient, stubbedProvider) as unknown as RelayProviderExposed;
     });
-
-    describe('_useEnveloping', function() {
-
-      it('Should return true if method is eth_accounts', function() {
-        const useEnveloping = relayProvider._useEnveloping('eth_accounts', []);
-
-        expect(useEnveloping).to.be.true;
-      })
-
-      it('Should return false if params is empty', function() {
-        const useEnveloping = relayProvider._useEnveloping('eth_other', []);
-
-        expect(useEnveloping).to.be.false;
-      })
-
-      it('Should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function() {
-        const useEnveloping = relayProvider._useEnveloping('eth_sendTransaction', [{
-          envelopingTx: FAKE_RELAY_REQUEST,
-          requestConfig: { 
-            useEnveloping: true 
-          }
-        }]);
-
-        expect(useEnveloping).to.be.true;
-      })
-    })
 
     describe('_getRelayStatus', function() {
 
@@ -167,22 +141,6 @@ describe('RelayProvider', function () {
         expect(relayStatus.reason).to.be.undefined;
       })
 
-      it('Should handle Deployed event', function() {
-        
-        const dummyLogDescription = {
-          name: 'Deployed',
-        }
-
-        sandbox.stub(Interface.prototype, 'parseLog').returns(
-          dummyLogDescription as unknown as LogDescription);
-
-        const relayStatus = relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
-
-        expect(relayStatus.transactionRelayed).to.be.true;
-        expect(relayStatus.relayRevertedOnRecipient).to.be.false;
-        expect(relayStatus.reason).to.be.undefined;
-      })
-
       it('Should handle all other events', function() {
         
         const dummyLogDescription = {
@@ -196,7 +154,7 @@ describe('RelayProvider', function () {
 
         expect(relayStatus.transactionRelayed).to.be.false;
         expect(relayStatus.relayRevertedOnRecipient).to.be.false;
-        expect(relayStatus.reason).to.equal('Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction');
+        expect(relayStatus.reason).to.equal('Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.');
       })
       
     })
@@ -414,7 +372,7 @@ describe('RelayProvider', function () {
           receipt,
         };
 
-        useEnvelopingStub = sandbox.stub(relayProvider, '_useEnveloping')
+        useEnvelopingStub = sandbox.stub(utils, 'useEnveloping')
           .returns(true);
       })
 
