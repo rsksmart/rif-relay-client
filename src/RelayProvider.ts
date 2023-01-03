@@ -10,6 +10,7 @@ import AccountManager from './AccountManager';
 import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 import { useEnveloping } from './utils';
 import BigNumber from 'bignumber.js';
+import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
 
 export interface RelayingResult {
     validUntilTime?: string;
@@ -21,16 +22,31 @@ export default class RelayProvider extends JsonRpcProvider {
 
     private readonly relayClient!: RelayClient;
 
-    private readonly jsonRpcProvider: JsonRpcProvider;
+    private readonly jsonRpcProvider!: JsonRpcProvider;
 
     constructor(
-        url?: ConnectionInfo | string, 
-        network?: Networkish, 
-        relayClient = new RelayClient(), 
-        jsonRpcProvider = new JsonRpcProvider(url, network)){
-        super(url, network);
-        this.jsonRpcProvider = jsonRpcProvider;
-        this.relayClient = relayClient
+        relayClient = new RelayClient(),
+        jsonRpcProvider?: JsonRpcProvider,
+        providerParams?: { 
+            url: ConnectionInfo | string, 
+            network: Networkish,
+        } 
+        ){
+            if(jsonRpcProvider){
+                super(jsonRpcProvider.connection, jsonRpcProvider._network);
+                this.jsonRpcProvider = jsonRpcProvider;
+            } else {
+                if(!providerParams){
+                    throw new Error('Unable to build provider');
+                }
+
+                const { url, network } = providerParams;
+
+                super(url, network);
+                new JsonRpcProvider(url, network);
+
+            }
+            this.relayClient = relayClient;
     }
 
     private _getRelayStatus(respResult: TransactionReceipt): {
@@ -46,7 +62,7 @@ export default class RelayProvider extends JsonRpcProvider {
             };
         }
 
-        const relayHubInterface = RelayHub__factory.createInterface();
+        const relayHubInterface: RelayHubInterface = RelayHub__factory.createInterface();
         const parsedLogs = respResult.logs.map(log => relayHubInterface.parseLog(log));
 
         const recipientRejectedEvents = parsedLogs.find(log => log.name == 'TransactionRelayedButRevertedByRecipient');

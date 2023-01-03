@@ -60,7 +60,7 @@ describe('RelayProvider', function () {
     beforeEach(function () {
       const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
       const stubbedProvider = sandbox.createStubInstance(JsonRpcProvider);
-      relayProvider = new RelayProvider(undefined, undefined, stubbedRelayClient, stubbedProvider) as unknown as RelayProviderExposed;
+      relayProvider = new RelayProvider(stubbedRelayClient, stubbedProvider) as unknown as RelayProviderExposed;
     });
 
     describe('_getRelayStatus', function() {
