@@ -22,6 +22,7 @@ import log from 'loglevel';
 import AccountManager from './AccountManager';
 import { HttpClient } from './api/common';
 import type { EnvelopingConfig } from './common/config.types';
+import type { EstimateInternalGasParams, RequestConfig, TokenGasEstimationParams } from './common/relayClient.types';
 import type { EnvelopingMetadata, HubInfo, RelayInfo } from './common/relayHub.types';
 import type {
   CommonEnvelopingRequestBody,
@@ -29,7 +30,6 @@ import type {
   EnvelopingRequest,
   EnvelopingRequestData,
   RelayRequest,
-  RelayRequestBody,
   UserDefinedDeployRequestBody,
   UserDefinedEnvelopingRequest,
   UserDefinedRelayRequestBody,
@@ -52,44 +52,6 @@ import {
   selectNextRelay,
   validateRelayResponse,
 } from './utils';
-
-type RequestConfig = {
-  isSmartWalletDeploy?: boolean;
-  preDeploySWAddress?: string;
-  clientId?: string;
-  useEnveloping?: boolean;
-  forceGasPrice?: string;
-  forceGasLimit?: string;
-  onlyPreferredRelays?: boolean;
-  ignoreTransactionReceipt?: boolean;
-  retries?: number;
-  initialBackoff?: number;
-  internalEstimationCorrection?: BigNumberish;
-  estimatedGasCorrectionFactor?: BigNumberish;
-};
-
-//FIXME name standardization
-type TokenGasEstimationParams = Pick<
-  EnvelopingTxRequest,
-  'relayRequest'
-> & Pick<
-  RequestConfig,
-  | 'isSmartWalletDeploy'
-  | 'preDeploySWAddress'
-  | 'internalEstimationCorrection'
-  | 'estimatedGasCorrectionFactor'
->;
-
-//FIXME name standardization
-type EstimateInternalGasParams = Pick<
-  RelayRequestBody,
-  'data' | 'to' | 'from'
-> &
-  Pick<EnvelopingRequestData, 'gasPrice'> &
-  Pick<
-    RequestConfig,
-    'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'
-  >;
 
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _provider: providers.Provider;
@@ -586,9 +548,3 @@ class RelayClient extends EnvelopingEventEmitter {
 }
 
 export default RelayClient;
-
-export type {
-  RequestConfig,
-  TokenGasEstimationParams,
-  EstimateInternalGasParams,
-}; // FIXME: these should probably be moved to a separate file (??/??.types.ts)
