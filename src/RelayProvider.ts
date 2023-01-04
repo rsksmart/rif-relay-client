@@ -11,6 +11,7 @@ import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 import { useEnveloping } from './utils';
 import BigNumber from 'bignumber.js';
 import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
+import type { LogDescription } from 'ethers/lib/utils';
 
 export interface RelayingResult {
     validUntilTime?: string;
@@ -43,8 +44,8 @@ export default class RelayProvider extends JsonRpcProvider {
                 const { url, network } = providerParams;
 
                 super(url, network);
-                new JsonRpcProvider(url, network);
-
+                this.jsonRpcProvider = new JsonRpcProvider(url, network);
+                
             }
             this.relayClient = relayClient;
     }
@@ -63,7 +64,7 @@ export default class RelayProvider extends JsonRpcProvider {
         }
 
         const relayHubInterface: RelayHubInterface = RelayHub__factory.createInterface();
-        const parsedLogs = respResult.logs.map(log => relayHubInterface.parseLog(log));
+        const parsedLogs: LogDescription[] = respResult.logs.map(log => relayHubInterface.parseLog(log));
 
         const recipientRejectedEvents = parsedLogs.find(log => log.name == 'TransactionRelayedButRevertedByRecipient');
 
@@ -87,8 +88,18 @@ export default class RelayProvider extends JsonRpcProvider {
             };
         }
 
+        // Check if it wasn't a deploy call which does not emit TransactionRelayed events but Deployed events
+        const deployedEvent = parsedLogs.find(log => log.name == 'Deployed');
+
+        if (deployedEvent) {
+            return {
+                relayRevertedOnRecipient: false,
+                transactionRelayed: true
+            };
+        }
+
         log.info(
-            'Neither TransactionRelayed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.'
+            'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.'
         );
 
         return {

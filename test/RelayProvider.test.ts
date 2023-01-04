@@ -1,4 +1,4 @@
-import { JsonRpcProvider, TransactionReceipt } from "@ethersproject/providers";
+import { JsonRpcProvider, TransactionReceipt, Network } from "@ethersproject/providers";
 import { Interface, LogDescription } from "@ethersproject/abi";
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -32,6 +32,55 @@ describe('RelayProvider', function () {
 
   afterEach(function () {
     sandbox.restore();
+  });
+
+  describe('constructor', function () {
+    it('should store JsonRpcProvider and RelayClient', function () {
+      const stubbedProvider = sandbox.createStubInstance(JsonRpcProvider);
+      const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
+
+      const relayProvider = new RelayProvider(stubbedRelayClient, stubbedProvider) as unknown as { jsonRpcProvider: JsonRpcProvider, relayClient: RelayClient };
+
+      expect(relayProvider).to.be.instanceOf(RelayProvider);
+      expect(
+        relayProvider.jsonRpcProvider,
+      ).to.equal(stubbedProvider);
+      expect(
+        relayProvider.relayClient,
+      ).to.equal(stubbedRelayClient);
+    });
+
+    it('should create JsonRpcProvider and store RelayClient', function () {
+      const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
+
+      const network: Network = {
+        chainId: 33,
+        name: 'rskj'
+      }
+
+      const providerParams = {
+        url: 'localhost',
+        network 
+      }
+
+      const relayProvider = new RelayProvider(stubbedRelayClient, undefined, providerParams) as unknown as { jsonRpcProvider: JsonRpcProvider, relayClient: RelayClient };
+
+      expect(relayProvider).to.be.instanceOf(RelayProvider);
+      expect(
+        relayProvider.jsonRpcProvider,
+      ).to.be.instanceOf(JsonRpcProvider);
+      expect(
+        relayProvider.relayClient,
+      ).to.equal(stubbedRelayClient);
+    });
+
+    it('should throw error if neither jsonRpcProvider or providerParams are specified', function () {
+      const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
+
+      expect(() => { 
+        new RelayProvider(stubbedRelayClient, undefined, undefined); 
+      }).to.throw('Unable to build provider');
+    });
   });
 
   describe('methods', function () {
