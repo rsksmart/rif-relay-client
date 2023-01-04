@@ -63,7 +63,7 @@ describe('RelayProvider', function () {
         network 
       }
 
-      const relayProvider = new RelayProvider(stubbedRelayClient, undefined, providerParams) as unknown as { jsonRpcProvider: JsonRpcProvider, relayClient: RelayClient };
+      const relayProvider = new RelayProvider(stubbedRelayClient, providerParams) as unknown as { jsonRpcProvider: JsonRpcProvider, relayClient: RelayClient };
 
       expect(relayProvider).to.be.instanceOf(RelayProvider);
       expect(
@@ -72,14 +72,6 @@ describe('RelayProvider', function () {
       expect(
         relayProvider.relayClient,
       ).to.equal(stubbedRelayClient);
-    });
-
-    it('should throw error if neither jsonRpcProvider or providerParams are specified', function () {
-      const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
-
-      expect(() => { 
-        new RelayProvider(stubbedRelayClient, undefined, undefined); 
-      }).to.throw('Unable to build provider');
     });
   });
 
@@ -477,24 +469,6 @@ describe('RelayProvider', function () {
         await relayProvider.send('eth_accounts', params);
 
         expect(ethListAccountsStub).to.be.calledWith();
-      })
-
-      it('should throw error when attempting to use relay provider with an unsupported method', function () {
-
-        const requestConfig = {
-          useEnveloping: true
-        };
-
-        const envelopingTx = {};
-
-        const params = [{
-          requestConfig,
-          envelopingTx
-        }];
-
-        const method = 'eth_unsupportedMethod';
-
-        expect(() => { return relayProvider.send(method, params )}).to.throw(`Rif Relay unsupported method: ${ method }`);
       })
 
       it('should use JsonRpcProvider send method if not a relay transaction', async function () {

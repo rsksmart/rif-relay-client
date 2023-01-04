@@ -12,11 +12,17 @@ import { useEnveloping } from './utils';
 import BigNumber from 'bignumber.js';
 import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
 import type { LogDescription } from 'ethers/lib/utils';
+import type { Either } from './common/utility.types';
 
 export interface RelayingResult {
     validUntilTime?: string;
     transaction: Transaction;
     receipt?: TransactionReceipt;
+}
+
+export interface ProviderParams {
+    url: ConnectionInfo | string;
+    network: Networkish
 }
 
 export default class RelayProvider extends JsonRpcProvider {
@@ -27,26 +33,19 @@ export default class RelayProvider extends JsonRpcProvider {
 
     constructor(
         relayClient = new RelayClient(),
-        jsonRpcProvider?: JsonRpcProvider,
-        providerParams?: { 
-            url: ConnectionInfo | string, 
-            network: Networkish,
-        } 
-        ){
-            if(jsonRpcProvider){
-                super(jsonRpcProvider.connection, jsonRpcProvider._network);
-                this.jsonRpcProvider = jsonRpcProvider;
+        providerOrProviderParams: Either<JsonRpcProvider,ProviderParams>){
+            let url:  ConnectionInfo | string;
+            let network: Networkish;
+
+            if (providerOrProviderParams.connection) {
+                url = providerOrProviderParams.connection.url;
+                network = providerOrProviderParams._network;
             } else {
-                if(!providerParams){
-                    throw new Error('Unable to build provider');
-                }
-
-                const { url, network } = providerParams;
-
-                super(url, network);
-                this.jsonRpcProvider = new JsonRpcProvider(url, network);
-                
+                url = providerOrProviderParams.url;
+                network = providerOrProviderParams.network
             }
+            super(url, network);
+            this.jsonRpcProvider = (providerOrProviderParams instanceof JsonRpcProvider) ? providerOrProviderParams : new JsonRpcProvider(url, network);
             this.relayClient = relayClient;
     }
 
@@ -248,10 +247,9 @@ export default class RelayProvider extends JsonRpcProvider {
             if (method === 'eth_accounts') {
                 return this.listAccounts();
             }
-
-            throw new Error(`Rif Relay unsupported method: ${ method }`);
         }
 
         return this.jsonRpcProvider.send(method, params);
     }
 }
+
