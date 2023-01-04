@@ -13,6 +13,14 @@ import BigNumber from 'bignumber.js';
 import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
 import type { LogDescription } from 'ethers/lib/utils';
 import type { Either } from './common/utility.types';
+import { RelayTransactionEvents, relayTransactionHandler } from './handlers/RelayProvider';
+
+export const RELAY_TRANSACTION_EVENTS = 
+[
+    'TransactionRelayedButRevertedByRecipient', 
+    'TransactionRelayed', 
+    'Deployed'
+] as RelayTransactionEvents[];
 
 export interface RelayingResult {
     validUntilTime?: string;
@@ -23,6 +31,12 @@ export interface RelayingResult {
 export interface ProviderParams {
     url: ConnectionInfo | string;
     network: Networkish
+}
+
+export interface RelayStatus {
+    relayRevertedOnRecipient: boolean,
+    transactionRelayed: boolean,
+    reason?: string
 }
 
 export default class RelayProvider extends JsonRpcProvider {
@@ -49,11 +63,7 @@ export default class RelayProvider extends JsonRpcProvider {
             this.relayClient = relayClient;
     }
 
-    private _getRelayStatus(respResult: TransactionReceipt): {
-        relayRevertedOnRecipient: boolean;
-        transactionRelayed: boolean;
-        reason?: string;
-    } {
+    private _getRelayStatus(respResult: TransactionReceipt): RelayStatus {
         if (!respResult.logs || respResult.logs.length === 0) {
             return {
                 relayRevertedOnRecipient: false,
@@ -65,47 +75,14 @@ export default class RelayProvider extends JsonRpcProvider {
         const relayHubInterface: RelayHubInterface = RelayHub__factory.createInterface();
         const parsedLogs: LogDescription[] = respResult.logs.map(log => relayHubInterface.parseLog(log));
 
-        const recipientRejectedEvents = parsedLogs.find(log => log.name == 'TransactionRelayedButRevertedByRecipient');
-
-        if (recipientRejectedEvents) {
-            const { reason } = recipientRejectedEvents.args;
-            const revertReason = (reason as string);
-
-            return {
-                relayRevertedOnRecipient: true,
-                transactionRelayed: false,
-                reason: revertReason
-            };
+        for (const event of RELAY_TRANSACTION_EVENTS) {
+            const logDescription = parsedLogs.find(log => log.name == event);
+            if(logDescription){
+                return relayTransactionHandler.process(event, logDescription);
+            }
         }
 
-        const transactionRelayed = parsedLogs.find(log => log.name == 'TransactionRelayed');
-
-        if (transactionRelayed) {
-            return {
-                relayRevertedOnRecipient: false,
-                transactionRelayed: true
-            };
-        }
-
-        // Check if it wasn't a deploy call which does not emit TransactionRelayed events but Deployed events
-        const deployedEvent = parsedLogs.find(log => log.name == 'Deployed');
-
-        if (deployedEvent) {
-            return {
-                relayRevertedOnRecipient: false,
-                transactionRelayed: true
-            };
-        }
-
-        log.info(
-            'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.'
-        );
-
-        return {
-            relayRevertedOnRecipient: false,
-            transactionRelayed: false,
-            reason: 'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.'
-        };
+        return relayTransactionHandler.default();
     }
 
     private async executeRelayTransaction(

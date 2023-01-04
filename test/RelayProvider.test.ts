@@ -13,6 +13,7 @@ import { BigNumber, Transaction } from "ethers";
 import AccountManager from "../src/AccountManager";
 import { FAKE_RELAY_REQUEST } from "./request.fakes";
 import * as utils from '../src/utils';
+import { relayTransactionHandler } from "../src/handlers/RelayProvider";
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -105,7 +106,6 @@ describe('RelayProvider', function () {
     });
 
     describe('_getRelayStatus', function() {
-
       const trxReceipt = {
         logs: [
           { 
@@ -145,7 +145,9 @@ describe('RelayProvider', function () {
         expect(relayStatus.reason).to.eq('Tx logs not found');
       })
 
-      it('Should handle TransactionRelayedButRevertedByRecipient event', function() {
+      it('Should handle transaction with logs', function() {
+
+        const relayTrxHandlerSpy = sandbox.spy(relayTransactionHandler, 'process');
         
         const revertReason = 'Transaction reverted because of some reason';
 
@@ -159,30 +161,14 @@ describe('RelayProvider', function () {
         sandbox.stub(Interface.prototype, 'parseLog').returns(
           dummyLogDescription as unknown as LogDescription);
 
-        const relayStatus = relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
+        relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
 
-        expect(relayStatus.transactionRelayed).to.be.false;
-        expect(relayStatus.relayRevertedOnRecipient).to.be.true;
-        expect(relayStatus.reason).to.eq(revertReason);
+        expect(relayTrxHandlerSpy).called;
       })
 
-      it('Should handle TransactionRelayed event', function() {
-        
-        const dummyLogDescription = {
-          name: 'TransactionRelayed',
-        }
+      it('Should handle event unknown', function() {
 
-        sandbox.stub(Interface.prototype, 'parseLog').returns(
-          dummyLogDescription as unknown as LogDescription);
-
-        const relayStatus = relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
-
-        expect(relayStatus.transactionRelayed).to.be.true;
-        expect(relayStatus.relayRevertedOnRecipient).to.be.false;
-        expect(relayStatus.reason).to.be.undefined;
-      })
-
-      it('Should handle all other events', function() {
+        const relayTrxHandlerDefaultSpy = sandbox.spy(relayTransactionHandler, 'default');
         
         const dummyLogDescription = {
           name: 'otherEvent',
@@ -191,11 +177,9 @@ describe('RelayProvider', function () {
         sandbox.stub(Interface.prototype, 'parseLog').returns(
           dummyLogDescription as unknown as LogDescription);
 
-        const relayStatus = relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
+        relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
 
-        expect(relayStatus.transactionRelayed).to.be.false;
-        expect(relayStatus.relayRevertedOnRecipient).to.be.false;
-        expect(relayStatus.reason).to.equal('Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction.');
+        expect(relayTrxHandlerDefaultSpy).called;
       })
       
     })
