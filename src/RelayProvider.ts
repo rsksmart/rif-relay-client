@@ -1,4 +1,4 @@
-import type { Transaction } from 'ethers';
+import { Transaction, BigNumber } from 'ethers';
 import type { Networkish } from "@ethersproject/networks";
 import { JsonRpcProvider, TransactionReceipt } from "@ethersproject/providers";
 import type { ConnectionInfo } from "@ethersproject/web";
@@ -9,7 +9,6 @@ import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
 import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 import { useEnveloping } from './utils';
-import BigNumber from 'bignumber.js';
 import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
 import type { LogDescription } from 'ethers/lib/utils';
 import type { Either } from './common/utility.types';
@@ -144,7 +143,7 @@ export default class RelayProvider extends JsonRpcProvider {
         }
 
         if (gasToSend) {
-            gasToSend = BigNumber(gasToSend).toString();
+            gasToSend = BigNumber.from(gasToSend).toString();
         }
 
         /**
