@@ -128,7 +128,7 @@ export default class RelayProvider extends JsonRpcProvider {
         let callForwarderValue = await relayData.callForwarder;
         let relayHubValue = await request.relayHub;
         let onlyPreferredRelaysValue = requestConfig.onlyPreferredRelays;
-        let gasToSend = requestConfig.forceGasLimit;
+        const gasToSend = requestConfig.forceGasLimit ? BigNumber.from(requestConfig.forceGasLimit) : undefined;
 
         if (!Number(callForwarderValue)) {
             callForwarderValue = config.forwarderAddress;
@@ -140,10 +140,6 @@ export default class RelayProvider extends JsonRpcProvider {
 
         if (!onlyPreferredRelaysValue) {
             onlyPreferredRelaysValue = config.onlyPreferredRelays;
-        }
-
-        if (gasToSend) {
-            gasToSend = BigNumber.from(gasToSend).toString();
         }
 
         /**
