@@ -14,14 +14,17 @@ type EnvelopingRequest = {
 
 type UserDefinedRelayRequestBody = Modify<
   RelayRequestBody,
-  Pick<Partial<RelayRequestBody>, 'relayHub' | 'gas' | 'nonce' | 'tokenGas'>
+  Pick<
+    Partial<RelayRequestBody>,
+    'relayHub' | 'gas' | 'nonce' | 'tokenGas' | 'validUntilTime'
+  >
 >;
 
 type UserDefinedDeployRequestBody = Modify<
   DeployRequestBody,
   Pick<
     Partial<DeployRequestBody>,
-    'relayHub' | 'nonce' | 'tokenGas' | 'recoverer' | 'index'
+    'relayHub' | 'nonce' | 'tokenGas' | 'recoverer' | 'index' | 'validUntilTime'
   >
 >;
 

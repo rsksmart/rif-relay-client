@@ -54,11 +54,9 @@
     "package.json": "npx sort-package-json"
   },
   "dependencies": {
-    "@metamask/eth-sig-util": "^5.0.0",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts",
     "axios": "~1.1.2",
     "bignumber.js": "^9.1.1",
-    "config": "^3.3.8",
     "ethers": "5.7.1",
     "loglevel": "~1.8.0",
     "npmignore": "^0.3.0"
@@ -69,7 +67,6 @@
     "@tsconfig/node16-strictest": "^1.0.4",
     "@types/chai": "4.3.3",
     "@types/chai-as-promised": "^7.1.5",
-    "@types/config": "^3.3.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "^18.8.4",
     "@types/sinon": "^10.0.13",

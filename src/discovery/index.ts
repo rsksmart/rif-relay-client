@@ -6,3 +6,4 @@ export type {
   Account as DiscoveredAccount,
   Config as DiscoveryConfig,
 } from './utils';
+export { getSWAddress as discoveryGetSWAddress, setupDiscovery } from './utils';

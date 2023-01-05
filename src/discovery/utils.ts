@@ -1,4 +1,4 @@
-import { constants, getDefaultProvider, providers } from 'ethers';
+import { constants, providers } from 'ethers';
 import {
   getAddress,
   HDNode,
@@ -18,10 +18,10 @@ import {
   langZhTw as zh_tw,
 } from '@ethersproject/wordlists/lib/lang-zh';
 import {
-  SmartWalletFactory,
   ERC20__factory,
-  SmartWalletFactory__factory,
+  ISmartWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
+import { getProvider } from '../clientConfiguration';
 const SHA3_NULL_S = keccak256('0x');
 
 type Account = {
@@ -45,8 +45,7 @@ const wordlists = {
 
 type Locale = keyof typeof wordlists; //TODO: hopefully this will be added to ethers.js (https://github.com/ethers-io/ethers.js/pull/3514)
 
-// TODO: check that the optional params have to be optional
-type Config = {
+type OptionalConfig = {
   eoaGap: number;
   sWalletGap: number;
   searchBalance: boolean;
@@ -54,17 +53,20 @@ type Config = {
   searchTokenBalance: boolean;
   searchDeployEvents: boolean;
   network: string; //TODO: potentially restictable by program-wide config
-  factory: string;
-  isCustomWallet: boolean;
   mnemonicLanguage: Locale;
-  recoverer: string;
-  logic: string;
-  logicParamsHash: string;
   reconnectionAttempts: number;
   tokens: string[];
+  logic: string;
+  logicParamsHash: string;
+  recoverer: string;
 };
 
-const DEFAULT_DISCOVERY_CONFIG: Partial<Config> = {
+// TODO: check that the optional params have to be optional
+type Config = Partial<OptionalConfig> & {
+  factory: string;
+};
+
+const DEFAULT_DISCOVERY_CONFIG: OptionalConfig = {
   eoaGap: 20,
   sWalletGap: 20,
   searchBalance: true,
@@ -73,8 +75,11 @@ const DEFAULT_DISCOVERY_CONFIG: Partial<Config> = {
   searchDeployEvents: true,
   network: 'mainnet', //FIXME: this should probably be something else. Also should be linked/mapped to the network id or address defined in program-wide config or env vars;
   mnemonicLanguage: 'en',
-  recoverer: constants.AddressZero,
+  reconnectionAttempts: 4,
   tokens: [],
+  logic: constants.AddressZero,
+  logicParamsHash: SHA3_NULL_S,
+  recoverer: constants.AddressZero,
 };
 
 //Account discovery https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki#account-discovery
@@ -87,8 +92,8 @@ type Setup = {
   config: Config;
   rootNode?: HDNode;
   bytecodeHash: string;
-  smartWalletFactory: SmartWalletFactory;
-  provider: providers.BaseProvider;
+  smartWalletFactory: ISmartWalletFactory__factory;
+  provider: providers.Provider;
 };
 
 const setupDiscovery = async (
@@ -108,24 +113,18 @@ const setupDiscovery = async (
         wordlists[config.mnemonicLanguage]
       )
     : undefined;
-  const provider = getDefaultProvider(config.network);
+  const provider = getProvider();
 
-  const smartWalletFactory = SmartWalletFactory__factory.connect(
+  const smartWalletFactory = ISmartWalletFactory__factory.connect(
     config.factory,
     provider
   );
 
   const creationByteCode = await smartWalletFactory.getCreationBytecode();
   const bytecodeHash = keccak256(creationByteCode);
-  const logic = config.logic ?? constants.AddressZero;
-  const logicParamsHash = config.logicParamsHash ?? SHA3_NULL_S;
 
   return {
-    config: {
-      ...config,
-      logic,
-      logicParamsHash,
-    },
+    config,
     rootNode,
     bytecodeHash,
     smartWalletFactory,
@@ -196,11 +195,13 @@ const checkHasActivity = async (
     return true;
   }
 
-  const erc20Balances = await Promise.all(
-    config.tokens.map((token) =>
-      ERC20__factory.connect(token, provider).balanceOf(accountAddr)
-    )
-  );
+  const erc20Balances = config.tokens
+    ? await Promise.all(
+        config.tokens.map((token) =>
+          ERC20__factory.connect(token, provider).balanceOf(accountAddr)
+        )
+      )
+    : [];
 
   const hasERC20Balance = Boolean(
     erc20Balances.find((balance) => balance.gt(0))

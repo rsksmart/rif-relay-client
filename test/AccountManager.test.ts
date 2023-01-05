@@ -1,10 +1,12 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { providers, Wallet } from 'ethers';
+import { _TypedDataEncoder } from 'ethers/lib/utils';
 import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import AccountManager from '../src/AccountManager';
 import * as typedDataUtils from '../src/typedRequestData.utils';
+import * as common from '../src/common/relayRequest.utils';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -38,14 +40,6 @@ const relayRequest = {
   request: {
     ...relayOrDeployRequest.request,
     gas: Math.random() * 1000,
-  },
-};
-const deployRequest = {
-  ...relayOrDeployRequest,
-  request: {
-    ...relayOrDeployRequest.request,
-    index: Math.random() * 100,
-    recoverer: createRandomAddress(),
   },
 };
 
@@ -86,7 +80,7 @@ describe('AccountManager', function () {
           ...sandbox.createStubInstance(providers.JsonRpcProvider),
           _isProvider: true,
         };
-
+        sandbox.stub(_TypedDataEncoder, 'getPayload').returns('');
         accountManager = new AccountManager(stubProvider, 1);
       });
 
@@ -121,20 +115,6 @@ describe('AccountManager', function () {
         });
       });
 
-      describe('isDeployRequest', function () {
-        it('should return `true` if arg is a deploy request', function () {
-          const actualState = accountManager.isDeployRequest(deployRequest);
-
-          expect(actualState).to.be.true;
-        });
-
-        it('should return `false` if arg is a relay request', function () {
-          const actualState = accountManager.isDeployRequest(relayRequest);
-
-          expect(actualState).to.be.false;
-        });
-      });
-
       describe('getAccounts', function () {
         it('should return list of local account addresses from', function () {
           const wallets: Wallet[] = [
@@ -157,7 +137,7 @@ describe('AccountManager', function () {
       describe('sign', function () {
         it('should check the type of request', async function () {
           const stubIsDeployRequest = sandbox.stub(
-            accountManager,
+            common,
             'isDeployRequest'
           );
           await accountManager.sign(relayRequest).catch(() => undefined);
@@ -166,12 +146,8 @@ describe('AccountManager', function () {
         });
 
         it('should construct typed message', async function () {
-          (accountManager as unknown as { _accounts: Wallet[] })._accounts.push(
-            Wallet.createRandom()
-          );
           const expectedMessage = {
             types: {
-              EIP712Domain: typedDataUtils.eip712DomainType,
               RelayRequest: typedDataUtils.relayRequestType,
               RelayData: typedDataUtils.relayDataType,
             },
@@ -180,11 +156,12 @@ describe('AccountManager', function () {
               relayRequest.relayData.callForwarder ,
               accountManager.chainId
             ),
-            message: {
+            value: {
               ...relayRequest.request,
               relayData: relayRequest.relayData,
             },
           };
+
           const stubRecoverSignature = sandbox
             .stub(
               accountManager as unknown as {

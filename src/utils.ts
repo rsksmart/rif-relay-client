@@ -1,30 +1,19 @@
-import config from 'config';
 import type { HttpClient } from './api/common';
-import type { EnvelopingConfig } from './common/config.types';
 import type { RelayInfo } from './common/relayHub.types';
-import { ENVELOPING_ROOT } from './constants/configs';
-import { BigNumberish, BigNumber, getDefaultProvider, Transaction } from 'ethers';
+import { BigNumberish, BigNumber, Transaction } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
 import type { DeployRequest, RelayRequest } from './common/relayRequest.types';
 import { isDeployTransaction } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
-import type { RequestConfig } from './RelayClient';
+import { getEnvelopingConfig, getProvider } from './clientConfiguration';
+import type { RequestConfig } from './common';
 
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 
-const getEnvelopingConfig = () => {
-  try {
-    return config.get<EnvelopingConfig>(ENVELOPING_ROOT);
-  } catch {
-    throw new Error(
-      `Could not read enveloping configuration. Make sure your configuration is nested under ${ENVELOPING_ROOT} key.`
-    );
-  }
-};
 
 const selectNextRelay = async (
   httpClient: HttpClient
@@ -95,7 +84,7 @@ const validateRelayResponse = (
   request: EnvelopingTxRequest,
   transaction: Transaction,
   relayWorkerAddress: string,
-): void =>  {
+): void => {
   const {
     to: txDestination,
     from: txOrigin,
@@ -119,12 +108,12 @@ const validateRelayResponse = (
 
   const isDeploy = isDeployTransaction(request);
 
-  const provider = getDefaultProvider();
+  const provider = getProvider();
   const envelopingConfig = getEnvelopingConfig();
 
   const relayHub = RelayHub__factory.connect(envelopingConfig.relayHubAddress, provider);
 
-  const encodedEnveloping = isDeploy ? 
+  const encodedEnveloping = isDeploy ?
     relayHub.interface.encodeFunctionData('deployCall', [relayRequest as DeployRequest, signature])
     : relayHub.interface.encodeFunctionData('relayCall', [relayRequest as RelayRequest, signature]);
 
@@ -186,7 +175,6 @@ const useEnveloping = (
 };
 
 export {
-  getEnvelopingConfig,
   selectNextRelay,
   applyGasCorrectionFactor,
   applyInternalEstimationCorrection,

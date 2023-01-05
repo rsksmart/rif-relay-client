@@ -1,4 +1,4 @@
-import { BigNumberish, BigNumber, getDefaultProvider } from 'ethers';
+import type { BigNumberish, BigNumber } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import type {
@@ -12,6 +12,7 @@ import {
   applyGasCorrectionFactor,
   ESTIMATED_GAS_CORRECTION_FACTOR,
 } from '../utils';
+import { getProvider } from '../clientConfiguration';
 
 const standardMaxPossibleGasEstimation = async (
   { relayRequest, metadata: { signature } }: EnvelopingTxRequest,
@@ -24,7 +25,7 @@ const standardMaxPossibleGasEstimation = async (
     relayData: { gasPrice },
   } = relayRequest;
 
-  const provider = getDefaultProvider();
+  const provider = getProvider();
 
   const relayHub = RelayHub__factory.connect(
     request.relayHub.toString(),

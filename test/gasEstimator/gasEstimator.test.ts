@@ -20,9 +20,12 @@ import {
   linearFitMaxPossibleGasEstimation,
   standardMaxPossibleGasEstimation,
 } from '../../src/gasEstimator/utils';
-import * as gasEstimatorUtils from '../../src/gasEstimator/utils';
 import { ESTIMATED_GAS_CORRECTION_FACTOR } from '../../src/utils';
 import RelayClient from '../../src/RelayClient';
+
+import * as gasEstimatorUtils from '../../src/gasEstimator/utils';
+import * as clientConfiguration from '../../src/clientConfiguration';
+import { createRandomAddress } from '../utils';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -53,6 +56,9 @@ describe('GasEstimator', function () {
       sandbox
         .stub(RelayClient.prototype, 'estimateTokenTransferGas')
         .returns(Promise.resolve(fakeTokenGas));
+      sandbox
+        .stub(RelayClient.prototype, 'getSmartWalletAddress')
+        .returns(Promise.resolve(createRandomAddress()));
     });
 
     afterEach(function () {
@@ -147,7 +153,7 @@ describe('GasEstimator', function () {
       fakeRelayGas = randomBigNumber(10000);
       relayWorker = Wallet.createRandom().address;
       providerStub = sandbox.createStubInstance(providers.BaseProvider);
-      sandbox.stub(providers, 'getDefaultProvider').returns(providerStub);
+      sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
 
       relayHubStub = {
         populateTransaction: {

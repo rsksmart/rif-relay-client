@@ -1,18 +1,15 @@
-import sigUtil, {
-  SignTypedDataVersion,
-  TypedMessage
-} from '@metamask/eth-sig-util';
-import { providers, Wallet } from 'ethers';
-import { getAddress } from 'ethers/lib/utils';
+import { providers, Wallet, utils } from 'ethers';
+import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
+import { isDeployRequest } from './common';
 import type {
-  EnvelopingRequest,
-  UserDefinedEnvelopingRequest,
+  EnvelopingRequest
 } from './common/relayRequest.types';
 import {
   deployRequestType,
   EnvelopingMessageTypes,
   getEnvelopingRequestDataV4Field,
   relayRequestType,
+  TypedMessage,
 } from './typedRequestData.utils';
 
 export default class AccountManager {
@@ -39,22 +36,19 @@ export default class AccountManager {
     this._accounts.push(wallet);
   }
 
-  isDeployRequest({ request }: UserDefinedEnvelopingRequest): boolean {
-    return 'index' in request;
-  }
-
   async sign(envelopingRequest: EnvelopingRequest): Promise<string> {
     const callForwarder = envelopingRequest.relayData.callForwarder.toString();
     const fromAddress: string = getAddress(
       envelopingRequest.request.from.toString()
     );
-    const isDeploy = this.isDeployRequest(envelopingRequest);
+
     const data = getEnvelopingRequestDataV4Field({
       chainId: this.chainId,
       verifier: callForwarder,
       envelopingRequest,
-      requestTypes: isDeploy ? deployRequestType : relayRequestType,
+      requestTypes: isDeployRequest(envelopingRequest) ? deployRequestType : relayRequestType,
     });
+
     const wallet = this._accounts.find(
       (account) => getAddress(account.address) === fromAddress
     );
@@ -64,8 +58,7 @@ export default class AccountManager {
       wallet
     ).catch((error) => {
       throw new Error(
-        `Failed to sign relayed transaction for ${fromAddress}: ${
-          error as string
+        `Failed to sign relayed transaction for ${fromAddress}: ${error as string
         }`
       );
     });
@@ -84,10 +77,11 @@ export default class AccountManager {
     from: string,
     wallet?: Wallet
   ): Promise<{ signature: string; recoveredAddr: string }> {
+
     const signature: string = wallet
-      ? this._signWithWallet(wallet, data)
+      ? await this._signWithWallet(wallet, data)
       : await this._signWithProvider(from, data);
-    const recoveredAddr = getAddress(this._recoverSignature(data, signature));
+    const recoveredAddr = this._recoverSignature(data, signature);
 
     return { signature, recoveredAddr };
   }
@@ -96,36 +90,44 @@ export default class AccountManager {
     data: TypedMessage<EnvelopingMessageTypes>,
     signature: string
   ) {
-    return sigUtil.recoverTypedSignature<
-      SignTypedDataVersion.V4,
-      EnvelopingMessageTypes
-    >({
-      data,
-      signature,
-      version: SignTypedDataVersion.V4,
-    });
+    const { domain, types, value } = data;
+
+    return utils.verifyTypedData(domain, types, value, signature);
   }
 
   private async _signWithProvider<T>(
     from: string,
-    data: TypedMessage<EnvelopingMessageTypes>
+    data: TypedMessage<EnvelopingMessageTypes>,
+    signatureVersion = '_V4',
+    jsonStringify = true
   ): Promise<T> {
     const provider = this._provider as providers.JsonRpcProvider;
     if (!provider.send) {
       throw new Error(`Not an RPC provider`);
     }
 
-    return (await provider.send('eth_signTypedData_v4', [from, data])) as T;
+    const { domain, types, value } = data;
+
+    let encondedData: TypedMessage<EnvelopingMessageTypes> | string;
+    if (jsonStringify) {
+      encondedData = JSON.stringify(_TypedDataEncoder.getPayload(domain, types, value))
+    } else {
+      encondedData = _TypedDataEncoder.getPayload(domain, types, value) as TypedMessage<EnvelopingMessageTypes>;
+    }
+
+    return (await provider.send(`eth_signTypedData_${signatureVersion}`, [
+      from,
+      encondedData
+    ])) as T;
   }
 
-  private _signWithWallet(
-    { privateKey }: Wallet,
+  private async _signWithWallet(
+    wallet: Wallet,
     data: TypedMessage<EnvelopingMessageTypes>
-  ): string {
-    return sigUtil.signTypedData({
-      privateKey: Buffer.from(privateKey, 'hex'),
-      data,
-      version: SignTypedDataVersion.V4,
-    });
+  ): Promise<string> {
+
+    const { domain, types, value } = data;
+
+    return await wallet._signTypedData(domain, types, value);
   }
 }

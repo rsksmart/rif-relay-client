@@ -8,20 +8,29 @@ import {
 } from './utils';
 
 const estimateRelayMaxPossibleGas = async (
-  request: EnvelopingTxRequest,
+  envelopingRequest: EnvelopingTxRequest,
   relayWorkerAddress: string
 ): Promise<BigNumber> => {
   const {
     relayRequest,
     metadata: { signature },
-  } = request;
+  } = envelopingRequest;
 
   const relayClient = new RelayClient();
 
   const isSmartWalletDeploy = isDeployRequest(relayRequest);
 
-  //FIXME validate how to generate the smart wallet address
-  const preDeploySWAddress = isSmartWalletDeploy ? undefined : undefined;
+  const { from, index, recoverer, to, data } = relayRequest.request as {
+    from: string;
+    index: number;
+    recoverer: string;
+    to: string;
+    data: string;
+  };
+
+  const preDeploySWAddress = isSmartWalletDeploy
+    ? await relayClient.getSmartWalletAddress(from, index, recoverer, to, data)
+    : undefined;
 
   const tokenEstimation = await relayClient.estimateTokenTransferGas({
     relayRequest: {
@@ -36,7 +45,7 @@ const estimateRelayMaxPossibleGas = async (
 
   if (signature > '0x0') {
     return await standardMaxPossibleGasEstimation(
-      request,
+      envelopingRequest,
       relayWorkerAddress,
       tokenEstimation
     );

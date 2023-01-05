@@ -16,7 +16,6 @@ import {
 } from '@rsksmart/rif-relay-contracts';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import config from 'config';
 import { BigNumber, BigNumberish, constants, providers, Transaction, Wallet, utils, errors } from 'ethers';
 
 import * as etherUtils from '@ethersproject/transactions';
@@ -61,10 +60,13 @@ import {
   FAKE_RELAY_TRANSACTION_REQUEST,
   FAKE_REQUEST_CONFIG
 } from './request.fakes';
-
-import * as relayUtils from '../src/utils';
-import * as gasEstimator from '../src/gasEstimator/gasEstimator';
 import type { TokenGasEstimationParams, RequestConfig } from '../src/common/relayClient.types';
+
+import * as clientConfiguration from '../src/clientConfiguration';
+import * as relayUtils from '../src/utils';
+import * as discoveryUtils from '../src/discovery/utils';
+import * as gasEstimator from '../src/gasEstimator/gasEstimator';
+
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -78,15 +80,8 @@ const FAKE_GAS_PRICE = BigNumber.from(123);
 const FAKE_SIGNATURE = 'FAKE_SIGNATURE';
 
 describe('RelayClient', function () {
-  const originalConfig = { ...config };
-  before(function () {
-    config.util.extendDeep(config, {
-      EnvelopingConfig: FAKE_ENVELOPING_CONFIG,
-    });
-  });
-
-  after(function () {
-    config.util.extendDeep(config, originalConfig);
+  beforeEach(function () {
+    sandbox.replace(clientConfiguration, 'getEnvelopingConfig', () => FAKE_ENVELOPING_CONFIG);
   });
 
   afterEach(function () {
@@ -1195,6 +1190,35 @@ describe('RelayClient', function () {
 
         expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
       });
+    });
+
+    describe('getSmartWalletAddress', function(){
+
+      let owner: string;
+      let index: number;
+
+      beforeEach(function () {
+        owner = createRandomAddress();
+        index = createRandomBigNumber(1000).toNumber();
+        const fakeConfig = {
+          config: {},
+          bytecodeHash: ''
+        } as discoveryUtils.Setup
+        sandbox.stub(discoveryUtils, 'setupDiscovery').returns(Promise.resolve(fakeConfig));
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      });
+
+      it('should return SW address', async function(){
+        const expectedAddress = createRandomAddress();
+        sandbox.stub(discoveryUtils, 'getSWAddress').returns(expectedAddress);
+        const address = await relayClient.getSmartWalletAddress(owner, index);
+
+        expect(address).to.be.equals(expectedAddress);
+      })
+
     });
 
     describe('relayTransaction', function () {

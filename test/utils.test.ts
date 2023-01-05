@@ -1,10 +1,10 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import config from 'config';
 import { BigNumber, constants, Transaction, Wallet } from 'ethers';
 import type Sinon from 'sinon';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
+import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
 import type {
@@ -12,13 +12,11 @@ import type {
   RelayInfo,
   RelayManagerData,
 } from '../src/common/relayHub.types';
-import { ENVELOPING_ROOT } from '../src/constants/configs';
-import { selectNextRelay, validateRelayResponse,  useEnveloping } from '../src/utils';
-import { FAKE_DEPLOY_TRANSACTION_REQUEST, FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
-import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import { selectNextRelay, useEnveloping, validateRelayResponse } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
-import { FAKE_RELAY_REQUEST } from './request.fakes';
+import { FAKE_DEPLOY_TRANSACTION_REQUEST, FAKE_RELAY_REQUEST, FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
+import * as clientConfiguration from '../src/clientConfiguration';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -26,7 +24,6 @@ use(chaiAsPromised);
 const createRandomAddress = () => Wallet.createRandom().address;
 
 describe('utils', function () {
-  const originalConfig = { ...config };
   const unavailableRelayHub: HubInfo = {
     ...FAKE_HUB_INFO,
     ready: false,
@@ -60,20 +57,13 @@ describe('utils', function () {
 
   let httpClientStub: Sinon.SinonStubbedInstance<HttpClient>;
 
-  before(function () {
-    config.util.extendDeep(config, {
-      EnvelopingConfig: {
+  beforeEach(function () {
+    sinon.replace(clientConfiguration, 'getEnvelopingConfig', () => {
+      return {
         ...FAKE_ENVELOPING_CONFIG,
         preferredRelays,
-      },
+      }
     });
-  });
-
-  after(function () {
-    config.util.extendDeep(config, originalConfig);
-  });
-
-  beforeEach(function () {
     httpClientStub = sinon.createStubInstance(HttpClient);
   });
 
@@ -81,16 +71,6 @@ describe('utils', function () {
     sinon.restore();
   });
 
-  describe('getEnvelopingConfig', function () {
-    it('Should fail if cannnot find a config', async function () {
-      const ERROR_MESSAGE = `Could not read enveloping configuration. Make sure your configuration is nested under ${ENVELOPING_ROOT} key.`;
-      sinon.stub(config, 'get').throws(new Error(ERROR_MESSAGE));
-
-      await expect(selectNextRelay(httpClientStub)).to.be.rejectedWith(
-        ERROR_MESSAGE
-      );
-    });
-  });
 
   describe('selectNextRelay() function', function () {
     it('Should iterate the array of relays and select an available one', async function () {

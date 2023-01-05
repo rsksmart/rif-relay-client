@@ -2,8 +2,7 @@ import { Transaction, BigNumber } from 'ethers';
 import type { Networkish } from "@ethersproject/networks";
 import { JsonRpcProvider, TransactionReceipt } from "@ethersproject/providers";
 import type { ConnectionInfo } from "@ethersproject/web";
-import { getEnvelopingConfig } from './utils';
-import RelayClient, { RequestConfig } from './RelayClient';
+import RelayClient from './RelayClient';
 import log from 'loglevel';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
@@ -13,6 +12,8 @@ import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typec
 import type { LogDescription } from 'ethers/lib/utils';
 import type { Either } from './common/utility.types';
 import { RelayTransactionEvents, relayTransactionHandler } from './handlers/RelayProvider';
+import type { RequestConfig } from './common';
+import { getEnvelopingConfig } from './clientConfiguration';
 
 export const RELAY_TRANSACTION_EVENTS = 
 [

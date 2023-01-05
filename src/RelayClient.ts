@@ -13,7 +13,6 @@ import {
   BigNumberish,
   CallOverrides,
   constants,
-  getDefaultProvider,
   providers,
   Transaction,
 } from 'ethers';
@@ -21,6 +20,7 @@ import { isAddress, keccak256, parseTransaction, solidityKeccak256 } from 'ether
 import log from 'loglevel';
 import AccountManager from './AccountManager';
 import { HttpClient } from './api/common';
+import { getEnvelopingConfig, getProvider } from './clientConfiguration';
 import type { EnvelopingConfig } from './common/config.types';
 import type { EstimateInternalGasParams, RequestConfig, TokenGasEstimationParams } from './common/relayClient.types';
 import type { EnvelopingMetadata, HubInfo, RelayInfo } from './common/relayHub.types';
@@ -41,6 +41,7 @@ import {
   MISSING_SMART_WALLET_ADDRESS,
   NOT_RELAYED_TRANSACTION,
 } from './constants/errorMessages';
+import { discoveryGetSWAddress, setupDiscovery } from './discovery';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from './events/EnvelopingEventEmitter';
@@ -48,7 +49,6 @@ import { estimateRelayMaxPossibleGas } from './gasEstimator';
 import {
   applyGasCorrectionFactor,
   applyInternalEstimationCorrection,
-  getEnvelopingConfig,
   selectNextRelay,
   validateRelayResponse,
 } from './utils';
@@ -63,7 +63,7 @@ class RelayClient extends EnvelopingEventEmitter {
   constructor() {
     super();
 
-    this._provider = getDefaultProvider();
+    this._provider = getProvider();
     this._envelopingConfig = getEnvelopingConfig();
     this._httpClient = new HttpClient();
   }
@@ -392,6 +392,21 @@ class RelayClient extends EnvelopingEventEmitter {
       internalCallCost,
       estimatedGasCorrectionFactor
     );
+  }
+
+  public async getSmartWalletAddress(
+    owner: string,
+    index: number,
+    recoverer?: string,
+    logic?: string,
+    logicParamsHash?: string
+  ): Promise<string> {
+
+    const { config, bytecodeHash } = await setupDiscovery({
+      recoverer, logic, logicParamsHash, factory: this._envelopingConfig.smartWalletFactoryAddress
+    })
+
+    return discoveryGetSWAddress(config, owner, index, bytecodeHash);
   }
 
   public async relayTransaction(
