@@ -10,6 +10,8 @@ import log from 'loglevel';
 import type { DeployRequest, RelayRequest } from './common/relayRequest.types';
 import { isDeployTransaction } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
+import type { RequestConfig } from './RelayClient';
+
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
@@ -156,6 +158,33 @@ const validateRelayResponse = (
   log.info('validateRelayResponse - valid transaction response');
 }
 
+
+const useEnveloping = (
+  method: string,
+  params: Array<Record<string, unknown>>
+): boolean => {
+  if (method === 'eth_accounts') {
+    return true;
+  }
+
+  const [a] = params;
+
+  if (!a) {
+    return false;
+  }
+
+  const { envelopingTx, requestConfig } = a;
+  if (
+    envelopingTx &&
+    requestConfig &&
+    (requestConfig as RequestConfig).useEnveloping
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 export {
   getEnvelopingConfig,
   selectNextRelay,
@@ -163,5 +192,6 @@ export {
   applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
-  validateRelayResponse
+  validateRelayResponse,
+  useEnveloping
 };
