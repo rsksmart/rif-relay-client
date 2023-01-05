@@ -205,8 +205,9 @@ export default class RelayProvider extends JsonRpcProvider {
         if (useEnveloping(method, params)) {
             const { requestConfig, envelopingTx } = params[0] as { requestConfig: RequestConfig, envelopingTx: UserDefinedEnvelopingRequest }
             const { request } = envelopingTx;
-            if (method === 'eth_sendTransaction') {
 
+            type RelayProviderMethods = 'eth_sendTransaction' | 'eth_accounts';
+            const ethSendTransaction = () => {
                 if (!request.to) {
                     throw new Error(
                         'Relay Provider cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.'
@@ -215,9 +216,12 @@ export default class RelayProvider extends JsonRpcProvider {
 
                 return this._ethSendTransaction(envelopingTx, requestConfig);
             }
-
-            if (method === 'eth_accounts') {
-                return this.listAccounts();
+            const eventHandlers: Record<RelayProviderMethods, () => Promise<unknown>> = {
+                eth_sendTransaction: ethSendTransaction,
+                eth_accounts: this.listAccounts.bind(this)
+            };
+            if( method in eventHandlers) {
+                return eventHandlers[method as RelayProviderMethods]();
             }
         }
 
