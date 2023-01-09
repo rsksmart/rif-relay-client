@@ -13,7 +13,7 @@ import type { LogDescription } from 'ethers/lib/utils';
 import type { Either } from './common/utility.types';
 import { RelayTransactionEvents, relayTransactionHandler } from './handlers/RelayProvider';
 import type { RequestConfig } from './common';
-import { getEnvelopingConfig } from './clientConfiguration';
+import { getEnvelopingConfig } from './common/clientConfigurator';
 
 export const RELAY_TRANSACTION_EVENTS = 
 [

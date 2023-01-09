@@ -14,7 +14,7 @@ import { FAKE_RELAY_REQUEST } from "./request.fakes";
 import { relayTransactionHandler } from "../src/handlers/RelayProvider";
 import type { RequestConfig } from "../src/common";
 import * as utils from '../src/utils';
-import * as clientConfiguration from '../src/clientConfiguration';
+import * as clientConfiguration from '../src/common/clientConfigurator';
 
 use(sinonChai);
 use(chaiAsPromised);

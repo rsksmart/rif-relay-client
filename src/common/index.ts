@@ -5,3 +5,5 @@ export * from './relayRequest.utils';
 export * from './relayTransaction.types';
 export * from './estimation.types';
 export * from './relayClient.types';
+export * from './clientConfigurator';
+export * from './config.types';

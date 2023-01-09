@@ -12,7 +12,7 @@ import type {
 
 const relayOnlyRequestKeys: RelayOnlyRequestKey[] = ['gas'];
 
-const deployOnlyRequestKeys: DeployOnlyRequestKey[] = ['index', 'recoverer'];
+const deployOnlyRequestKeys: DeployOnlyRequestKey[] = ['index'];
 
 const isRelayRequest = (
   request: EnvelopingRequest

@@ -3,7 +3,7 @@ import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
 import { isDeployRequest } from './common';
 import type {
   EnvelopingRequest
-} from './common/relayRequest.types';
+} from './common';
 import {
   deployRequestType,
   EnvelopingMessageTypes,
@@ -98,7 +98,7 @@ export default class AccountManager {
   private async _signWithProvider<T>(
     from: string,
     data: TypedMessage<EnvelopingMessageTypes>,
-    signatureVersion = '_V4',
+    signatureVersion = 'v4',
     jsonStringify = true
   ): Promise<T> {
     const provider = this._provider as providers.JsonRpcProvider;

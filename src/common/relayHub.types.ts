@@ -1,3 +1,4 @@
+import type { IRelayHub } from '@rsksmart/rif-relay-contracts';
 import type { RelayRequestBody } from './relayRequest.types';
 
 type RelayManagerData = {
@@ -22,7 +23,7 @@ type HubInfo = {
 
 type RelayInfo = {
   hubInfo: HubInfo;
-  managerData: RelayManagerData;
+  managerData: IRelayHub.RelayManagerDataStruct;
 };
 
 type EnvelopingMetadata = {

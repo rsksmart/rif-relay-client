@@ -12,7 +12,7 @@ import {
   applyGasCorrectionFactor,
   ESTIMATED_GAS_CORRECTION_FACTOR,
 } from '../utils';
-import { getProvider } from '../clientConfiguration';
+import { getProvider } from '../common/clientConfigurator';
 
 const standardMaxPossibleGasEstimation = async (
   { relayRequest, metadata: { signature } }: EnvelopingTxRequest,

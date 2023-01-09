@@ -1,7 +1,4 @@
-import type { RelayManagerData } from './relayHub.types';
-
-type EnvelopingConfig = {
-  preferredRelays: RelayManagerData[];
+type OptionalEnvelopingConfig = Partial<{
   onlyPreferredRelays: boolean;
   relayLookupWindowParts: number;
   relayLookupWindowBlocks: number;
@@ -12,14 +9,21 @@ type EnvelopingConfig = {
   relayTimeoutGrace: number;
   methodSuffix: string;
   jsonStringifyRequest: boolean;
+  logLevel: number;
+  clientId: number;
+  requestValidSeconds: number;
+  forwarderAddress: string;
+}>;
+
+type RequiredEnvelopingConfig = {
+  preferredRelays: string[];
   chainId: number;
   relayHubAddress: string;
   deployVerifierAddress: string;
   relayVerifierAddress: string;
-  forwarderAddress: string;
   smartWalletFactoryAddress: string;
-  logLevel: number;
-  clientId: number;
-  requestValidSeconds: number;
 };
-export { EnvelopingConfig };
+
+type EnvelopingConfig = RequiredEnvelopingConfig &
+  Required<OptionalEnvelopingConfig>;
+export { EnvelopingConfig, RequiredEnvelopingConfig, OptionalEnvelopingConfig };

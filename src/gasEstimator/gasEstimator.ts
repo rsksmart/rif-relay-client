@@ -20,7 +20,7 @@ const estimateRelayMaxPossibleGas = async (
 
   const isSmartWalletDeploy = isDeployRequest(relayRequest);
 
-  const { from, index, recoverer, to, data } = relayRequest.request as {
+  const { from, index, recoverer } = relayRequest.request as {
     from: string;
     index: number;
     recoverer: string;
@@ -29,7 +29,7 @@ const estimateRelayMaxPossibleGas = async (
   };
 
   const preDeploySWAddress = isSmartWalletDeploy
-    ? await relayClient.getSmartWalletAddress(from, index, recoverer, to, data)
+    ? await relayClient.getSmartWalletAddress(from, index, recoverer)
     : undefined;
 
   const tokenEstimation = await relayClient.estimateTokenTransferGas({

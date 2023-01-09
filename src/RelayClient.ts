@@ -20,8 +20,8 @@ import { isAddress, keccak256, parseTransaction, solidityKeccak256 } from 'ether
 import log from 'loglevel';
 import AccountManager from './AccountManager';
 import { HttpClient } from './api/common';
-import { getEnvelopingConfig, getProvider } from './clientConfiguration';
-import type { EnvelopingConfig } from './common/config.types';
+import { getEnvelopingConfig, getProvider } from './common';
+import type { EnvelopingConfig } from './common';
 import type { EstimateInternalGasParams, RequestConfig, TokenGasEstimationParams } from './common/relayClient.types';
 import type { EnvelopingMetadata, HubInfo, RelayInfo } from './common/relayHub.types';
 import type {
@@ -97,7 +97,7 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('No call verifier present. Check your configuration.');
     }
 
-    const relayServerUrl = this._envelopingConfig.preferredRelays.at(0)?.url;
+    const relayServerUrl = this._envelopingConfig.preferredRelays.at(0);
 
     if (!relayServerUrl) {
       throw new Error(
@@ -157,7 +157,7 @@ class RelayClient extends EnvelopingEventEmitter {
       (envelopingRequest.request as UserDefinedRelayRequestBody).gas ??
       this.estimateInternalCallGas({
         data,
-        from,
+        from: callForwarder,
         to,
         gasPrice,
       }));
@@ -226,18 +226,17 @@ class RelayClient extends EnvelopingEventEmitter {
   };
 
   private async _prepareHttpRequest(
-    { feesReceiver }: HubInfo,
-    relayRequest: EnvelopingRequest,
-    { preDeploySWAddress }: RequestConfig
+    { feesReceiver, relayWorkerAddress }: HubInfo,
+    envelopingRequest: EnvelopingRequest
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub, tokenGas },
-      relayData: { callForwarder },
-    } = relayRequest;
+      request: { relayHub, tokenGas, nonce, gas },
+      relayData: { gasPrice },
+    } = envelopingRequest;
     const chainId = (await this._provider.getNetwork()).chainId;
     const accountManager = new AccountManager(this._provider, chainId);
     const relayMaxNonce =
-      (await this._provider.getTransactionCount(callForwarder)) +
+      (await this._provider.getTransactionCount(relayWorkerAddress)) +
       this._envelopingConfig.maxRelayNonceGap;
 
     if (
@@ -250,29 +249,48 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const currentTokenGas = BigNumber.from(tokenGas);
 
+    const isDeployment: boolean = isDeployRequest(envelopingRequest);
+
+    const { from, index, recoverer, to, data } = envelopingRequest.request as {
+      from: string;
+      index: number;
+      recoverer: string;
+      to: string;
+      data: string;
+    };
+
+    const preDeploySWAddress = isDeployment
+    ? await this.getSmartWalletAddress(from, index, recoverer, to, data)
+    : undefined;
+
     const newTokenGas = currentTokenGas.gt(constants.Zero)
       ? currentTokenGas :
       await this.estimateTokenTransferGas({
         relayRequest: {
-          ...relayRequest,
+          ...envelopingRequest,
           relayData: {
-            ...relayRequest.relayData,
+            ...envelopingRequest.relayData,
             feesReceiver
           }
         },
         preDeploySWAddress
       });
 
-    const updatedRelayRequest: EnvelopingRequest = {
+    //TODO the stringify part is not necessary to be done here, we need to validate
+    // if its need to be done prior sending it to the server
+    const updatedRelayRequest = {
       request: {
-        ...relayRequest.request,
-        tokenGas: newTokenGas
+        ...envelopingRequest.request,
+        tokenGas: newTokenGas.toString(),
+        nonce: nonce.toString(),
+        gas: isDeployment ? undefined : gas?.toString()
       },
       relayData: {
-        ...relayRequest.relayData,
-        feesReceiver
+        ...envelopingRequest.relayData,
+        feesReceiver,
+        gasPrice: gasPrice.toString()
       },
-    };
+    } as EnvelopingRequest;
 
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,
@@ -286,7 +304,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     this.emit(envelopingEvents['sign-request']);
     log.info(
-      `Created HTTP ${isDeployRequest(relayRequest) ? 'deploy' : 'relay'
+      `Created HTTP ${isDeployment ? 'deploy' : 'relay'
       } request: ${JSON.stringify(httpRequest)}`
     );
 
@@ -321,6 +339,7 @@ class RelayClient extends EnvelopingEventEmitter {
     );
   }
 
+  //TODO used by the relayServer, check if it can be moved to a different class or file
   public async estimateInternalCallGas({
     internalEstimationCorrection,
     estimatedGasCorrectionFactor,
@@ -338,6 +357,7 @@ class RelayClient extends EnvelopingEventEmitter {
     return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
   }
 
+  //TODO used by the relayServer, check if it can be moved to a different class or file
   public async estimateTokenTransferGas({
     internalEstimationCorrection,
     estimatedGasCorrectionFactor,
@@ -394,6 +414,7 @@ class RelayClient extends EnvelopingEventEmitter {
     );
   }
 
+  //TODO used by the relayServer, check if it can be moved to a different class or file
   public async getSmartWalletAddress(
     owner: string,
     index: number,
@@ -421,7 +442,7 @@ class RelayClient extends EnvelopingEventEmitter {
     let activeRelay = await selectNextRelay(this._httpClient);
 
     while (activeRelay) {
-      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails, requestConfig);
+      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails);
 
       if (await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)) {
 
@@ -440,6 +461,29 @@ class RelayClient extends EnvelopingEventEmitter {
     throw Error(NOT_RELAYED_TRANSACTION);
   }
 
+  public async estimateTransaction(
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    requestConfig: RequestConfig
+  ) {
+    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(envelopingRequest, requestConfig);
+
+    log.debug('Relay Client - Estimating transaction');
+    log.debug(`Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`);
+
+    const activeRelay = await selectNextRelay(this._httpClient);
+
+
+    while (activeRelay) {
+      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails);
+
+      return await this._httpClient.estimateMaxPossibleGas(activeRelay.managerData.url.toString(), envelopingTx);
+
+    }
+
+    throw Error(NOT_RELAYED_TRANSACTION);
+
+  }
+
   private async _attemptRelayTransaction(
     relayInfo: RelayInfo,
     envelopingTx: EnvelopingTxRequest
@@ -452,7 +496,7 @@ class RelayClient extends EnvelopingEventEmitter {
           relayInfo
         )} transaction: ${JSON.stringify(envelopingTx)}`
       );
-      const signedTx = await this._httpClient.relayTransaction(url, envelopingTx);
+      const signedTx = await this._httpClient.relayTransaction(url.toString(), envelopingTx);
       const transaction = parseTransaction(signedTx);
       validateRelayResponse(envelopingTx, transaction, hubInfo.relayWorkerAddress);
       this.emit('relayer-response');

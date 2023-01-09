@@ -24,7 +24,7 @@ import { ESTIMATED_GAS_CORRECTION_FACTOR } from '../../src/utils';
 import RelayClient from '../../src/RelayClient';
 
 import * as gasEstimatorUtils from '../../src/gasEstimator/utils';
-import * as clientConfiguration from '../../src/clientConfiguration';
+import * as clientConfiguration from '../../src/common/clientConfigurator';
 import { createRandomAddress } from '../utils';
 
 use(sinonChai);

@@ -21,7 +21,7 @@ import {
   DiscoveryConfig,
 } from '../../src/discovery';
 import * as discoveryUtils from '../../src/discovery/utils';
-import * as clientConfiguration from '../../src/clientConfiguration';
+import * as clientConfiguration from '../../src/common/clientConfigurator';
 
 use(sinonChai);
 

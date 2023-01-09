@@ -1,14 +1,10 @@
 import type { HttpClient } from './api/common';
-import type { RelayInfo } from './common/relayHub.types';
 import { BigNumberish, BigNumber, Transaction } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
-import type { DeployRequest, RelayRequest } from './common/relayRequest.types';
-import { isDeployTransaction } from './common/relayRequest.utils';
-import type { EnvelopingTxRequest } from './common/relayTransaction.types';
-import { getEnvelopingConfig, getProvider } from './clientConfiguration';
-import type { RequestConfig } from './common';
+import { getEnvelopingConfig, getProvider, isDeployTransaction } from './common';
+import type { RequestConfig, EnvelopingTxRequest, DeployRequest, RelayRequest, RelayInfo } from './common';
 
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
@@ -20,11 +16,14 @@ const selectNextRelay = async (
 ): Promise<RelayInfo | undefined> => {
   const { preferredRelays } = getEnvelopingConfig();
 
-  for (const managerData of preferredRelays ?? []) {
+  for (const preferredRelay of preferredRelays ?? []) {
     let hubInfo;
+    let managerData;
 
     try {
-      hubInfo = await httpClient.getChainInfo(managerData.url);
+      hubInfo = await httpClient.getChainInfo(preferredRelay);
+      const relayHub = RelayHub__factory.connect(hubInfo.relayHubAddress, getProvider());
+      managerData = await relayHub.getRelayInfo(hubInfo.relayManagerAddress);
     } catch (error) {
       log.warn('Failed to getChainInfo from hub', error);
       continue;

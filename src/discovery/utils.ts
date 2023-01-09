@@ -21,7 +21,7 @@ import {
   ERC20__factory,
   ISmartWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { getProvider } from '../clientConfiguration';
+import { getProvider } from '../common/clientConfigurator';
 const SHA3_NULL_S = keccak256('0x');
 
 type Account = {
@@ -45,7 +45,7 @@ const wordlists = {
 
 type Locale = keyof typeof wordlists; //TODO: hopefully this will be added to ethers.js (https://github.com/ethers-io/ethers.js/pull/3514)
 
-type OptionalConfig = {
+type OptionalConfig = Partial<{
   eoaGap: number;
   sWalletGap: number;
   searchBalance: boolean;
@@ -59,14 +59,16 @@ type OptionalConfig = {
   logic: string;
   logicParamsHash: string;
   recoverer: string;
-};
+}>;
 
-// TODO: check that the optional params have to be optional
-type Config = Partial<OptionalConfig> & {
+type RequiredConfig = {
   factory: string;
 };
 
-const DEFAULT_DISCOVERY_CONFIG: OptionalConfig = {
+// TODO: check that the optional params have to be optional
+type Config = RequiredConfig & Required<OptionalConfig>;
+
+const DEFAULT_DISCOVERY_CONFIG: Required<OptionalConfig> = {
   eoaGap: 20,
   sWalletGap: 20,
   searchBalance: true,
@@ -97,13 +99,20 @@ type Setup = {
 };
 
 const setupDiscovery = async (
-  configOverride: Config,
+  configOverride: RequiredConfig & OptionalConfig,
   mnemonic?: string,
   password?: string
 ): Promise<Setup> => {
   const config = {
     ...DEFAULT_DISCOVERY_CONFIG,
     ...configOverride,
+    ...{
+      logic: configOverride.logic ?? DEFAULT_DISCOVERY_CONFIG.logic,
+      recoverer: configOverride.recoverer ?? DEFAULT_DISCOVERY_CONFIG.recoverer,
+      logicParamsHash:
+        configOverride.logicParamsHash ??
+        DEFAULT_DISCOVERY_CONFIG.logicParamsHash,
+    },
   };
 
   const rootNode = mnemonic
@@ -151,7 +160,8 @@ const getSWAddress = (
   walletIndex: number,
   bytecodeHash: string
 ): string => {
-  const isCustom = config.logic && config.logicParamsHash;
+  const isCustom = !!config.logic && !!config.logicParamsHash;
+
   const salt = isCustom
     ? solidityKeccak256(
         ['address', 'address', 'address', 'bytes32', 'uint256'],
@@ -159,7 +169,7 @@ const getSWAddress = (
           ownerEOA,
           config.recoverer,
           config.logic,
-          config.logicParamsHash ?? SHA3_NULL_S,
+          config.logicParamsHash,
           walletIndex,
         ]
       )
@@ -195,13 +205,11 @@ const checkHasActivity = async (
     return true;
   }
 
-  const erc20Balances = config.tokens
-    ? await Promise.all(
-        config.tokens.map((token) =>
-          ERC20__factory.connect(token, provider).balanceOf(accountAddr)
-        )
-      )
-    : [];
+  const erc20Balances = await Promise.all(
+    config.tokens.map((token) =>
+      ERC20__factory.connect(token, provider).balanceOf(accountAddr)
+    )
+  );
 
   const hasERC20Balance = Boolean(
     erc20Balances.find((balance) => balance.gt(0))
@@ -296,7 +304,7 @@ const findSWActivity = async (
   return swAccounts;
 };
 
-export type { Config, Account, Setup };
+export type { Config, Account, Setup, OptionalConfig };
 export {
   getSWAddress,
   findSWActivity,

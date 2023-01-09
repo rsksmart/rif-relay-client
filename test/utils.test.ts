@@ -9,14 +9,13 @@ import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
 import type {
   HubInfo,
-  RelayInfo,
-  RelayManagerData,
+  RelayInfo
 } from '../src/common/relayHub.types';
 import { selectNextRelay, useEnveloping, validateRelayResponse } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
 import { FAKE_DEPLOY_TRANSACTION_REQUEST, FAKE_RELAY_REQUEST, FAKE_RELAY_TRANSACTION_REQUEST } from './request.fakes';
-import * as clientConfiguration from '../src/clientConfiguration';
+import * as clientConfiguration from '../src/common/clientConfigurator';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -35,24 +34,9 @@ describe('utils', function () {
   };
 
   const preferredRelays: EnvelopingConfig['preferredRelays'] = [
-    {
-      manager: '',
-      url: 'https://first.relay.co',
-      currentlyStaked: true,
-      registered: true,
-    },
-    {
-      manager: '',
-      url: 'http://second.relay.co',
-      currentlyStaked: true,
-      registered: true,
-    },
-    {
-      manager: '',
-      url: 'http://third.relay.co',
-      currentlyStaked: true,
-      registered: true,
-    },
+    'https://first.relay.co',
+    'http://second.relay.co',
+    'http://third.relay.co'
   ];
 
   let httpClientStub: Sinon.SinonStubbedInstance<HttpClient>;
@@ -73,13 +57,19 @@ describe('utils', function () {
 
 
   describe('selectNextRelay() function', function () {
+    let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
+
     it('Should iterate the array of relays and select an available one', async function () {
+      const expectedUrl = preferredRelays[1];
       httpClientStub.getChainInfo
         .onFirstCall()
         .resolves(unavailableRelayHub)
         .onSecondCall()
         .resolves(availableRelayHub);
-      const { url: expectedUrl } = preferredRelays[1] as RelayManagerData;
+      relayHubStub = {
+        getRelayInfo: () => Promise.resolve({ url: expectedUrl })
+      } as unknown as typeof relayHubStub;
+      sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
 
       const {
         managerData: { url: actualUrl },
@@ -96,12 +86,16 @@ describe('utils', function () {
     });
 
     it('Should keep iterating if a ping call throws an error', async function () {
-      const { url: expectedUrl } = preferredRelays[1] as RelayManagerData;
+      const expectedUrl = preferredRelays[1];
       httpClientStub.getChainInfo
         .onFirstCall()
         .throws(new Error('Some fake error'))
         .onSecondCall()
         .resolves(availableRelayHub);
+        relayHubStub = {
+          getRelayInfo: () => Promise.resolve({ url: expectedUrl })
+        } as unknown as typeof relayHubStub;
+        sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
       const {
         managerData: { url: actualUrl },
       } = (await selectNextRelay(httpClientStub)) as RelayInfo;
@@ -285,22 +279,22 @@ describe('utils', function () {
       );
     });
   });
-  
-  describe('useEnveloping', function() {
 
-    it('Should return true if method is eth_accounts', function() {
+  describe('useEnveloping', function () {
+
+    it('Should return true if method is eth_accounts', function () {
       expect(useEnveloping('eth_accounts', [])).to.be.true;
     })
 
-    it('Should return false if params is empty', function() {
+    it('Should return false if params is empty', function () {
       expect(useEnveloping('eth_other', [])).to.be.false;
     })
 
-    it('Should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function() {
+    it('Should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function () {
       const result = useEnveloping('eth_sendTransaction', [{
         envelopingTx: FAKE_RELAY_REQUEST,
-        requestConfig: { 
-          useEnveloping: true 
+        requestConfig: {
+          useEnveloping: true
         }
       }]);
 

@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts",
-    "axios": "~1.1.2",
+    "axios": "~0.27.2",
     "bignumber.js": "^9.1.1",
     "ethers": "5.7.1",
     "loglevel": "~1.8.0",

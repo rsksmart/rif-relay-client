@@ -14,12 +14,7 @@ const ENVELOPING_CONFIG: EnvelopingConfig = {
   minGasPrice: 3,
   onlyPreferredRelays: false,
   preferredRelays: [
-    {
-      currentlyStaked: false,
-      manager: Wallet.createRandom().address,
-      registered: false,
-      url: 'http://fake.url',
-    },
+    'http://fake.url'
   ],
   relayHubAddress: Wallet.createRandom().address,
   relayLookupWindowBlocks: 3,
