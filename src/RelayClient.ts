@@ -262,7 +262,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const isDeployment: boolean = isDeployRequest(envelopingRequest);
 
-    const { from, index, recoverer, to, data } = envelopingRequest.request as {
+    const { from, index,/*  recoverer, to, data */ } = envelopingRequest.request as {
       from: string;
       index: number;
       recoverer: string;
@@ -271,7 +271,8 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     const preDeploySWAddress = isDeployment
-      ? await this.getSmartWalletAddress(from, index, recoverer, to, data)
+    // FIXME:
+      ? await this.generateSmartWallet(from, index/* , recoverer, to, data */)
       : undefined;
 
     const newTokenGas = currentTokenGas.gt(constants.Zero)
@@ -443,7 +444,7 @@ class RelayClient extends EnvelopingEventEmitter {
     return discoveryGetSWAddress(config, owner, index, bytecodeHash);
   }
 
-  // FIXME: Missing tests
+  // FIXME: Missing tests and it should support also customSmartWallet
   async generateSmartWallet(owner: string,smartWalletIndex: number): Promise<string> {
     log.debug('generateSmartWallet Params', {
       smartWalletIndex,
