@@ -5,7 +5,8 @@ import {
   RelayHub__factory,
   RelayVerifier__factory,
   PromiseOrValue,
-  IWalletFactory__factory
+  IWalletFactory__factory,
+  ISmartWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
@@ -16,14 +17,27 @@ import {
   providers,
   Transaction,
 } from 'ethers';
-import { isAddress, keccak256, parseTransaction, solidityKeccak256 } from 'ethers/lib/utils';
+import {
+  isAddress,
+  keccak256,
+  parseTransaction,
+  solidityKeccak256,
+} from 'ethers/lib/utils';
 import log from 'loglevel';
 import AccountManager from './AccountManager';
 import { HttpClient } from './api/common';
 import { getEnvelopingConfig, getProvider } from './common';
 import type { EnvelopingConfig } from './common';
-import type { EstimateInternalGasParams, RequestConfig, TokenGasEstimationParams } from './common/relayClient.types';
-import type { EnvelopingMetadata, HubInfo, RelayInfo } from './common/relayHub.types';
+import type {
+  EstimateInternalGasParams,
+  RequestConfig,
+  TokenGasEstimationParams,
+} from './common/relayClient.types';
+import type {
+  EnvelopingMetadata,
+  HubInfo,
+  RelayInfo,
+} from './common/relayHub.types';
 import type {
   CommonEnvelopingRequestBody,
   DeployRequestBody,
@@ -70,10 +84,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private _getEnvelopingRequestDetails = async (
     envelopingRequest: UserDefinedEnvelopingRequest,
-    {
-      forceGasLimit,
-      forceGasPrice,
-    }: RequestConfig
+    { forceGasLimit, forceGasPrice }: RequestConfig
   ): Promise<EnvelopingRequest> => {
     const isDeployment: boolean = isDeployRequest(
       envelopingRequest as EnvelopingRequest
@@ -90,7 +101,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const callVerifier: PromiseOrValue<string> =
       envelopingRequest.relayData.callVerifier ||
       this._envelopingConfig[
-      isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
+        isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
       ];
 
     if (!callVerifier) {
@@ -135,14 +146,15 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const nonce =
       (envelopingRequest.request.nonce ||
-        (isDeployment ? await IWalletFactory__factory.connect(
-          callForwarder.toString(),
-          this._provider).nonce(from) :
-          await IForwarder__factory.connect(
-            callForwarder.toString(),
-            this._provider
-          ).nonce()))
-      ??
+        (isDeployment
+          ? await IWalletFactory__factory.connect(
+              callForwarder.toString(),
+              this._provider
+            ).nonce(from)
+          : await IForwarder__factory.connect(
+              callForwarder.toString(),
+              this._provider
+            ).nonce())) ??
       constants.Zero;
 
     const relayHub =
@@ -184,9 +196,8 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     const secondsNow = Math.round(Date.now() / 1000);
-    const validUntilTime = (
-      secondsNow + this._envelopingConfig.requestValidSeconds
-    );
+    const validUntilTime =
+      secondsNow + this._envelopingConfig.requestValidSeconds;
 
     const commonRequestBody: CommonEnvelopingRequestBody = {
       data,
@@ -198,29 +209,29 @@ class RelayClient extends EnvelopingEventEmitter {
       tokenContract,
       tokenGas: constants.Zero,
       value,
-      validUntilTime
+      validUntilTime,
     };
 
     const completeRequest: EnvelopingRequest = isDeployment
       ? {
-        request: {
-          ...commonRequestBody,
-          ...{
-            index,
-            recoverer,
+          request: {
+            ...commonRequestBody,
+            ...{
+              index,
+              recoverer,
+            },
           },
-        },
-        relayData,
-      }
+          relayData,
+        }
       : {
-        request: {
-          ...commonRequestBody,
-          ...{
-            gas: BigNumber.from(gasLimit),
+          request: {
+            ...commonRequestBody,
+            ...{
+              gas: BigNumber.from(gasLimit),
+            },
           },
-        },
-        relayData,
-      };
+          relayData,
+        };
 
     return completeRequest;
   };
@@ -260,21 +271,21 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     const preDeploySWAddress = isDeployment
-    ? await this.getSmartWalletAddress(from, index, recoverer, to, data)
-    : undefined;
+      ? await this.getSmartWalletAddress(from, index, recoverer, to, data)
+      : undefined;
 
     const newTokenGas = currentTokenGas.gt(constants.Zero)
-      ? currentTokenGas :
-      await this.estimateTokenTransferGas({
-        relayRequest: {
-          ...envelopingRequest,
-          relayData: {
-            ...envelopingRequest.relayData,
-            feesReceiver
-          }
-        },
-        preDeploySWAddress
-      });
+      ? currentTokenGas
+      : await this.estimateTokenTransferGas({
+          relayRequest: {
+            ...envelopingRequest,
+            relayData: {
+              ...envelopingRequest.relayData,
+              feesReceiver,
+            },
+          },
+          preDeploySWAddress,
+        });
 
     //TODO the stringify part is not necessary to be done here, we need to validate
     // if its need to be done prior sending it to the server
@@ -283,12 +294,12 @@ class RelayClient extends EnvelopingEventEmitter {
         ...envelopingRequest.request,
         tokenGas: newTokenGas.toString(),
         nonce: nonce.toString(),
-        gas: isDeployment ? undefined : gas?.toString()
+        gas: isDeployment ? undefined : gas?.toString(),
       },
       relayData: {
         ...envelopingRequest.relayData,
         feesReceiver,
-        gasPrice: gasPrice.toString()
+        gasPrice: gasPrice.toString(),
       },
     } as EnvelopingRequest;
 
@@ -304,12 +315,13 @@ class RelayClient extends EnvelopingEventEmitter {
 
     this.emit(envelopingEvents['sign-request']);
     log.info(
-      `Created HTTP ${isDeployment ? 'deploy' : 'relay'
+      `Created HTTP ${
+        isDeployment ? 'deploy' : 'relay'
       } request: ${JSON.stringify(httpRequest)}`
     );
 
     return httpRequest;
-  };
+  }
 
   private async _calculateGasPrice(): Promise<BigNumber> {
     const { minGasPrice, gasPriceFactorPercent } = this._envelopingConfig;
@@ -323,7 +335,7 @@ class RelayClient extends EnvelopingEventEmitter {
     return BigNumber.from(
       gasPrice.lt(minGasPrice) ? minGasPrice : gasPrice.toFixed(0)
     );
-  };
+  }
 
   public async isSmartWalletOwner(
     smartWalletAddress: string,
@@ -362,15 +374,14 @@ class RelayClient extends EnvelopingEventEmitter {
     internalEstimationCorrection,
     estimatedGasCorrectionFactor,
     preDeploySWAddress,
-    relayRequest
+    relayRequest,
   }: TokenGasEstimationParams): Promise<BigNumber> {
+    const {
+      request: { tokenContract, tokenAmount },
+      relayData: { callForwarder, gasPrice, feesReceiver },
+    } = relayRequest;
 
-    const { request: { tokenContract, tokenAmount }, relayData: { callForwarder, gasPrice, feesReceiver } } = relayRequest;
-
-    if (
-      !Number(tokenContract) ||
-      tokenAmount.toString() === '0'
-    ) {
+    if (!Number(tokenContract) || tokenAmount.toString() === '0') {
       return constants.Zero;
     }
 
@@ -422,31 +433,61 @@ class RelayClient extends EnvelopingEventEmitter {
     logic?: string,
     logicParamsHash?: string
   ): Promise<string> {
-
     const { config, bytecodeHash } = await setupDiscovery({
-      recoverer, logic, logicParamsHash, factory: this._envelopingConfig.smartWalletFactoryAddress
-    })
+      recoverer,
+      logic,
+      logicParamsHash,
+      factory: this._envelopingConfig.smartWalletFactoryAddress,
+    });
 
     return discoveryGetSWAddress(config, owner, index, bytecodeHash);
+  }
+
+  // FIXME: Missing tests
+  async generateSmartWallet(owner: string,smartWalletIndex: number): Promise<string> {
+    log.debug('generateSmartWallet Params', {
+      smartWalletIndex,
+    });
+
+    log.debug('Generating computed address for smart wallet');
+
+    const smartWalletFactory = ISmartWalletFactory__factory.connect(
+      this._envelopingConfig.smartWalletFactoryAddress,
+      this._provider
+    );
+
+    return smartWalletFactory.getSmartWalletAddress(owner, constants.AddressZero, smartWalletIndex);
   }
 
   public async relayTransaction(
     envelopingRequest: UserDefinedEnvelopingRequest,
     requestConfig: RequestConfig
   ): Promise<Transaction> {
-    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(envelopingRequest, requestConfig);
+    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
+      envelopingRequest,
+      requestConfig
+    );
 
     log.debug('Relay Client - Relaying transaction');
-    log.debug(`Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`);
+    log.debug(
+      `Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`
+    );
 
     let activeRelay = await selectNextRelay(this._httpClient);
 
     while (activeRelay) {
-      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails);
+      const envelopingTx = await this._prepareHttpRequest(
+        activeRelay.hubInfo,
+        envelopingRequestDetails
+      );
 
-      if (await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)) {
-
-        const transaction = await this._attemptRelayTransaction(activeRelay, envelopingTx);
+      if (
+        await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)
+      ) {
+        const transaction = await this._attemptRelayTransaction(
+          activeRelay,
+          envelopingTx
+        );
 
         if (transaction) {
           log.debug('Relay Client - Relayed done');
@@ -465,23 +506,31 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     requestConfig: RequestConfig
   ) {
-    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(envelopingRequest, requestConfig);
+    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
+      envelopingRequest,
+      requestConfig
+    );
 
     log.debug('Relay Client - Estimating transaction');
-    log.debug(`Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`);
+    log.debug(
+      `Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`
+    );
 
     const activeRelay = await selectNextRelay(this._httpClient);
 
-
     while (activeRelay) {
-      const envelopingTx = await this._prepareHttpRequest(activeRelay.hubInfo, envelopingRequestDetails);
+      const envelopingTx = await this._prepareHttpRequest(
+        activeRelay.hubInfo,
+        envelopingRequestDetails
+      );
 
-      return await this._httpClient.estimateMaxPossibleGas(activeRelay.managerData.url.toString(), envelopingTx);
-
+      return await this._httpClient.estimateMaxPossibleGas(
+        activeRelay.managerData.url.toString(),
+        envelopingTx
+      );
     }
 
     throw Error(NOT_RELAYED_TRANSACTION);
-
   }
 
   private async _attemptRelayTransaction(
@@ -489,16 +538,26 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingTx: EnvelopingTxRequest
   ): Promise<Transaction | undefined> {
     try {
-      const { managerData: { url }, hubInfo } = relayInfo;
+      const {
+        managerData: { url },
+        hubInfo,
+      } = relayInfo;
       this.emit('send-to-relayer');
       log.info(
         `attempting relay: ${JSON.stringify(
           relayInfo
         )} transaction: ${JSON.stringify(envelopingTx)}`
       );
-      const signedTx = await this._httpClient.relayTransaction(url.toString(), envelopingTx);
+      const signedTx = await this._httpClient.relayTransaction(
+        url.toString(),
+        envelopingTx
+      );
       const transaction = parseTransaction(signedTx);
-      validateRelayResponse(envelopingTx, transaction, hubInfo.relayWorkerAddress);
+      validateRelayResponse(
+        envelopingTx,
+        transaction,
+        hubInfo.relayWorkerAddress
+      );
       this.emit('relayer-response');
       await this._broadcastTx(signedTx);
 
@@ -511,24 +570,22 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   /**
-     * In case Relay Server does not broadcast the signed transaction to the network,
-     * client also broadcasts the same transaction. If the transaction fails with nonce
-     * error, it indicates Relay may have signed multiple transactions with same nonce,
-     * causing a DoS attack.
-     *
-     * @param {*} signedTx - actual Ethereum transaction, signed by a relay
-     */
+   * In case Relay Server does not broadcast the signed transaction to the network,
+   * client also broadcasts the same transaction. If the transaction fails with nonce
+   * error, it indicates Relay may have signed multiple transactions with same nonce,
+   * causing a DoS attack.
+   *
+   * @param {*} signedTx - actual Ethereum transaction, signed by a relay
+   */
   private async _broadcastTx(signedTx: string): Promise<void> {
     const txHash = keccak256(signedTx);
 
-    log.info(
-      `broadcasting raw transaction signed by relay. TxHash: ${txHash}`
-    );
+    log.info(`broadcasting raw transaction signed by relay. TxHash: ${txHash}`);
 
     const [txResponse, txReceipt] = await Promise.all([
       // considering mempool transactions
       this._provider.getTransaction(txHash),
-      this._provider.getTransactionReceipt(txHash)
+      this._provider.getTransactionReceipt(txHash),
     ]);
 
     if (!txResponse && !txReceipt) {
@@ -541,14 +598,27 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingTx: EnvelopingTxRequest
   ): Promise<boolean> {
     this.emit('validate-request');
-    const { relayData: { gasPrice } } = envelopingTx.relayRequest;
+    const {
+      relayData: { gasPrice },
+    } = envelopingTx.relayRequest;
 
-    const maxPossibleGas = await estimateRelayMaxPossibleGas(envelopingTx, relayWorkerAddress);
+    const maxPossibleGas = await estimateRelayMaxPossibleGas(
+      envelopingTx,
+      relayWorkerAddress
+    );
 
     try {
-      await this._verifyWorkerBalance(relayWorkerAddress, maxPossibleGas, gasPrice as BigNumberish);
+      await this._verifyWorkerBalance(
+        relayWorkerAddress,
+        maxPossibleGas,
+        gasPrice as BigNumberish
+      );
       await this._verifyWithVerifiers(envelopingTx);
-      await this._verifyWithRelayHub(relayWorkerAddress, envelopingTx, maxPossibleGas);
+      await this._verifyWithRelayHub(
+        relayWorkerAddress,
+        envelopingTx,
+        maxPossibleGas
+      );
 
       return true;
     } catch (e) {
@@ -570,18 +640,30 @@ class RelayClient extends EnvelopingEventEmitter {
     }
   }
 
-  private async _verifyWithVerifiers(
-    { relayRequest, metadata }: EnvelopingTxRequest
-  ): Promise<void> {
+  private async _verifyWithVerifiers({
+    relayRequest,
+    metadata,
+  }: EnvelopingTxRequest): Promise<void> {
     const { signature } = metadata;
-    const { relayData: { callVerifier } } = relayRequest;
+    const {
+      relayData: { callVerifier },
+    } = relayRequest;
 
     if (isDeployRequest(relayRequest)) {
-      const verifier = DeployVerifier__factory.connect(callVerifier.toString(), this._provider);
+      const verifier = DeployVerifier__factory.connect(
+        callVerifier.toString(),
+        this._provider
+      );
       await verifier.callStatic.verifyRelayedCall(relayRequest, signature);
     } else {
-      const verifier = RelayVerifier__factory.connect(callVerifier.toString(), this._provider);
-      await verifier.callStatic.verifyRelayedCall(relayRequest as RelayRequest, signature);
+      const verifier = RelayVerifier__factory.connect(
+        callVerifier.toString(),
+        this._provider
+      );
+      await verifier.callStatic.verifyRelayedCall(
+        relayRequest as RelayRequest,
+        signature
+      );
     }
   }
 
@@ -592,16 +674,27 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<void> {
     const { signature, relayHubAddress } = metadata;
     const { gasPrice } = relayRequest.relayData;
-    const relayHub = RelayHub__factory.connect(relayHubAddress.toString(), this._provider);
+    const relayHub = RelayHub__factory.connect(
+      relayHubAddress.toString(),
+      this._provider
+    );
     const commonOverrides: CallOverrides = {
       from: relayWorkerAddress,
       gasPrice,
-      gasLimit: maxPossibleGas
+      gasLimit: maxPossibleGas,
     };
     if (isDeployRequest(relayRequest)) {
-      await relayHub.callStatic.deployCall(relayRequest, signature, commonOverrides);
+      await relayHub.callStatic.deployCall(
+        relayRequest,
+        signature,
+        commonOverrides
+      );
     } else {
-      await relayHub.callStatic.relayCall(relayRequest as RelayRequest, signature, commonOverrides);
+      await relayHub.callStatic.relayCall(
+        relayRequest as RelayRequest,
+        signature,
+        commonOverrides
+      );
     }
   }
 }
