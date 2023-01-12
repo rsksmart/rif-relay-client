@@ -1,7 +1,7 @@
 import { BigNumber, utils } from 'ethers';
+import { getSmartWalletAddress, estimateTokenTransferGas } from '../utils';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
-import RelayClient from '../RelayClient';
 import {
   standardMaxPossibleGasEstimation,
   linearFitMaxPossibleGasEstimation,
@@ -16,11 +16,9 @@ const estimateRelayMaxPossibleGas = async (
     metadata: { signature },
   } = envelopingRequest;
 
-  const relayClient = new RelayClient();
-
   const isSmartWalletDeploy = isDeployRequest(relayRequest);
 
-  const { from, index, recoverer } = relayRequest.request as {
+  const { from, index, recoverer, to, data } = relayRequest.request as {
     from: string;
     index: number;
     recoverer: string;
@@ -29,10 +27,10 @@ const estimateRelayMaxPossibleGas = async (
   };
 
   const preDeploySWAddress = isSmartWalletDeploy
-    ? await relayClient.getSmartWalletAddress(from, index, recoverer)
+    ? await getSmartWalletAddress(from, index, recoverer, to, data)
     : undefined;
 
-  const tokenEstimation = await relayClient.estimateTokenTransferGas({
+  const tokenEstimation = await estimateTokenTransferGas({
     relayRequest: {
       ...relayRequest,
       request: {

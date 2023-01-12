@@ -92,7 +92,7 @@ export default class RelayProvider extends JsonRpcProvider {
         try {
 
             const transaction = await this.relayClient.relayTransaction(
-                envelopingRequest, requestConfig
+                envelopingRequest
             );
 
             const { hash } = transaction;
@@ -190,8 +190,7 @@ export default class RelayProvider extends JsonRpcProvider {
         let accountsList = await this.jsonRpcProvider.listAccounts();
 
         if (accountsList && Array.isArray(accountsList)) {
-            const { chainId } = await this.getNetwork();
-            const accountManager = new AccountManager(this, chainId);
+            const accountManager = new AccountManager();
 
             const ephemeralAccounts =
                 accountManager.getAccounts();

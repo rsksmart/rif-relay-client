@@ -1,12 +1,14 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { providers, Wallet } from 'ethers';
+import type { Network } from '@ethersproject/providers';
 import { _TypedDataEncoder } from 'ethers/lib/utils';
 import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import AccountManager from '../src/AccountManager';
 import * as typedDataUtils from '../src/typedRequestData.utils';
 import * as common from '../src/common/relayRequest.utils';
+import * as clientConfigurator from '../src/common/clientConfigurator';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -44,45 +46,29 @@ const relayRequest = {
 };
 
 describe('AccountManager', function () {
-  describe('constructor', function () {
-    after(function () {
-      sandbox.restore();
-    });
-    
-    afterEach(function () {
-      sandbox.restore();
-    });
-
-    it('should store signer and chain id', function () {
-      const expectedProvider: providers.Provider = sandbox.createStubInstance(
-        providers.JsonRpcProvider
-      );
-      const expectedChainId = Math.random() * 100;
-      const accountManager = new AccountManager(
-        expectedProvider,
-        expectedChainId
-      );
-
-      expect(
-        (accountManager as unknown as { _provider: providers.Provider })
-          ._provider,
-        'Provider'
-      ).to.equal(expectedProvider);
-      expect(accountManager.chainId, 'Chain ID').to.equal(expectedChainId);
-    });
 
     describe('methods', function () {
       let accountManager: AccountManager;
       let stubProvider: providers.JsonRpcProvider;
+      const chainId = 1;
 
       beforeEach(function () {
         stubProvider = {
           ...sandbox.createStubInstance(providers.JsonRpcProvider),
           _isProvider: true,
+          getNetwork: () => Promise.resolve({
+            chainId
+          } as Network)
         };
         sandbox.stub(_TypedDataEncoder, 'getPayload').returns('');
-        accountManager = new AccountManager(stubProvider, 1);
+        sandbox.stub(clientConfigurator, 'getProvider').returns(stubProvider);
+        accountManager = new AccountManager();
+
       });
+
+      afterEach(function(){
+        sandbox.restore();
+      })
 
       describe('addAccount', function () {
         it('should add wallet clone to local accounts', function () {
@@ -154,7 +140,7 @@ describe('AccountManager', function () {
             primaryType: 'RelayRequest',
             domain: typedDataUtils.getDomainSeparator(
               relayRequest.relayData.callForwarder ,
-              accountManager.chainId
+              1
             ),
             value: {
               ...relayRequest.request,
@@ -263,5 +249,5 @@ describe('AccountManager', function () {
         });
       });
     });
-  });
+
 });

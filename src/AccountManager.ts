@@ -1,6 +1,6 @@
 import { providers, Wallet, utils } from 'ethers';
 import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
-import { isDeployRequest } from './common';
+import { getProvider, isDeployRequest } from './common';
 import type {
   EnvelopingRequest
 } from './common';
@@ -13,23 +13,16 @@ import {
 } from './typedRequestData.utils';
 
 export default class AccountManager {
-  private _provider: providers.Provider;
 
   private _accounts: Wallet[] = [];
-
-  chainId: number;
-
-  constructor(provider: providers.Provider, chainId: number) {
-    this._provider = provider;
-    this.chainId = chainId;
-  }
 
   getAccounts(): string[] {
     return this._accounts.map((it) => it.address);
   }
 
   addAccount(account: Wallet): void {
-    const wallet = new Wallet(account.privateKey, this._provider);
+    const provider = getProvider();
+    const wallet = new Wallet(account.privateKey, provider);
     if (wallet.address !== account.address) {
       throw new Error('invalid keypair');
     }
@@ -42,8 +35,12 @@ export default class AccountManager {
       envelopingRequest.request.from.toString()
     );
 
+    const provider = getProvider();
+
+    const { chainId } = await provider.getNetwork();
+
     const data = getEnvelopingRequestDataV4Field({
-      chainId: this.chainId,
+      chainId,
       verifier: callForwarder,
       envelopingRequest,
       requestTypes: isDeployRequest(envelopingRequest) ? deployRequestType : relayRequestType,
@@ -101,7 +98,7 @@ export default class AccountManager {
     signatureVersion = 'v4',
     jsonStringify = true
   ): Promise<T> {
-    const provider = this._provider as providers.JsonRpcProvider;
+    const provider = getProvider() as providers.JsonRpcProvider;
     if (!provider.send) {
       throw new Error(`Not an RPC provider`);
     }

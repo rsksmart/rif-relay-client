@@ -1,10 +1,11 @@
 import type { HttpClient } from './api/common';
-import { BigNumberish, BigNumber, Transaction } from 'ethers';
+import { BigNumberish, BigNumber, Transaction, constants } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import { ICustomSmartWalletFactory__factory, IERC20__factory, ISmartWalletFactory__factory, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
-import { getEnvelopingConfig, getProvider, isDeployTransaction } from './common';
+import { EstimateInternalGasParams, getEnvelopingConfig, getProvider, isDeployRequest, isDeployTransaction, TokenGasEstimationParams } from './common';
 import type { RequestConfig, EnvelopingTxRequest, DeployRequest, RelayRequest, RelayInfo } from './common';
+import { MISSING_SMART_WALLET_ADDRESS, MISSING_CALL_FORWARDER } from './constants/errorMessages';
 
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
@@ -41,6 +42,120 @@ const selectNextRelay = async (
 
   return undefined;
 };
+
+ const estimateInternalCallGas = async ({
+  internalEstimationCorrection,
+  estimatedGasCorrectionFactor,
+  ...estimateGasParams
+}: EstimateInternalGasParams): Promise<BigNumber> => {
+  const provider = getProvider();
+
+  let estimation: BigNumber = await provider.estimateGas(
+    estimateGasParams
+  );
+
+  estimation = applyInternalEstimationCorrection(
+    estimation,
+    internalEstimationCorrection
+  );
+
+  return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
+}
+
+const estimateTokenTransferGas = async ({
+  internalEstimationCorrection,
+  estimatedGasCorrectionFactor,
+  preDeploySWAddress,
+  relayRequest,
+}: TokenGasEstimationParams): Promise<BigNumber> => {
+  const {
+    request: { tokenContract, tokenAmount },
+    relayData: { callForwarder, gasPrice, feesReceiver },
+  } = relayRequest;
+
+  if (!Number(tokenContract) || tokenAmount.toString() === '0') {
+    return constants.Zero;
+  }
+
+  let tokenOrigin: string | undefined;
+
+  if (isDeployRequest(relayRequest)) {
+    tokenOrigin = preDeploySWAddress;
+
+    // If it is a deploy and tokenGas was not defined, then the smartwallet address
+    // is required to estimate the token gas. This value should be calculated prior to
+    // the call to this function
+    if (!tokenOrigin || tokenOrigin === constants.AddressZero) {
+      throw Error(MISSING_SMART_WALLET_ADDRESS);
+    }
+  } else {
+    tokenOrigin = callForwarder.toString();
+
+    if (tokenOrigin === constants.AddressZero) {
+      throw Error(MISSING_CALL_FORWARDER);
+    }
+  }
+
+  const provider = getProvider();
+
+  const erc20 = IERC20__factory.connect(
+    tokenContract.toString(),
+    provider
+  );
+  const gasCost = await erc20.estimateGas.transfer(
+    feesReceiver,
+    tokenAmount,
+    { from: tokenOrigin, gasPrice }
+  );
+
+  const internalCallCost = applyInternalEstimationCorrection(
+    gasCost,
+    internalEstimationCorrection
+  );
+
+  return applyGasCorrectionFactor(
+    internalCallCost,
+    estimatedGasCorrectionFactor
+  );
+}
+
+const getSmartWalletAddress = async (
+  owner: string,
+  smartWalletIndex: number | string,
+  recoverer?: string,
+  logic?: string,
+  logicParamsHash?: string
+): Promise<string> => {
+
+  log.debug('generateSmartWallet Params', {
+    smartWalletIndex,
+    recoverer,
+    logic,
+    logicParamsHash
+  });
+
+  const isCustom = !!logic && !!logicParamsHash;
+
+  log.debug('Generating computed address for smart wallet');
+
+  const recovererAddress = recoverer ?? constants.AddressZero;
+
+  const { smartWalletFactoryAddress } = getEnvelopingConfig();
+
+  const provider = getProvider();
+
+  const smartWalletAddress = isCustom ?
+    await ICustomSmartWalletFactory__factory.connect(
+      smartWalletFactoryAddress,
+      provider
+    ).getSmartWalletAddress(owner, recovererAddress, logic, logicParamsHash, smartWalletIndex) :
+    await ISmartWalletFactory__factory.connect(
+      smartWalletFactoryAddress,
+      provider
+    ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
+
+  return smartWalletAddress;
+}
 
 // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
 // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
@@ -175,6 +290,9 @@ const useEnveloping = (
 
 export {
   selectNextRelay,
+  estimateInternalCallGas,
+  estimateTokenTransferGas,
+  getSmartWalletAddress,
   applyGasCorrectionFactor,
   applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,

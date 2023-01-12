@@ -7,10 +7,10 @@ import type {
 } from '../common/relayRequest.types';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
-import RelayClient from '../RelayClient';
 import {
   applyGasCorrectionFactor,
   ESTIMATED_GAS_CORRECTION_FACTOR,
+  estimateInternalCallGas,
 } from '../utils';
 import { getProvider } from '../common/clientConfigurator';
 
@@ -68,9 +68,7 @@ const linearFitMaxPossibleGasEstimation = async (
     relayData: { gasPrice },
   } = envelopingRequest;
 
-  const relayClient = new RelayClient();
-
-  const internalEstimation = await relayClient.estimateInternalCallGas({
+  const internalEstimation = await estimateInternalCallGas({
     internalEstimationCorrection,
     estimatedGasCorrectionFactor,
     data,

@@ -106,13 +106,6 @@ const setupDiscovery = async (
   const config = {
     ...DEFAULT_DISCOVERY_CONFIG,
     ...configOverride,
-    ...{
-      logic: configOverride.logic ?? DEFAULT_DISCOVERY_CONFIG.logic,
-      recoverer: configOverride.recoverer ?? DEFAULT_DISCOVERY_CONFIG.recoverer,
-      logicParamsHash:
-        configOverride.logicParamsHash ??
-        DEFAULT_DISCOVERY_CONFIG.logicParamsHash,
-    },
   };
 
   const rootNode = mnemonic
