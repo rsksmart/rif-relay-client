@@ -134,6 +134,14 @@ const getSmartWalletAddress = async (
     logicParamsHash
   });
 
+  // FIXME:
+  console.log('generateSmartWallet Params', {
+    smartWalletIndex,
+    recoverer,
+    logic,
+    logicParamsHash
+  });
+
   const isCustom = !!logic && !!logicParamsHash;
 
   log.debug('Generating computed address for smart wallet');
@@ -144,12 +152,17 @@ const getSmartWalletAddress = async (
 
   const provider = getProvider();
 
-  const smartWalletAddress = isCustom ?
-    await ICustomSmartWalletFactory__factory.connect(
-      smartWalletFactoryAddress,
-      provider
-    ).getSmartWalletAddress(owner, recovererAddress, logic, logicParamsHash, smartWalletIndex) :
-    await ISmartWalletFactory__factory.connect(
+  //FIXME:
+  // const smartWalletAddress = isCustom ?
+  //   await ICustomSmartWalletFactory__factory.connect(
+  //     smartWalletFactoryAddress,
+  //     provider
+  //   ).getSmartWalletAddress(owner, recovererAddress, logic, logicParamsHash, smartWalletIndex) :
+  //   await ISmartWalletFactory__factory.connect(
+  //     smartWalletFactoryAddress,
+  //     provider
+  //   ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
+  const smartWalletAddress = await ISmartWalletFactory__factory.connect(
       smartWalletFactoryAddress,
       provider
     ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
