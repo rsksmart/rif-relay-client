@@ -1,7 +1,7 @@
 import type { HttpClient } from './api/common';
 import { BigNumberish, BigNumber, Transaction, constants } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import { ICustomSmartWalletFactory__factory, IERC20__factory, ISmartWalletFactory__factory, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import { IERC20__factory, ISmartWalletFactory__factory, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
 import { EstimateInternalGasParams, getEnvelopingConfig, getProvider, isDeployRequest, isDeployTransaction, TokenGasEstimationParams } from './common';
 import type { RequestConfig, EnvelopingTxRequest, DeployRequest, RelayRequest, RelayInfo } from './common';
@@ -143,6 +143,7 @@ const getSmartWalletAddress = async (
   });
 
   const isCustom = !!logic && !!logicParamsHash;
+  console.log('isCustom', isCustom);
 
   log.debug('Generating computed address for smart wallet');
 
