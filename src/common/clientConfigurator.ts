@@ -1,4 +1,5 @@
 import { constants, providers } from 'ethers';
+import log, { LogLevelNumbers } from 'loglevel';
 import type {
   EnvelopingConfig,
   OptionalEnvelopingConfig,
@@ -38,6 +39,7 @@ const setEnvelopingConfig = (
   configOverride: RequiredEnvelopingConfig & OptionalEnvelopingConfig
 ) => {
   config = { ...DEFAULT_ENVELOPING_CONFIG, ...configOverride };
+  log.setLevel(config.logLevel as LogLevelNumbers);
 };
 
 const getProvider = () => {

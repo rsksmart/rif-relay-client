@@ -1,7 +1,7 @@
 import type { HttpClient } from './api/common';
 import { BigNumberish, BigNumber, Transaction, constants } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import { IERC20__factory, ISmartWalletFactory__factory, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import { ICustomSmartWalletFactory__factory, IERC20__factory, ISmartWalletFactory__factory, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
 import { EstimateInternalGasParams, getEnvelopingConfig, getProvider, isDeployRequest, isDeployTransaction, TokenGasEstimationParams } from './common';
 import type { RequestConfig, EnvelopingTxRequest, DeployRequest, RelayRequest, RelayInfo } from './common';
@@ -43,7 +43,7 @@ const selectNextRelay = async (
   return undefined;
 };
 
- const estimateInternalCallGas = async ({
+const estimateInternalCallGas = async ({
   internalEstimationCorrection,
   estimatedGasCorrectionFactor,
   ...estimateGasParams
@@ -134,39 +134,28 @@ const getSmartWalletAddress = async (
     logicParamsHash
   });
 
-  // FIXME:
-  console.log('generateSmartWallet Params', {
-    smartWalletIndex,
-    recoverer,
-    logic,
-    logicParamsHash
-  });
-
-  const isCustom = !!logic && !!logicParamsHash;
-  console.log('isCustom', isCustom);
+  const isCustom = !!logic && logic !== constants.AddressZero;
 
   log.debug('Generating computed address for smart wallet');
 
   const recovererAddress = recoverer ?? constants.AddressZero;
 
+  const initParamsHash = logicParamsHash ?? '0x00';
+
   const { smartWalletFactoryAddress } = getEnvelopingConfig();
 
   const provider = getProvider();
 
-  //FIXME:
-  // const smartWalletAddress = isCustom ?
-  //   await ICustomSmartWalletFactory__factory.connect(
-  //     smartWalletFactoryAddress,
-  //     provider
-  //   ).getSmartWalletAddress(owner, recovererAddress, logic, logicParamsHash, smartWalletIndex) :
-  //   await ISmartWalletFactory__factory.connect(
-  //     smartWalletFactoryAddress,
-  //     provider
-  //   ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
-  const smartWalletAddress = await ISmartWalletFactory__factory.connect(
+  const smartWalletAddress = isCustom ?
+    await ICustomSmartWalletFactory__factory.connect(
+      smartWalletFactoryAddress,
+      provider
+    ).getSmartWalletAddress(owner, recovererAddress, logic, initParamsHash, smartWalletIndex) :
+    await ISmartWalletFactory__factory.connect(
       smartWalletFactoryAddress,
       provider
     ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
+
 
   return smartWalletAddress;
 }
@@ -301,6 +290,7 @@ const useEnveloping = (
 
   return false;
 };
+
 
 export {
   selectNextRelay,

@@ -126,7 +126,7 @@ export default class RelayProvider extends JsonRpcProvider {
 
         const { relayData, request } = envelopingRequest;
 
-        let callForwarderValue = await relayData.callForwarder;
+        let callForwarderValue = await relayData?.callForwarder;
         let relayHubValue = await request.relayHub;
         let onlyPreferredRelaysValue = requestConfig.onlyPreferredRelays;
         const gasToSend = requestConfig.forceGasLimit ? BigNumber.from(requestConfig.forceGasLimit) : undefined;
@@ -153,7 +153,7 @@ export default class RelayProvider extends JsonRpcProvider {
          * value that comes from the original provider
          */
 
-        const userDefinedEnvelopingReq: UserDefinedEnvelopingRequest = {
+        const userDefinedEnvelopingReq = {
             relayData: {
                 ...envelopingRequest.relayData,
                 callForwarder: callForwarderValue,
@@ -161,9 +161,9 @@ export default class RelayProvider extends JsonRpcProvider {
             request: {
                 ...envelopingRequest.request,
                 relayHub: relayHubValue,
-                gas: gasToSend,
+                gas: gasToSend
             }
-        }
+        } as UserDefinedEnvelopingRequest;
 
         const fullRequestConfig: RequestConfig = {
             ...requestConfig,

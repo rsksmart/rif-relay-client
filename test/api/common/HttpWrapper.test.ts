@@ -43,7 +43,7 @@ describe('HttpWrapper', function () {
     });
 
     it('should set logging level', function () {
-      const setLogLevelsSpy = sandbox.spy(log, 'setLevel');
+      const setLogLevelsSpy = sandbox.spy(log.getLogger('HttpWrapper'), 'setLevel');
       const expectedLogLevel = LogLevel.INFO;
       new HttpWrapper({}, expectedLogLevel);
 
