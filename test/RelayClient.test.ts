@@ -87,7 +87,7 @@ describe('RelayClient', function () {
       const relayClient = new RelayClient();
 
       (relayClient as unknown as { _httpClient: HttpClient })._httpClient =
-      expectedHttpClient;
+        expectedHttpClient;
 
       expect(relayClient).to.be.instanceOf(RelayClient);
       expect(
@@ -137,7 +137,7 @@ describe('RelayClient', function () {
       } as unknown as providers.Provider;
 
       sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
-      
+
 
       forwarderStub = {
         nonce: sandbox.stub(),
@@ -303,7 +303,7 @@ describe('RelayClient', function () {
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
         await relayClient._prepareHttpRequest(
           FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST          
+          FAKE_RELAY_REQUEST
         );
 
         expect(emitStub).to.have.been.called;
@@ -848,7 +848,7 @@ describe('RelayClient', function () {
       });
     });
 
-  
+
     describe('relayTransaction', function () {
 
       const relayInfo: RelayInfo = {
@@ -868,7 +868,7 @@ describe('RelayClient', function () {
       const transaction = {} as Transaction;
       let selectNextRelayStub: SinonStub;
       let attemptRelayTransactionStub: SinonStub;
-      
+
       beforeEach(function () {
         attemptRelayTransactionStub = sandbox.stub().resolves(transaction);
         relayClient._getEnvelopingRequestDetails = sandbox.stub().returns(FAKE_RELAY_REQUEST);
@@ -898,7 +898,7 @@ describe('RelayClient', function () {
         expect(expectedTransaction).to.be.equals(transaction);
       });
 
-      
+
       it('should fail to relay transaction if details are missing', async function () {
         relayClient._getEnvelopingRequestDetails = sandbox.stub().throws(new Error('missing details'));
         const expectedTransaction = relayClient.relayTransaction(envelopingRequest);
@@ -913,7 +913,7 @@ describe('RelayClient', function () {
 
         await expect(expectedTransaction).to.be.rejectedWith(error.message)
       });
-      
+
 
       it.skip('should fail to relay transaction if there is no available relay server', async function () {
         selectNextRelayStub.resolves(undefined);
@@ -974,7 +974,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if transaction cannot be parsed', async function () {
-        const error = ethersLogger.makeError('invalid arrayify value' , errors.INVALID_ARGUMENT);
+        const error = ethersLogger.makeError('invalid arrayify value', errors.INVALID_ARGUMENT);
         parseTransactionStub.throws(error);
         const attempRelay = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
 
@@ -1070,7 +1070,7 @@ describe('RelayClient', function () {
       });
 
       it('should fail if enveloping transaction fails on _verifyWithVerifiers', async function () {
-        const error = ethersLogger.makeError('SW different to template' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('SW different to template', errors.CALL_EXCEPTION);
         relayClient._verifyWithVerifiers = sandbox.stub().throws(error);
         const verification = relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
 
@@ -1078,7 +1078,7 @@ describe('RelayClient', function () {
       });
 
       it('should fail if enveloping transaction fails on _verifyWithRelayHub', async function () {
-        const error = ethersLogger.makeError('RelayWorker cannot be a contract' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('RelayWorker cannot be a contract', errors.CALL_EXCEPTION);
         relayClient._verifyWithRelayHub = sandbox.stub().throws(error);
         const verification = relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
 
@@ -1155,7 +1155,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping relay request will not be verified due sw different to template', async function () {
-        const error = ethersLogger.makeError('SW different to template' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('SW different to template', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const relayVerifierStub = {
           callStatic: {
@@ -1170,7 +1170,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping deploy request will not be verified due to invalid factory', async function () {
-        const error = ethersLogger.makeError('Invalid factory' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Invalid factory', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1185,7 +1185,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping deploy request will not be verified due to address already created', async function () {
-        const error = ethersLogger.makeError('Address already created!' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Address already created!', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1200,7 +1200,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will not be verified due to token contract not allowed', async function () {
-        const error = ethersLogger.makeError('Token contract not allowed' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Token contract not allowed', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1215,7 +1215,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will not be verified due to balance too low', async function () {
-        const error = ethersLogger.makeError('balance too low' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('balance too low', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1228,7 +1228,6 @@ describe('RelayClient', function () {
         expect(callStub).to.be.calledOnce;
         await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
       });
-
     });
 
     describe('_verifyWithRelayHub', function () {
@@ -1243,7 +1242,7 @@ describe('RelayClient', function () {
       });
 
       it('should allow if enveloping relay request will succeed', async function () {
-        const callStub = sandbox.stub().returns(undefined);
+        const callStub = sandbox.stub().resolves(true);
         relayHubStub = {
           callStatic: {
             relayCall: callStub
@@ -1271,7 +1270,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will fail due to not enabled worker', async function () {
-        const error = ethersLogger.makeError('Not an enabled worker' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Not an enabled worker', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         relayHubStub = {
           callStatic: {
@@ -1284,9 +1283,9 @@ describe('RelayClient', function () {
         expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
       });
-      
+
       it('should throw if enveloping request will fail due to invalid gas price', async function () {
-        const error = ethersLogger.makeError('Invalid gas price' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Invalid gas price', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         relayHubStub = {
           callStatic: {
@@ -1301,7 +1300,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will fail due to the relayWorker cannot be a contract', async function () {
-        const error = ethersLogger.makeError('RelayWorker cannot be a contract' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('RelayWorker cannot be a contract', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         relayHubStub = {
           callStatic: {
@@ -1313,6 +1312,20 @@ describe('RelayClient', function () {
 
         expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping request will fail due to destination contract reverted', async function () {
+        const callStub = sandbox.stub().resolves(false);
+        relayHubStub = {
+          callStatic: {
+            relayCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_RELAY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.rejectedWith('Destination contract reverted');
       });
 
     });

@@ -575,18 +575,23 @@ class RelayClient extends EnvelopingEventEmitter {
       gasPrice,
       gasLimit: maxPossibleGas,
     };
+
     if (isDeployRequest(relayRequest)) {
-      await relayHub.callStatic.deployCall(
+     await relayHub.callStatic.deployCall(
         relayRequest,
         signature,
         commonOverrides
       );
     } else {
-      await relayHub.callStatic.relayCall(
+      const destinationCallSuccess = await relayHub.callStatic.relayCall(
         relayRequest as RelayRequest,
         signature,
         commonOverrides
       );
+
+      if(!destinationCallSuccess){
+        throw new Error('Destination contract reverted');
+      }
     }
   }
 }
