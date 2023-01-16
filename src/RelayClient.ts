@@ -58,6 +58,8 @@ import {
   validateRelayResponse,
 } from './utils';
 
+const isNullOrUndefined = (value: unknown) => value === null || value === undefined;
+
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _envelopingConfig: EnvelopingConfig;
 
@@ -113,7 +115,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const { index } = request as UserDefinedDeployRequestBody;
 
-    if (isDeployment && !index) {
+    if (isDeployment && isNullOrUndefined(index)) {
       throw new Error('Field `index` is not defined in deploy body.');
     }
 
