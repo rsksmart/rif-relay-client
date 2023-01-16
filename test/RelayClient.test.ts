@@ -33,16 +33,17 @@ import type {
   UserDefinedRelayData,
   UserDefinedRelayRequestBody,
 } from '../src/common/relayRequest.types';
+import type { HubEnvelopingTx } from 'src/common/relayClient.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
+  MISSING_REQUEST_FIELD,
   NOT_RELAYED_TRANSACTION,
 } from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
-import RelayClient, {
-} from '../src/RelayClient';
+import RelayClient from '../src/RelayClient';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
 import {
@@ -58,6 +59,7 @@ import * as etherUtils from '@ethersproject/transactions';
 import * as clientConfiguration from '../src/common/clientConfigurator';
 import * as relayUtils from '../src/utils';
 import * as gasEstimator from '../src/gasEstimator/gasEstimator';
+import type { RelayEstimation } from 'src';
 
 
 use(sinonChai);
@@ -108,7 +110,7 @@ describe('RelayClient', function () {
       _getEnvelopingRequestDetails: (
         request: UserDefinedEnvelopingRequest
       ) => Promise<EnvelopingRequest>;
-      _calculateGasPrice: () => Promise<BigNumber>;
+      _buildHubEnvelopingTx: (request: UserDefinedEnvelopingRequest) => Promise<HubEnvelopingTx>;
       _attemptRelayTransaction: (relayInfo: RelayInfo, envelopingTx: EnvelopingTxRequest) => Promise<Transaction>;
       _broadcastTx: (signedTx: string) => Promise<void>;
       _verifyEnvelopingRequest: (hubInfo: HubInfo, envelopingTx: EnvelopingTxRequest) => Promise<void>;
@@ -137,7 +139,6 @@ describe('RelayClient', function () {
       } as unknown as providers.Provider;
 
       sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
-
 
       forwarderStub = {
         nonce: sandbox.stub(),
@@ -182,7 +183,7 @@ describe('RelayClient', function () {
         expect(actualRelayHubAddress).to.equal(expectedRelayHubAddress);
       });
 
-      it.skip('should return tx request with fees receiver in request data from given hub info if no fees receiver given in request', async function () {
+      it('should return tx request with fees receiver in request data from given hub info if no fees receiver given in request', async function () {
         const expectedRelayRequestData: UserDefinedRelayData = {
           ...FAKE_ENVELOPING_REQUEST_DATA,
           feesReceiver: FAKE_HUB_INFO.feesReceiver,
@@ -228,7 +229,7 @@ describe('RelayClient', function () {
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
       });
 
-      it.skip('should return tx request with fees receiver in request data from given hub info if fees receiver given in request is zero', async function () {
+      it('should return tx request with fees receiver in request data from given hub info if fees receiver given in request is zero', async function () {
         const expectedRelayRequestData: UserDefinedRelayData = {
           ...FAKE_ENVELOPING_REQUEST_DATA,
           feesReceiver: FAKE_HUB_INFO.feesReceiver,
@@ -246,7 +247,7 @@ describe('RelayClient', function () {
         expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
       });
 
-      it.skip("should return transaction request with 'tokenGas' in request data if it's greater than zero", async function () {
+      it("should return transaction request with 'tokenGas' in request data if it's greater than zero", async function () {
         const expectedRelayRequestData: UserDefinedRelayRequestBody = {
           ...FAKE_RELAY_REQUEST_BODY
         };
@@ -258,7 +259,7 @@ describe('RelayClient', function () {
         expect(actualRelayRequest).to.deep.equal(expectedRelayRequestData);
       });
 
-      it.skip("should estimate 'tokenGas' if it's zero in the request", async function () {
+      it("should estimate 'tokenGas' if it's zero in the request", async function () {
         const expectedRelayRequestData: UserDefinedRelayRequestBody = {
           ...FAKE_RELAY_REQUEST_BODY,
           tokenGas: fakeTokenGasEstimation,
@@ -276,7 +277,7 @@ describe('RelayClient', function () {
         expect(actualRelayRequest).to.deep.equal(expectedRelayRequestData);
       });
 
-      it.skip('should sign the request', async function () {
+      it('should sign the request', async function () {
         const expectedRelayRequestData: RelayRequest = {
           ...FAKE_RELAY_REQUEST,
           relayData: {
@@ -285,8 +286,6 @@ describe('RelayClient', function () {
           }
         };
 
-        const fakeTokenGas = constants.Two;
-        sandbox.stub(relayUtils, 'estimateTokenTransferGas').returns(Promise.resolve(fakeTokenGas));
         forwarderStub.nonce.resolves(constants.Two);
         const signStub = accountManagerStub.sign;
         await relayClient._prepareHttpRequest(
@@ -437,7 +436,7 @@ describe('RelayClient', function () {
         const expectedGasPrice = BigNumber.from(
           (Math.random() * 100).toFixed(0)
         );
-        relayClient._calculateGasPrice = sandbox
+        relayClient.calculateGasPrice = sandbox
           .stub()
           .resolves(expectedGasPrice);
 
@@ -457,7 +456,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw error if gasPrice not in request data or calculated', async function () {
-        relayClient._calculateGasPrice = sandbox.stub().resolves(undefined);
+        relayClient.calculateGasPrice = sandbox.stub().resolves(undefined);
 
         const call = relayClient._getEnvelopingRequestDetails(
           {
@@ -488,7 +487,7 @@ describe('RelayClient', function () {
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `data` is not defined in request body.'
+          MISSING_REQUEST_FIELD('data')
         );
       });
 
@@ -509,6 +508,24 @@ describe('RelayClient', function () {
         );
       });
 
+      it('should return request if `index` field its defined with 0', async function () {
+        const expectedValue = 0;
+
+        const {
+          request: { index: actualValue },
+        } = await relayClient._getEnvelopingRequestDetails(
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              index: 0,
+            },
+          } as unknown as UserDefinedEnvelopingRequest
+        );
+
+        expect(actualValue).to.equal(expectedValue);
+      });
+
       it('should throw if `from` field is not defined in request body', async function () {
         const call = relayClient._getEnvelopingRequestDetails(
           {
@@ -522,7 +539,7 @@ describe('RelayClient', function () {
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `from` is not defined in request body.'
+          MISSING_REQUEST_FIELD('from')
         );
       });
 
@@ -539,7 +556,7 @@ describe('RelayClient', function () {
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `to` is not defined in request body.'
+          MISSING_REQUEST_FIELD('to')
         );
       });
 
@@ -561,7 +578,7 @@ describe('RelayClient', function () {
         expect(actualValue).to.equal(expectedValue);
       });
 
-      it('should throw if `tokenAmount` is not defined in request body', async function () {
+      it('should return request with `tokenAmount` 0 is not defined in request body', async function () {
         const expectedTokenAmount = constants.Zero;
 
         const {
@@ -592,7 +609,7 @@ describe('RelayClient', function () {
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `tokenContract` is not defined in request body.'
+          MISSING_REQUEST_FIELD('tokenContract')
         );
       });
 
@@ -684,14 +701,30 @@ describe('RelayClient', function () {
         );
       });
 
-      it('should return request with given tokenGas equals to zero', async function () {
+      it('should return request with given `tokenGas` equals to zero if it is not defined', async function () {
+        const {
+          request: { tokenGas: actualTokenGas },
+        } = await relayClient._getEnvelopingRequestDetails(
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              tokenGas: undefined,
+            },
+          }
+        );
+
+        expect(actualTokenGas).to.equal(constants.Zero);
+      });
+
+      it('should return request with given `tokenGas`', async function () {
         const {
           request: { tokenGas: actualTokenGas },
         } = await relayClient._getEnvelopingRequestDetails(
           FAKE_DEPLOY_REQUEST
         );
 
-        expect(actualTokenGas).to.equal(constants.Zero);
+        expect(actualTokenGas).to.equal(FAKE_DEPLOY_REQUEST.request.tokenGas);
       });
 
       it('should return given gas limit in the request body for relay request', async function () {
@@ -781,7 +814,7 @@ describe('RelayClient', function () {
       });
     });
 
-    describe('_calculateGasPrice', function () {
+    describe('calculateGasPrice', function () {
 
       it('should return minGasPrice when minGasPrice is higher than gas price from provider', async function () {
         const expectedGasPrice = 30000;
@@ -792,7 +825,7 @@ describe('RelayClient', function () {
             console.log('getGasPrice called');
           })
           .resolves(BigNumber.from(2000));
-        const actualGasPrice = await relayClient._calculateGasPrice();
+        const actualGasPrice = await relayClient.calculateGasPrice();
 
         expect(actualGasPrice.toNumber()).to.be.equal(expectedGasPrice);
       });
@@ -805,7 +838,7 @@ describe('RelayClient', function () {
         const expectedGasEstimate = estimateGas.mul(
           FAKE_ENVELOPING_CONFIG.gasPriceFactorPercent + 1
         );
-        const actualGasPrice = await relayClient._calculateGasPrice();
+        const actualGasPrice = await relayClient.calculateGasPrice();
 
         expect(actualGasPrice.toString()).to.be.equal(
           expectedGasEstimate.toString()
@@ -848,7 +881,6 @@ describe('RelayClient', function () {
       });
     });
 
-
     describe('relayTransaction', function () {
 
       const relayInfo: RelayInfo = {
@@ -865,70 +897,173 @@ describe('RelayClient', function () {
         },
       }
 
-      const transaction = {} as Transaction;
-      let selectNextRelayStub: SinonStub;
+      const expectedTransaction = {} as Transaction;
       let attemptRelayTransactionStub: SinonStub;
 
       beforeEach(function () {
-        attemptRelayTransactionStub = sandbox.stub().resolves(transaction);
+        attemptRelayTransactionStub = sandbox.stub().resolves(expectedTransaction);
         relayClient._getEnvelopingRequestDetails = sandbox.stub().returns(FAKE_RELAY_REQUEST);
-        relayClient._prepareHttpRequest = sandbox.stub();
+        relayClient._prepareHttpRequest = sandbox.stub().resolves(FAKE_RELAY_TRANSACTION_REQUEST);
         relayClient._verifyEnvelopingRequest = sandbox.stub().resolves(true);
         relayClient._attemptRelayTransaction = attemptRelayTransactionStub;
-        selectNextRelayStub = sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+        relayClient._buildHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      });
+
+      it('should relay the transaction in the first attempt', async function () {
+        const transaction = await relayClient.relayTransaction(envelopingRequest);
+
+        expect(transaction).to.be.equals(transaction);
+      });
+
+      it('should throw if the transaction cannot be build with any hub', async function () {
+        const error = new Error('No more hubs available to select');
+        relayClient._buildHubEnvelopingTx = sandbox.stub().throws(error);
+        const transaction = relayClient.relayTransaction(envelopingRequest);
+
+        await expect(transaction).to.be.rejectedWith(error);
+      });
+
+      it('should throw if the attempt to relay fail', async function () {
+        attemptRelayTransactionStub.onFirstCall().resolves(undefined);
+        const transaction = relayClient.relayTransaction(envelopingRequest);
+
+        await expect(transaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION);
+      });
+
+      it.skip('should relay the transaction after the first attempt', async function () {
+        attemptRelayTransactionStub.onFirstCall().resolves(undefined);
+        attemptRelayTransactionStub.onSecondCall().resolves(expectedTransaction);
+        const transaction = await relayClient.relayTransaction(envelopingRequest);
+
+        expect(transaction).to.be.equals(transaction);
+      });
+
+      it('should fail to relay transaction if cannot be verified locally on all servers', async function () {
+        const error = new Error('client verification failed')
+        relayClient._verifyEnvelopingRequest = sandbox.stub().throws(error);
+
+        const transaction = relayClient.relayTransaction(envelopingRequest);
+
+        await expect(transaction).to.be.rejectedWith(error)
+      });
+
+    });
+
+    describe('estimateRelayTransaction', function () {
+      const relayInfo: RelayInfo = {
+        hubInfo: FAKE_HUB_INFO,
+        managerData: {
+          url: 'fake_url'
+        } as RelayManagerData
+      };
+
+      let httpClient: SinonStubbedInstance<HttpClient>;
+
+      const expectedEstimation = {} as RelayEstimation;
+
+      beforeEach(function () {
+        httpClient = sandbox.createStubInstance(HttpClient);
+        relayClient._httpClient = httpClient;
+        httpClient.estimateMaxPossibleGas.resolves(expectedEstimation);
+        relayClient._buildHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
       });
 
       afterEach(function () {
         sandbox.restore();
       })
 
-      it('should relay the transaction in the first attempt', async function () {
-        const expectedTransaction = await relayClient.relayTransaction(envelopingRequest);
+      it('should estimate a relay transaction', async function () {
+        const envelopingRequest = {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA
+          },
+        }
+        const estimation = await relayClient.estimateRelayTransaction(envelopingRequest);
 
-        expect(selectNextRelayStub).to.be.calledOnce;
-        expect(expectedTransaction).to.be.equals(transaction);
+        expect(estimation).to.be.eql(expectedEstimation);
       });
 
-      it.skip('should relay the transaction after the first attempt', async function () {
-        attemptRelayTransactionStub.onFirstCall().resolves(undefined);
-        attemptRelayTransactionStub.onSecondCall().resolves(transaction);
-        const expectedTransaction = await relayClient.relayTransaction(envelopingRequest);
+      it('should estimate a deploy transaction', async function () {
+        const envelopingRequest = {
+          ...FAKE_DEPLOY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA
+          },
+        }
+        const estimation = await relayClient.estimateRelayTransaction(envelopingRequest);
 
-        expect(selectNextRelayStub).to.be.calledTwice;
-        expect(expectedTransaction).to.be.equals(transaction);
+        expect(estimation).to.be.eql(expectedEstimation);
       });
 
+      it('should throw if the transaction cannot be build with any hub', async function () {
+        const envelopingRequest = {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA
+          },
+        }
+        const error = new Error('No more hubs available to select');
+        relayClient._buildHubEnvelopingTx = sandbox.stub().throws(error);
+        const transaction = relayClient.estimateRelayTransaction(envelopingRequest);
 
-      it('should fail to relay transaction if details are missing', async function () {
-        relayClient._getEnvelopingRequestDetails = sandbox.stub().throws(new Error('missing details'));
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest);
-
-        await expect(expectedTransaction).to.be.rejectedWith('missing details')
+        await expect(transaction).to.be.rejectedWith(error);
       });
 
-      it('should fail to relay transaction if http request cannot be prepared', async function () {
+    });
+
+    describe('_buildHubEnvelopingTx', function () {
+
+      const relayInfo: RelayInfo = {
+        hubInfo: FAKE_HUB_INFO,
+        managerData: {
+          url: 'fake_url'
+        } as RelayManagerData
+      };
+
+      const envelopingRequest = {
+        ...FAKE_RELAY_REQUEST,
+        relayData: {
+          ...FAKE_ENVELOPING_REQUEST_DATA
+        },
+      }
+
+      const expectedEnveloping: HubEnvelopingTx = {
+        activeRelay: relayInfo,
+        envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST
+      };
+
+      afterEach(function () {
+        sandbox.restore();
+      })
+
+      it('should build a transaction using a hub', async function () {
+        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+        relayClient._prepareHttpRequest = sandbox.stub().returns(FAKE_RELAY_TRANSACTION_REQUEST);
+        const enveloping = await relayClient._buildHubEnvelopingTx(envelopingRequest);
+
+        expect(enveloping).to.be.deep.equal(expectedEnveloping);
+      });
+
+      it('should throw if there is no there is no hub available', async function () {
+        const error = new Error('No more hubs available to select');
+        sandbox.stub(relayUtils, 'selectNextRelay').throws(error);
+        const enveloping = relayClient._buildHubEnvelopingTx(envelopingRequest);
+
+        await expect(enveloping).to.be.rejectedWith(error);
+      });
+
+      it('should throw if the http request cannot be prepared', async function () {
         const error = new Error('FeesReceiver has to be a valid non-zero address');
+        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
         relayClient._prepareHttpRequest = sandbox.stub().throws(error);
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest);
+        const enveloping = relayClient._buildHubEnvelopingTx(envelopingRequest);
 
-        await expect(expectedTransaction).to.be.rejectedWith(error.message)
-      });
-
-
-      it.skip('should fail to relay transaction if there is no available relay server', async function () {
-        selectNextRelayStub.resolves(undefined);
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest);
-
-        await expect(expectedTransaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION)
-      });
-
-      it.skip('should fail to relay transaction if cannot be verified locally on all servers', async function () {
-        relayClient._verifyEnvelopingRequest = sandbox.stub().resolves(false);
-        selectNextRelayStub.onFirstCall().resolves(relayInfo);
-        selectNextRelayStub.onSecondCall().resolves(undefined);
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest);
-
-        await expect(expectedTransaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION)
+        await expect(enveloping).to.be.rejectedWith(error);
       });
 
     });

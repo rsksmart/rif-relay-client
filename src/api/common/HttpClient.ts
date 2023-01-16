@@ -12,7 +12,7 @@ const PATHS = {
 } as const;
 const VERIFIER_SUFFIX = '?verifier=';
 
-type RelayPath = typeof PATHS[keyof typeof PATHS];
+type RelayPath = (typeof PATHS)[keyof typeof PATHS];
 
 type SignedTransactionDetails = {
   transactionHash: string;
@@ -39,14 +39,49 @@ class HttpClient {
     return hubInfo;
   }
 
+  private _stringifyRequest(
+    envelopingTx: EnvelopingTxRequest
+  ): EnvelopingTxRequest {
+    const {
+      relayRequest: {
+        request: { tokenGas, nonce, value, tokenAmount, gas },
+        relayData: { gasPrice },
+      },
+      metadata: { relayMaxNonce },
+    } = envelopingTx;
+
+    return {
+      ...envelopingTx,
+      relayRequest: {
+        ...envelopingTx.relayRequest,
+        request: {
+          ...envelopingTx.relayRequest.request,
+          tokenGas: tokenGas.toString(),
+          nonce: nonce.toString(),
+          value: value.toString(),
+          tokenAmount: tokenAmount.toString(),
+          gas: gas?.toString(),
+        },
+        relayData: {
+          ...envelopingTx.relayRequest.relayData,
+          gasPrice: gasPrice.toString(),
+        },
+      },
+      metadata: {
+        ...envelopingTx.metadata,
+        relayMaxNonce: relayMaxNonce.toString(),
+      },
+    } as EnvelopingTxRequest;
+  }
+
   async relayTransaction(
     relayUrl: string,
-    request: EnvelopingTxRequest
+    envelopingTx: EnvelopingTxRequest
   ): Promise<string> {
     const { signedTx } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
         relayUrl + PATHS.POST_RELAY_REQUEST,
-        request
+        this._stringifyRequest(envelopingTx)
       );
     log.info('relayTransaction response:', signedTx);
 
@@ -61,11 +96,11 @@ class HttpClient {
 
   async estimateMaxPossibleGas(
     relayUrl: string,
-    request: EnvelopingTxRequest
+    envelopingTx: EnvelopingTxRequest
   ): Promise<RelayEstimation> {
     const response = await this._httpWrapper.sendPromise<RelayEstimation>(
       relayUrl + PATHS.POST_ESTIMATE,
-      request
+      this._stringifyRequest(envelopingTx)
     );
     log.info('esimation relayTransaction response:', response);
 

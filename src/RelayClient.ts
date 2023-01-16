@@ -23,7 +23,7 @@ import {
 import log from 'loglevel';
 import AccountManager from './AccountManager';
 import { HttpClient } from './api/common';
-import { EthersError, getEnvelopingConfig, getProvider, parseEthersError } from './common';
+import { EthersError, getEnvelopingConfig, getProvider, HubEnvelopingTx, parseEthersError, RelayEstimation } from './common';
 import type { EnvelopingConfig } from './common';
 import type {
   EnvelopingMetadata,
@@ -44,6 +44,7 @@ import { isDeployRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
+  MISSING_REQUEST_FIELD,
   NOT_RELAYED_TRANSACTION,
 } from './constants/errorMessages';
 import EnvelopingEventEmitter, {
@@ -86,11 +87,11 @@ class RelayClient extends EnvelopingEventEmitter {
     const { from, tokenContract } = request;
 
     if (!from) {
-      throw new Error('Field `from` is not defined in request body.');
+      throw new Error(MISSING_REQUEST_FIELD('from'));
     }
 
     if (!tokenContract) {
-      throw new Error('Field `tokenContract` is not defined in request body.');
+      throw new Error(MISSING_REQUEST_FIELD('tokenContract'));
     }
 
     if (!isDeployment) {
@@ -99,11 +100,11 @@ class RelayClient extends EnvelopingEventEmitter {
       }
 
       if (!request.data) {
-        throw new Error('Field `data` is not defined in request body.');
+        throw new Error(MISSING_REQUEST_FIELD('data'));
       }
 
       if (!request.to) {
-        throw new Error('Field `to` is not defined in request body.');
+        throw new Error(MISSING_REQUEST_FIELD('to'));
       }
     }
 
@@ -139,7 +140,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const gasPrice: PromiseOrValue<BigNumberish> =
       (envelopingRequest.relayData?.gasPrice ||
-        (await this._calculateGasPrice()));
+        (await this.calculateGasPrice()));
 
     if (!gasPrice || BigNumber.from(gasPrice).isZero()) {
       throw new Error('Could not get gas price for request');
@@ -198,6 +199,8 @@ class RelayClient extends EnvelopingEventEmitter {
     const validUntilTime = request.validUntilTime ??
       secondsNow + this._envelopingConfig.requestValidSeconds;
 
+    const tokenGas = request.tokenGas ?? constants.Zero;
+
     const commonRequestBody: CommonEnvelopingRequestBody = {
       data,
       from,
@@ -206,7 +209,7 @@ class RelayClient extends EnvelopingEventEmitter {
       to,
       tokenAmount,
       tokenContract,
-      tokenGas: constants.Zero,
+      tokenGas,
       value,
       validUntilTime,
     };
@@ -240,8 +243,7 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: EnvelopingRequest
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub, tokenGas, nonce, gas, value },
-      relayData: { gasPrice },
+      request: { relayHub, tokenGas },
     } = envelopingRequest;
 
     const provider = getProvider();
@@ -258,8 +260,6 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('FeesReceiver has to be a valid non-zero address');
     }
 
-    const currentTokenGas = BigNumber.from(tokenGas);
-
     const isDeployment: boolean = isDeployRequest(envelopingRequest);
 
     const { from, index, recoverer, to, data } = envelopingRequest.request as {
@@ -274,6 +274,8 @@ class RelayClient extends EnvelopingEventEmitter {
       ? await getSmartWalletAddress(from, index, recoverer, to, data)
       : undefined;
 
+    const currentTokenGas = BigNumber.from(tokenGas);
+
     const newTokenGas = currentTokenGas.gt(constants.Zero)
       ? currentTokenGas
       : await estimateTokenTransferGas({
@@ -287,22 +289,16 @@ class RelayClient extends EnvelopingEventEmitter {
         preDeploySWAddress,
       });
 
-    //TODO the stringify part is not necessary to be done here, we need to validate
-    // if its need to be done prior sending it to the server
-    const updatedRelayRequest = {
+    const updatedRelayRequest: EnvelopingRequest = {
       request: {
         ...envelopingRequest.request,
-        tokenGas: newTokenGas.toString(),
-        nonce: nonce.toString(),
-        value: value.toString(),
-        gas: isDeployment ? undefined : gas?.toString(),
+        tokenGas: newTokenGas,
       },
       relayData: {
         ...envelopingRequest.relayData,
         feesReceiver,
-        gasPrice: gasPrice.toString(),
       },
-    } as EnvelopingRequest;
+    };
 
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,
@@ -323,7 +319,7 @@ class RelayClient extends EnvelopingEventEmitter {
     return httpRequest;
   }
 
-  private async _calculateGasPrice(): Promise<BigNumber> {
+  async calculateGasPrice(): Promise<BigNumber> {
     const { minGasPrice, gasPriceFactorPercent } = this._envelopingConfig;
 
     const provider = getProvider();
@@ -358,27 +354,18 @@ class RelayClient extends EnvelopingEventEmitter {
   public async relayTransaction(
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<Transaction> {
-    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
-      envelopingRequest
-    );
+    
+    const { envelopingTx, activeRelay } = await this._buildHubEnvelopingTx(envelopingRequest);
 
     log.debug('Relay Client - Relaying transaction');
     log.debug(
-      `Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`
+      `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
 
-    //FIXME we should implement the relay selection strategy
-    const activeRelay = await selectNextRelay(this._httpClient);
-
-    const envelopingTx = await this._prepareHttpRequest(
-      activeRelay!.hubInfo,
-      envelopingRequestDetails
-    );
-
-    await this._verifyEnvelopingRequest(activeRelay!.hubInfo, envelopingTx)
+    await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)
 
     const transaction = await this._attemptRelayTransaction(
-      activeRelay!,
+      activeRelay,
       envelopingTx
     );
 
@@ -388,34 +375,44 @@ class RelayClient extends EnvelopingEventEmitter {
       return transaction;
     }
 
-
     throw Error(NOT_RELAYED_TRANSACTION);
-
   }
 
   public async estimateRelayTransaction(
     envelopingRequest: UserDefinedEnvelopingRequest
-  ) {
-    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
-      envelopingRequest
-    );
+  ): Promise<RelayEstimation> {
+
+    const { envelopingTx, activeRelay: { managerData: { url } } } = await this._buildHubEnvelopingTx(envelopingRequest);
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
-      `Relay Client - Relay Hub:${envelopingRequestDetails.request.relayHub.toString()}`
-    );
-
-    const activeRelay = await selectNextRelay(this._httpClient);
-
-    const envelopingTx = await this._prepareHttpRequest(
-      activeRelay!.hubInfo,
-      envelopingRequestDetails
+      `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
 
     return await this._httpClient.estimateMaxPossibleGas(
-      activeRelay!.managerData.url.toString(),
+      url.toString(),
       envelopingTx
     );
+  }
+
+  private async _buildHubEnvelopingTx(request: UserDefinedEnvelopingRequest): Promise<HubEnvelopingTx> {
+
+    const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
+      request
+    );
+
+    //FIXME we should implement the relay selection strategy
+    const activeRelay = await selectNextRelay(this._httpClient);
+
+    const envelopingTx = await this._prepareHttpRequest(
+      activeRelay.hubInfo,
+      envelopingRequestDetails
+    );
+
+    return {
+      activeRelay,
+      envelopingTx
+    };
   }
 
   private async _attemptRelayTransaction(
@@ -579,7 +576,7 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     if (isDeployRequest(relayRequest)) {
-     await relayHub.callStatic.deployCall(
+      await relayHub.callStatic.deployCall(
         relayRequest,
         signature,
         commonOverrides
@@ -591,7 +588,7 @@ class RelayClient extends EnvelopingEventEmitter {
         commonOverrides
       );
 
-      if(!destinationCallSuccess){
+      if (!destinationCallSuccess) {
         throw new Error('Destination contract reverted');
       }
     }

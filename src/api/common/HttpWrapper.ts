@@ -6,6 +6,7 @@ import axios, {
 } from 'axios';
 import log, { LogLevelDesc } from 'loglevel';
 
+const logger = () => log.getLogger('HttpWrapper');
 const LOGMAXLEN = 120;
 const DEFAULT_TIMEOUT = 30000;
 
@@ -64,8 +65,6 @@ const interceptors = {
     },
   },
 };
-
-const logger = () => log.getLogger('HttpWrapper');
 
 export default class HttpWrapper {
   private readonly _httpClient: AxiosInstance;

@@ -8,8 +8,7 @@ import { EnvelopingTypes, ICustomSmartWalletFactory, ICustomSmartWalletFactory__
 import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
 import type {
-  HubInfo,
-  RelayInfo
+  HubInfo
 } from '../src/common/relayHub.types';
 import { estimateInternalCallGas, estimateTokenTransferGas, getSmartWalletAddress, INTERNAL_TRANSACTION_ESTIMATED_CORRECTION, selectNextRelay, useEnveloping, validateRelayResponse } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
@@ -76,16 +75,17 @@ describe('utils', function () {
 
       const {
         managerData: { url: actualUrl },
-      } = (await selectNextRelay(httpClientStub)) as RelayInfo;
+      } = (await selectNextRelay(httpClientStub));
 
       expect(actualUrl).to.equal(expectedUrl);
     });
 
     it('Should return undefined if not relay is available', async function () {
       httpClientStub.getChainInfo.resolves(unavailableRelayHub);
-      const nextRelay = await selectNextRelay(httpClientStub);
+      const nextRelay = selectNextRelay(httpClientStub);
 
-      expect(nextRelay).to.be.undefined;
+      await expect(nextRelay).to.be.rejected;
+      await expect(nextRelay).to.be.rejectedWith('No more hubs available to select');
     });
 
     it('Should keep iterating if a ping call throws an error', async function () {
@@ -101,7 +101,7 @@ describe('utils', function () {
       sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
       const {
         managerData: { url: actualUrl },
-      } = (await selectNextRelay(httpClientStub)) as RelayInfo;
+      } = (await selectNextRelay(httpClientStub));
 
       expect(actualUrl).to.equal(expectedUrl);
     });

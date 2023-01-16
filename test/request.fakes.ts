@@ -42,7 +42,7 @@ const ENVELOPING_REQUEST_DATA: EnvelopingRequestData = {
   callForwarder: Wallet.createRandom().address,
   callVerifier: Wallet.createRandom().address,
   feesReceiver: Wallet.createRandom().address,
-  gasPrice: constants.Two,
+  gasPrice: '2',
 };
 
 const RELAY_REQUEST: RelayRequest = {

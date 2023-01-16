@@ -1,4 +1,5 @@
 import type { BigNumberish } from 'ethers';
+import type { RelayInfo } from './relayHub.types';
 import type {
   RelayRequestBody,
   EnvelopingRequestData,
@@ -41,8 +42,14 @@ type EstimateInternalGasParams = Pick<
     'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'
   >;
 
+type HubEnvelopingTx = {
+  envelopingTx: EnvelopingTxRequest;
+  activeRelay: RelayInfo;
+};
+
 export type {
   RequestConfig,
   TokenGasEstimationParams,
   EstimateInternalGasParams,
+  HubEnvelopingTx,
 };

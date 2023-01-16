@@ -14,7 +14,7 @@ const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 
 const selectNextRelay = async (
   httpClient: HttpClient
-): Promise<RelayInfo | undefined> => {
+): Promise<RelayInfo> => {
   const { preferredRelays } = getEnvelopingConfig();
 
   for (const preferredRelay of preferredRelays ?? []) {
@@ -23,24 +23,25 @@ const selectNextRelay = async (
 
     try {
       hubInfo = await httpClient.getChainInfo(preferredRelay);
-      const relayHub = RelayHub__factory.connect(hubInfo.relayHubAddress, getProvider());
-      managerData = await relayHub.getRelayInfo(hubInfo.relayManagerAddress);
+    
+      if (hubInfo.ready) {
+        const relayHub = RelayHub__factory.connect(hubInfo.relayHubAddress, getProvider());
+        managerData = await relayHub.getRelayInfo(hubInfo.relayManagerAddress);
+
+        return {
+          hubInfo,
+          managerData,
+        };
+      }
     } catch (error) {
       log.warn('Failed to getChainInfo from hub', error);
       continue;
-    }
-
-    if (hubInfo.ready) {
-      return {
-        hubInfo,
-        managerData,
-      };
     }
   }
 
   log.error('No more hubs available to select');
 
-  return undefined;
+  throw new Error('No more hubs available to select');
 };
 
 const estimateInternalCallGas = async ({
