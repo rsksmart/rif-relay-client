@@ -42,7 +42,7 @@ const ENVELOPING_REQUEST_DATA: EnvelopingRequestData = {
   callForwarder: Wallet.createRandom().address,
   callVerifier: Wallet.createRandom().address,
   feesReceiver: Wallet.createRandom().address,
-  gasPrice: '2',
+  gasPrice: constants.Two,
 };
 
 const RELAY_REQUEST: RelayRequest = {
@@ -57,7 +57,7 @@ const DEPLOY_REQUEST: DeployRequest = {
 
 const ENVELOPING_REQUEST_METADATA: EnvelopingMetadata = {
   relayHubAddress: COMMON_REQUEST_BODY.relayHub,
-  relayMaxNonce: COMMON_REQUEST_BODY.nonce,
+  relayMaxNonce: 2,
   signature: ethers.utils.randomBytes(129).toString(),
 };
 

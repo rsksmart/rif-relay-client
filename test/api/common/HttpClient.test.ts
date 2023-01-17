@@ -31,7 +31,7 @@ describe('HttpClient', function () {
 
   describe('methods', function(){
     type HttpClientExposed = {
-      _stringifyRequest: (envelopingTx: EnvelopingTxRequest) => EnvelopingTxRequest;
+      _stringifyEnvelopingTx: (envelopingTx: EnvelopingTxRequest) => EnvelopingTxRequest;
     } & {
       [key in keyof HttpClient]: HttpClient[key];
     };
@@ -98,7 +98,7 @@ describe('HttpClient', function () {
       beforeEach(function(){
         httpClient = new HttpClient(new HttpWrapper()) as unknown as HttpClientExposed;
         request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
-        httpClient._stringifyRequest = sandbox.stub(() => request);
+        httpClient._stringifyEnvelopingTx = sandbox.stub(() => request);
       });
 
       it(`should call httpWrapper.sendPromise with given url + ${RELAY_PATH}`, async function () {
@@ -149,7 +149,7 @@ describe('HttpClient', function () {
       beforeEach(function(){
         httpClient = new HttpClient(new HttpWrapper()) as unknown as HttpClientExposed;
         request = { foo: 'bar' } as unknown as EnvelopingTxRequest;
-        httpClient._stringifyRequest = sandbox.stub(() => request);
+        httpClient._stringifyEnvelopingTx = sandbox.stub(() => request);
       });
 
       it('should call httpWrapper.sendPromise with given url + POST_ESTIMATE', async function () {

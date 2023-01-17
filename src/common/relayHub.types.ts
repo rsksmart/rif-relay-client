@@ -28,7 +28,7 @@ type RelayInfo = {
 
 type EnvelopingMetadata = {
   relayHubAddress: RelayRequestBody['relayHub'];
-  relayMaxNonce: RelayRequestBody['nonce'];
+  relayMaxNonce: number;
   signature: string;
 };
 

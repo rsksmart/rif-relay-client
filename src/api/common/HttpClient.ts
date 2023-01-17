@@ -39,15 +39,14 @@ class HttpClient {
     return hubInfo;
   }
 
-  private _stringifyRequest(
+  private _stringifyEnvelopingTx(
     envelopingTx: EnvelopingTxRequest
   ): EnvelopingTxRequest {
     const {
       relayRequest: {
         request: { tokenGas, nonce, value, tokenAmount, gas },
         relayData: { gasPrice },
-      },
-      metadata: { relayMaxNonce },
+      }
     } = envelopingTx;
 
     return {
@@ -66,11 +65,7 @@ class HttpClient {
           ...envelopingTx.relayRequest.relayData,
           gasPrice: gasPrice.toString(),
         },
-      },
-      metadata: {
-        ...envelopingTx.metadata,
-        relayMaxNonce: relayMaxNonce.toString(),
-      },
+      }
     } as EnvelopingTxRequest;
   }
 
@@ -81,7 +76,7 @@ class HttpClient {
     const { signedTx } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
         relayUrl + PATHS.POST_RELAY_REQUEST,
-        this._stringifyRequest(envelopingTx)
+        this._stringifyEnvelopingTx(envelopingTx)
       );
     log.info('relayTransaction response:', signedTx);
 
@@ -100,7 +95,7 @@ class HttpClient {
   ): Promise<RelayEstimation> {
     const response = await this._httpWrapper.sendPromise<RelayEstimation>(
       relayUrl + PATHS.POST_ESTIMATE,
-      this._stringifyRequest(envelopingTx)
+      this._stringifyEnvelopingTx(envelopingTx)
     );
     log.info('esimation relayTransaction response:', response);
 
