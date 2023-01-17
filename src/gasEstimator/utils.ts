@@ -1,4 +1,4 @@
-import { BigNumberish, BigNumber, getDefaultProvider } from 'ethers';
+import type { BigNumberish, BigNumber } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import type {
@@ -7,11 +7,12 @@ import type {
 } from '../common/relayRequest.types';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
-import RelayClient from '../RelayClient';
 import {
   applyGasCorrectionFactor,
   ESTIMATED_GAS_CORRECTION_FACTOR,
+  estimateInternalCallGas,
 } from '../utils';
+import { getProvider } from '../common/clientConfigurator';
 
 const standardMaxPossibleGasEstimation = async (
   { relayRequest, metadata: { signature } }: EnvelopingTxRequest,
@@ -24,7 +25,7 @@ const standardMaxPossibleGasEstimation = async (
     relayData: { gasPrice },
   } = relayRequest;
 
-  const provider = getDefaultProvider();
+  const provider = getProvider();
 
   const relayHub = RelayHub__factory.connect(
     request.relayHub.toString(),
@@ -67,9 +68,7 @@ const linearFitMaxPossibleGasEstimation = async (
     relayData: { gasPrice },
   } = envelopingRequest;
 
-  const relayClient = new RelayClient();
-
-  const internalEstimation = await relayClient.estimateInternalCallGas({
+  const internalEstimation = await estimateInternalCallGas({
     internalEstimationCorrection,
     estimatedGasCorrectionFactor,
     data,

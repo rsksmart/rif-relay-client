@@ -10,10 +10,12 @@ const sandbox = createSandbox();
 use(sinonChai);
 
 const fakeURL = 'http://foo.bar';
+
 describe('HttpWrapper', function () {
   afterEach(function () {
     sandbox.restore();
   });
+
   describe('constructor', function () {
     it('should create new http client with given params', function () {
       const axiosCreateSpy = sandbox.spy(axios, 'create');
@@ -41,7 +43,7 @@ describe('HttpWrapper', function () {
     });
 
     it('should set logging level', function () {
-      const setLogLevelsSpy = sandbox.spy(log, 'setLevel');
+      const setLogLevelsSpy = sandbox.spy(log.getLogger('HttpWrapper'), 'setLevel');
       const expectedLogLevel = LogLevel.INFO;
       new HttpWrapper({}, expectedLogLevel);
 
@@ -49,7 +51,7 @@ describe('HttpWrapper', function () {
     });
   });
 
-  describe('', function () {
+  describe('methods', function () {
     describe('sendPromise', function () {
       it('should call axios.request with given params', async function () {
         const axiosPostSpy = sandbox

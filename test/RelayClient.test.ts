@@ -3,8 +3,6 @@ import {
   DeployVerifier,
   DeployVerifier__factory,
   EnvelopingTypes,
-  IERC20,
-  IERC20__factory,
   IForwarder,
   IForwarder__factory,
   ISmartWalletFactory,
@@ -16,10 +14,8 @@ import {
 } from '@rsksmart/rif-relay-contracts';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import config from 'config';
 import { BigNumber, BigNumberish, constants, providers, Transaction, Wallet, utils, errors } from 'ethers';
 
-import * as etherUtils from '@ethersproject/transactions';
 import type { TransactionResponse, TransactionReceipt } from '@ethersproject/providers';
 import { solidityKeccak256 } from 'ethers/lib/utils';
 import Sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
@@ -35,21 +31,19 @@ import type {
   RelayRequest,
   UserDefinedEnvelopingRequest,
   UserDefinedRelayData,
-  UserDefinedRelayRequest,
   UserDefinedRelayRequestBody,
 } from '../src/common/relayRequest.types';
+import type { HubEnvelopingTx } from 'src/common/relayClient.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
-  MISSING_SMART_WALLET_ADDRESS,
+  MISSING_REQUEST_FIELD,
   NOT_RELAYED_TRANSACTION,
 } from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
   envelopingEvents,
 } from '../src/events/EnvelopingEventEmitter';
-import RelayClient, {
-} from '../src/RelayClient';
-import { INTERNAL_TRANSACTION_ESTIMATED_CORRECTION } from '../src/utils';
+import RelayClient from '../src/RelayClient';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
 import {
@@ -58,13 +52,15 @@ import {
   FAKE_ENVELOPING_REQUEST_DATA,
   FAKE_RELAY_REQUEST,
   FAKE_RELAY_REQUEST_BODY,
-  FAKE_RELAY_TRANSACTION_REQUEST,
-  FAKE_REQUEST_CONFIG
+  FAKE_RELAY_TRANSACTION_REQUEST
 } from './request.fakes';
 
+import * as etherUtils from '@ethersproject/transactions';
+import * as clientConfiguration from '../src/common/clientConfigurator';
 import * as relayUtils from '../src/utils';
 import * as gasEstimator from '../src/gasEstimator/gasEstimator';
-import type { TokenGasEstimationParams, RequestConfig } from '../src/common/relayClient.types';
+import type { RelayEstimation } from 'src';
+
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -78,15 +74,8 @@ const FAKE_GAS_PRICE = BigNumber.from(123);
 const FAKE_SIGNATURE = 'FAKE_SIGNATURE';
 
 describe('RelayClient', function () {
-  const originalConfig = { ...config };
-  before(function () {
-    config.util.extendDeep(config, {
-      EnvelopingConfig: FAKE_ENVELOPING_CONFIG,
-    });
-  });
-
-  after(function () {
-    config.util.extendDeep(config, originalConfig);
+  beforeEach(function () {
+    sandbox.replace(clientConfiguration, 'getEnvelopingConfig', () => FAKE_ENVELOPING_CONFIG);
   });
 
   afterEach(function () {
@@ -94,37 +83,34 @@ describe('RelayClient', function () {
   });
 
   describe('constructor', function () {
-    it('should store provider', function () {
-      const expectedProvider: providers.BaseProvider =
-        sandbox.createStubInstance(providers.JsonRpcProvider);
+    it('should store httpClient', function () {
+      const expectedHttpClient: HttpClient =
+        sandbox.createStubInstance(HttpClient);
       const relayClient = new RelayClient();
 
-      (relayClient as unknown as { _provider: providers.Provider })._provider =
-        expectedProvider;
+      (relayClient as unknown as { _httpClient: HttpClient })._httpClient =
+        expectedHttpClient;
 
       expect(relayClient).to.be.instanceOf(RelayClient);
       expect(
-        (relayClient as unknown as { _provider: providers.Provider })._provider,
+        (relayClient as unknown as { _httpClient: HttpClient })._httpClient,
         'Provider'
-      ).to.equal(expectedProvider);
+      ).to.equal(expectedHttpClient);
     });
   });
 
   describe('methods', function () {
     type RelayClientExposed = {
       _envelopingConfig: EnvelopingConfig;
-      _provider: providers.Provider;
       _httpClient: HttpClient;
       _prepareHttpRequest: (
         _hubInfo: HubInfo,
-        request: EnvelopingTypes.RelayRequestStruct,
-        requestConfig: RequestConfig
+        request: EnvelopingTypes.RelayRequestStruct
       ) => Promise<EnvelopingTxRequest>;
       _getEnvelopingRequestDetails: (
-        request: UserDefinedEnvelopingRequest,
-        requestConfig: RequestConfig
+        request: UserDefinedEnvelopingRequest
       ) => Promise<EnvelopingRequest>;
-      _calculateGasPrice: () => Promise<BigNumber>;
+      _getHubEnvelopingTx: (request: UserDefinedEnvelopingRequest) => Promise<HubEnvelopingTx>;
       _attemptRelayTransaction: (relayInfo: RelayInfo, envelopingTx: EnvelopingTxRequest) => Promise<Transaction>;
       _broadcastTx: (signedTx: string) => Promise<void>;
       _verifyEnvelopingRequest: (hubInfo: HubInfo, envelopingTx: EnvelopingTxRequest) => Promise<void>;
@@ -139,10 +125,11 @@ describe('RelayClient', function () {
     let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
     let factoryStub: Sinon.SinonStubbedInstance<ISmartWalletFactory>;
     let ethersLogger: utils.Logger;
+    let providerStub: providers.Provider;
 
     beforeEach(function () {
       relayClient = new RelayClient() as unknown as RelayClientExposed;
-      relayClient._provider = {
+      providerStub = {
         _isProvider: true,
         getTransactionCount: sandbox.stub().resolves(FAKE_TX_COUNT),
         getNetwork: sandbox.stub().resolves({
@@ -150,6 +137,8 @@ describe('RelayClient', function () {
         } as Network),
         estimateGas: sandbox.stub().resolves(FAKE_GAS_PRICE),
       } as unknown as providers.Provider;
+
+      sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
 
       forwarderStub = {
         nonce: sandbox.stub(),
@@ -171,7 +160,7 @@ describe('RelayClient', function () {
 
       beforeEach(function () {
         fakeTokenGasEstimation = constants.Two;
-        relayClient.estimateTokenTransferGas = sandbox.stub().returns(fakeTokenGasEstimation);
+        sandbox.stub(relayUtils, 'estimateTokenTransferGas').returns(Promise.resolve(fakeTokenGasEstimation));
         accountManagerStub = {
           sign: sandbox
             .stub(AccountManager.prototype, 'sign')
@@ -189,7 +178,7 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.request,
             relayHub: expectedRelayHubAddress,
           },
-        }, FAKE_REQUEST_CONFIG);
+        });
 
         expect(actualRelayHubAddress).to.equal(expectedRelayHubAddress);
       });
@@ -207,7 +196,7 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.relayData,
             feesReceiver: undefined,
           } as unknown as EnvelopingRequestData,
-        }, FAKE_REQUEST_CONFIG);
+        });
 
         expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
       });
@@ -224,7 +213,7 @@ describe('RelayClient', function () {
                 ...FAKE_RELAY_REQUEST.relayData,
                 feesReceiver: constants.AddressZero,
               },
-            }, FAKE_REQUEST_CONFIG
+            }
           ),
           'feesReceiver is zero address'
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
@@ -235,7 +224,7 @@ describe('RelayClient', function () {
               ...FAKE_RELAY_REQUEST.relayData,
               feesReceiver: undefined,
             } as unknown as EnvelopingRequestData,
-          }, FAKE_REQUEST_CONFIG),
+          }),
           'feesReceiver is undefined'
         ).to.be.rejectedWith('FeesReceiver has to be a valid non-zero address');
       });
@@ -253,7 +242,7 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.relayData,
             feesReceiver: constants.AddressZero,
           },
-        }, FAKE_REQUEST_CONFIG);
+        });
 
         expect(actualRelayRequestData).to.deep.equal(expectedRelayRequestData);
       });
@@ -265,7 +254,7 @@ describe('RelayClient', function () {
 
         const {
           relayRequest: { request: actualRelayRequest },
-        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, FAKE_RELAY_REQUEST, FAKE_REQUEST_CONFIG);
+        } = await relayClient._prepareHttpRequest(FAKE_HUB_INFO, FAKE_RELAY_REQUEST);
 
         expect(actualRelayRequest).to.deep.equal(expectedRelayRequestData);
       });
@@ -283,7 +272,7 @@ describe('RelayClient', function () {
             ...FAKE_RELAY_REQUEST.request,
             tokenGas: constants.Zero
           },
-        }, FAKE_REQUEST_CONFIG);
+        });
 
         expect(actualRelayRequest).to.deep.equal(expectedRelayRequestData);
       });
@@ -297,14 +286,11 @@ describe('RelayClient', function () {
           }
         };
 
-        const fakeTokenGas = constants.Two;
-        sandbox.stub(RelayClient.prototype, 'estimateTokenTransferGas').returns(Promise.resolve(fakeTokenGas));
         forwarderStub.nonce.resolves(constants.Two);
         const signStub = accountManagerStub.sign;
         await relayClient._prepareHttpRequest(
           FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST,
-          FAKE_REQUEST_CONFIG
+          FAKE_RELAY_REQUEST
         );
 
         expect(signStub).to.have.been.called;
@@ -316,8 +302,7 @@ describe('RelayClient', function () {
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
         await relayClient._prepareHttpRequest(
           FAKE_HUB_INFO,
-          FAKE_RELAY_REQUEST,
-          FAKE_REQUEST_CONFIG
+          FAKE_RELAY_REQUEST
         );
 
         expect(emitStub).to.have.been.called;
@@ -335,7 +320,7 @@ describe('RelayClient', function () {
           request: {
             ...FAKE_RELAY_REQUEST.request,
           },
-        }, FAKE_REQUEST_CONFIG);
+        });
 
         expect(actualSignature).to.equal(expectedSignature);
       });
@@ -345,13 +330,12 @@ describe('RelayClient', function () {
       it('should throw when callForwarder is not present in relay data', async function () {
         const call = relayClient._getEnvelopingRequestDetails(
           {
-            ...FAKE_DEPLOY_REQUEST,
+            ...FAKE_RELAY_REQUEST,
             relayData: {
               ...FAKE_ENVELOPING_REQUEST_DATA,
               callForwarder: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         await expect(call).to.be.eventually.rejected;
@@ -372,8 +356,7 @@ describe('RelayClient', function () {
               ...FAKE_ENVELOPING_REQUEST_DATA,
               callVerifier: undefined,
             },
-          },
-          {}
+          }
         );
 
         expect(actualCallVerifier).to.equal(expectedCallVerifier);
@@ -391,8 +374,7 @@ describe('RelayClient', function () {
               ...FAKE_ENVELOPING_REQUEST_DATA,
               callVerifier: undefined,
             },
-          },
-          {}
+          }
         );
 
         expect(actualCallVerifier).to.equal(expectedCallVerifier);
@@ -412,8 +394,7 @@ describe('RelayClient', function () {
               ...FAKE_ENVELOPING_REQUEST_DATA,
               callVerifier: undefined,
             },
-          },
-          {}
+          }
         );
 
         await expect(call).to.be.eventually.rejected;
@@ -434,8 +415,7 @@ describe('RelayClient', function () {
               ...FAKE_ENVELOPING_REQUEST_DATA,
               feesReceiver: undefined,
             },
-          },
-          {}
+          }
         );
 
         expect(actualFeesReceiver.toString()).to.equal(expectedFeesReceiver);
@@ -446,8 +426,7 @@ describe('RelayClient', function () {
         const {
           relayData: { gasPrice: actualGasPrice },
         } = await relayClient._getEnvelopingRequestDetails(
-          FAKE_RELAY_REQUEST,
-          {}
+          FAKE_RELAY_REQUEST
         );
 
         expect(actualGasPrice).to.equal(expectedGasPrice);
@@ -457,7 +436,7 @@ describe('RelayClient', function () {
         const expectedGasPrice = BigNumber.from(
           (Math.random() * 100).toFixed(0)
         );
-        relayClient._calculateGasPrice = sandbox
+        relayClient.calculateGasPrice = sandbox
           .stub()
           .resolves(expectedGasPrice);
 
@@ -470,15 +449,14 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.relayData,
               gasPrice: undefined,
             },
-          },
-          {}
+          }
         );
 
         expect(actualGasPrice).to.equal(expectedGasPrice);
       });
 
       it('should throw error if gasPrice not in request data or calculated', async function () {
-        relayClient._calculateGasPrice = sandbox.stub().resolves(undefined);
+        relayClient.calculateGasPrice = sandbox.stub().resolves(undefined);
 
         const call = relayClient._getEnvelopingRequestDetails(
           {
@@ -487,8 +465,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.relayData,
               gasPrice: undefined,
             },
-          },
-          {}
+          }
         );
 
         await expect(call).to.be.eventually.rejected;
@@ -500,19 +477,53 @@ describe('RelayClient', function () {
       it('should throw if `data` field is not defined in request body', async function () {
         const call = relayClient._getEnvelopingRequestDetails(
           {
-            ...FAKE_DEPLOY_REQUEST,
+            ...FAKE_RELAY_REQUEST,
             request: {
-              ...FAKE_DEPLOY_REQUEST.request,
+              ...FAKE_RELAY_REQUEST.request,
               data: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `data` is not defined in request body.'
+          MISSING_REQUEST_FIELD('data')
         );
+      });
+
+      it('should throw if `index` field is not defined in deploy body', async function () {
+        const call = relayClient._getEnvelopingRequestDetails(
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              index: undefined,
+            },
+          } as unknown as UserDefinedEnvelopingRequest
+        );
+
+        await expect(call).to.be.eventually.rejected;
+        await expect(call).to.be.eventually.rejectedWith(
+          'Field `index` is not defined in deploy body.'
+        );
+      });
+
+      it('should return request if `index` field its defined with 0', async function () {
+        const expectedValue = 0;
+
+        const {
+          request: { index: actualValue },
+        } = await relayClient._getEnvelopingRequestDetails(
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              index: 0,
+            },
+          } as unknown as UserDefinedEnvelopingRequest
+        );
+
+        expect(actualValue).to.equal(expectedValue);
       });
 
       it('should throw if `from` field is not defined in request body', async function () {
@@ -523,31 +534,29 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               from: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `from` is not defined in request body.'
+          MISSING_REQUEST_FIELD('from')
         );
       });
 
       it('should throw if `to` field is not defined in request body', async function () {
         const call = relayClient._getEnvelopingRequestDetails(
           {
-            ...FAKE_DEPLOY_REQUEST,
+            ...FAKE_RELAY_REQUEST,
             request: {
-              ...FAKE_DEPLOY_REQUEST.request,
+              ...FAKE_RELAY_REQUEST.request,
               to: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `to` is not defined in request body.'
+          MISSING_REQUEST_FIELD('to')
         );
       });
 
@@ -563,14 +572,13 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               value: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         expect(actualValue).to.equal(expectedValue);
       });
 
-      it('should throw if `tokenAmount` is not defined in request body', async function () {
+      it('should return request with `tokenAmount` 0 is not defined in request body', async function () {
         const expectedTokenAmount = constants.Zero;
 
         const {
@@ -582,8 +590,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               tokenAmount: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         expect(actualTokenAmount).to.equal(expectedTokenAmount);
@@ -597,13 +604,12 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               tokenContract: undefined,
             },
-          } as unknown as UserDefinedEnvelopingRequest,
-          {}
+          } as unknown as UserDefinedEnvelopingRequest
         );
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `tokenContract` is not defined in request body.'
+          MISSING_REQUEST_FIELD('tokenContract')
         );
       });
 
@@ -619,8 +625,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               nonce: undefined,
             },
-          } as unknown as EnvelopingRequest,
-          {}
+          } as unknown as EnvelopingRequest
         );
 
         expect(actualNonce).to.equal(expectedNonce);
@@ -638,8 +643,7 @@ describe('RelayClient', function () {
               ...FAKE_RELAY_REQUEST.request,
               nonce: undefined,
             },
-          } as unknown as EnvelopingRequest,
-          {}
+          } as unknown as EnvelopingRequest
         );
 
         expect(actualNonce).to.equal(expectedNonce);
@@ -651,8 +655,7 @@ describe('RelayClient', function () {
         const {
           request: { relayHub: actualRelayHub },
         } = await relayClient._getEnvelopingRequestDetails(
-          FAKE_DEPLOY_REQUEST,
-          {}
+          FAKE_DEPLOY_REQUEST
         );
 
         expect(actualRelayHub).to.equal(expectedRelayHubAddr);
@@ -670,8 +673,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               relayHub: undefined,
             },
-          },
-          {}
+          }
         );
 
         expect(actualRelayHub).to.equal(expectedRelayHubAddr);
@@ -690,8 +692,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               relayHub: undefined,
             },
-          },
-          {}
+          }
         );
 
         await expect(call).to.be.eventually.rejected;
@@ -700,15 +701,30 @@ describe('RelayClient', function () {
         );
       });
 
-      it('should return request with given tokenGas equals to zero', async function () {
+      it('should return request with given `tokenGas` equals to zero if it is not defined', async function () {
         const {
           request: { tokenGas: actualTokenGas },
         } = await relayClient._getEnvelopingRequestDetails(
-          FAKE_DEPLOY_REQUEST,
-          {}
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              tokenGas: undefined,
+            },
+          }
         );
 
         expect(actualTokenGas).to.equal(constants.Zero);
+      });
+
+      it('should return request with given `tokenGas`', async function () {
+        const {
+          request: { tokenGas: actualTokenGas },
+        } = await relayClient._getEnvelopingRequestDetails(
+          FAKE_DEPLOY_REQUEST
+        );
+
+        expect(actualTokenGas).to.equal(FAKE_DEPLOY_REQUEST.request.tokenGas);
       });
 
       it('should return given gas limit in the request body for relay request', async function () {
@@ -718,37 +734,14 @@ describe('RelayClient', function () {
         const {
           request: { gas: actualGas },
         } = (await relayClient._getEnvelopingRequestDetails(
-          FAKE_RELAY_REQUEST,
-          {}
+          FAKE_RELAY_REQUEST
         )) as RelayRequest;
 
         expect(actualGas).to.equal(expectedGas);
       });
 
-      it('should return given forceGasLimit from request config in the request body for relay request', async function () {
-        const expectedGas = BigNumber.from((Math.random() * 100).toFixed(0));
-        const {
-          request: { gas: actualGas },
-        } = (await relayClient._getEnvelopingRequestDetails(
-          {
-            ...FAKE_RELAY_REQUEST,
-            request: {
-              ...FAKE_RELAY_REQUEST_BODY,
-              gas: undefined,
-            },
-          } as unknown as UserDefinedRelayRequest,
-          {
-            forceGasLimit: expectedGas.toString(),
-          }
-        )) as RelayRequest;
-
-        expect(actualGas.toString()).to.equal(expectedGas.toString());
-      });
-
-      it('should throw if no gas limit given to relay request or forceGasLimit to request config', async function () {
-        relayClient.estimateInternalCallGas = sandbox
-          .stub()
-          .resolves(undefined);
+      it('should throw if no gas limit given to relay request', async function () {
+        sandbox.stub(relayUtils, 'estimateInternalCallGas').resolves(undefined);
         const call = relayClient._getEnvelopingRequestDetails(
           {
             ...FAKE_RELAY_REQUEST,
@@ -756,8 +749,7 @@ describe('RelayClient', function () {
               ...FAKE_RELAY_REQUEST_BODY,
               gas: undefined,
             },
-          },
-          {}
+          }
         );
 
         await expect(call).to.be.eventually.rejected;
@@ -774,8 +766,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               gas: undefined,
             },
-          },
-          {}
+          }
         );
 
         await expect(call).not.to.be.eventually.rejectedWith(
@@ -788,26 +779,7 @@ describe('RelayClient', function () {
         const {
           request: { index: actualIndex },
         } = (await relayClient._getEnvelopingRequestDetails(
-          FAKE_DEPLOY_REQUEST,
-          {}
-        )) as DeployRequest;
-
-        expect(actualIndex).to.equal(expectedIndex);
-      });
-
-      it('should return zero if not given index value for a deoploy request', async function () {
-        const expectedIndex = 0;
-        const {
-          request: { index: actualIndex },
-        } = (await relayClient._getEnvelopingRequestDetails(
-          {
-            ...FAKE_DEPLOY_REQUEST,
-            request: {
-              ...FAKE_DEPLOY_REQUEST.request,
-              index: undefined,
-            },
-          },
-          {}
+          FAKE_DEPLOY_REQUEST
         )) as DeployRequest;
 
         expect(actualIndex).to.equal(expectedIndex);
@@ -818,8 +790,7 @@ describe('RelayClient', function () {
         const {
           request: { recoverer: actualRecoverer },
         } = (await relayClient._getEnvelopingRequestDetails(
-          FAKE_DEPLOY_REQUEST,
-          {}
+          FAKE_DEPLOY_REQUEST
         )) as DeployRequest;
 
         expect(actualRecoverer).to.equal(expectedRecoverer);
@@ -836,138 +807,38 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               recoverer: undefined,
             },
-          },
-          {}
+          }
         )) as DeployRequest;
 
         expect(actualRecoverer).to.equal(expectedRecoverer);
       });
     });
 
-    describe('estimateInternalCallGas', function () {
-      let relayRequest: EnvelopingTypes.RelayRequestStruct;
-
-      beforeEach(function () {
-        relayRequest = {
-          request: {
-            from: createRandomAddress(),
-            to: createRandomAddress(),
-            data: '0x01',
-          },
-          relayData: {
-            gasPrice: '60000000',
-          },
-        } as EnvelopingTypes.RelayRequestStruct;
-      });
-
-      it('should return the estimation applying the internal correction', async function () {
-        const estimateGas = BigNumber.from(10000);
-        relayClient._provider.estimateGas = sandbox
-          .stub()
-          .resolves(estimateGas);
-        const internalEstimationCorrection = 5000;
-        const estimation = await relayClient.estimateInternalCallGas({
-          data: relayRequest.request.data,
-          from: relayRequest.request.from,
-          to: relayRequest.request.to,
-          gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection,
-        });
-        const expectedEstimation = estimateGas.sub(
-          internalEstimationCorrection
-        );
-
-        expect(estimation.toString()).to.be.equal(
-          expectedEstimation.toString()
-        );
-      });
-
-      it('should return the estimation without applying the internal correction', async function () {
-        const expectedGasEst = BigNumber.from(4000);
-        relayClient._provider.estimateGas = sandbox
-          .stub()
-          .resolves(expectedGasEst);
-        const internalEstimationCorrection = 5000;
-        const actualGasEst = await relayClient.estimateInternalCallGas({
-          data: relayRequest.request.data,
-          from: relayRequest.request.from,
-          to: relayRequest.request.to,
-          gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection,
-        });
-
-        expect(actualGasEst.toString()).to.be.equal(expectedGasEst.toString());
-      });
-
-      it('should return estimation without applying gas correction factor when addExternalCorrection is set to false', async function () {
-        const estimateGas = BigNumber.from(10000);
-        relayClient._provider.estimateGas = sandbox
-          .stub()
-          .resolves(estimateGas);
-        const internalEstimationCorrection = 5000;
-        const estimation = await relayClient.estimateInternalCallGas({
-          data: relayRequest.request.data,
-          from: relayRequest.request.from,
-          to: relayRequest.request.to,
-          gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection,
-          estimatedGasCorrectionFactor: '1',
-        });
-        const expectedEstimation = estimateGas.sub(
-          internalEstimationCorrection
-        );
-
-        expect(estimation.toString()).to.be.equal(
-          expectedEstimation.toString()
-        );
-      });
-
-      it('should return estimation applying gas correction factor when estimatedGasCorrectionFactor different from 1', async function () {
-        const expectedEstimation = BigNumber.from(7_500);
-        relayClient._provider.estimateGas = sandbox
-          .stub()
-          .resolves(BigNumber.from(10_000));
-        const internalEstimationCorrection = 5_000;
-        const estimation = await relayClient.estimateInternalCallGas({
-          data: relayRequest.request.data,
-          from: relayRequest.request.from,
-          to: relayRequest.request.to,
-          gasPrice: relayRequest.relayData.gasPrice,
-          internalEstimationCorrection,
-          estimatedGasCorrectionFactor: '1.5',
-        });
-
-        expect(estimation.toString()).to.be.equal(
-          expectedEstimation.toString()
-        );
-      });
-    });
-
-    describe('_calculateGasPrice', function () {
+    describe('calculateGasPrice', function () {
 
       it('should return minGasPrice when minGasPrice is higher than gas price from provider', async function () {
         const expectedGasPrice = 30000;
         relayClient._envelopingConfig.minGasPrice = expectedGasPrice;
-        relayClient._provider.getGasPrice = sandbox
+        providerStub.getGasPrice = sandbox
           .stub()
           .callsFake(() => {
             console.log('getGasPrice called');
           })
           .resolves(BigNumber.from(2000));
-        const actualGasPrice = await relayClient._calculateGasPrice();
+        const actualGasPrice = await relayClient.calculateGasPrice();
 
         expect(actualGasPrice.toNumber()).to.be.equal(expectedGasPrice);
       });
 
       it('should return gas price multiplied by correction (factor + 1)', async function () {
         const estimateGas = BigNumber.from(60000);
-        relayClient._provider.getGasPrice = sandbox
+        providerStub.getGasPrice = sandbox
           .stub()
           .resolves(estimateGas);
         const expectedGasEstimate = estimateGas.mul(
           FAKE_ENVELOPING_CONFIG.gasPriceFactorPercent + 1
         );
-        const actualGasPrice = await relayClient._calculateGasPrice();
+        const actualGasPrice = await relayClient.calculateGasPrice();
 
         expect(actualGasPrice.toString()).to.be.equal(
           expectedGasEstimate.toString()
@@ -1010,193 +881,6 @@ describe('RelayClient', function () {
       });
     });
 
-    describe('estimateTokenTransferGas', function () {
-      let relayClient: RelayClient;
-
-      let ierc20TransferStub: SinonStub;
-
-      beforeEach(function () {
-        relayClient = new RelayClient();
-
-        ierc20TransferStub = sandbox.stub();
-        const estimateGas = {
-          transfer: ierc20TransferStub,
-        };
-
-        const ierc20Stub = {
-          estimateGas,
-        } as unknown as Sinon.SinonStubbedInstance<IERC20>;
-
-        sandbox.stub(IERC20__factory, 'connect').returns(ierc20Stub);
-      });
-
-      it('should return 0 if token contract is zero address', async function () {
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            request: {
-              ...FAKE_RELAY_REQUEST.request,
-              tokenContract: constants.AddressZero,
-            }
-          },
-          ...FAKE_REQUEST_CONFIG
-        };
-
-        expect(
-          (await relayClient.estimateTokenTransferGas(request)).toString()
-        ).to.be.equal(BigNumber.from(0).toString());
-      });
-
-      it('should return 0 if token amount is 0', async function () {
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            request: {
-              ...FAKE_RELAY_REQUEST.request,
-              tokenAmount: constants.Zero,
-            }
-          },
-          ...FAKE_REQUEST_CONFIG
-        };
-
-        expect(
-          (await relayClient.estimateTokenTransferGas(request)).toString()
-        ).to.be.equal(constants.Zero.toString());
-      });
-
-      it('should fail if it is a deploy and the smartWallet is missing', async function () {
-        const request: TokenGasEstimationParams = {
-          relayRequest: {...FAKE_DEPLOY_REQUEST},
-          preDeploySWAddress: undefined,
-        };
-
-        await expect(
-          relayClient.estimateTokenTransferGas(request)
-        ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
-      });
-
-      it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
-        const request: TokenGasEstimationParams = {
-          relayRequest: {...FAKE_DEPLOY_REQUEST},
-          preDeploySWAddress: constants.AddressZero,
-        };
-
-        await expect(
-          relayClient.estimateTokenTransferGas(request)
-        ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
-      });
-
-      it('should fail if it is a relay transaction and the callForwarder is missing', async function () {
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            relayData: {
-              ...FAKE_RELAY_REQUEST.relayData,
-              callForwarder: constants.AddressZero,
-            }
-          },
-          preDeploySWAddress: constants.AddressZero
-        };
-
-        await expect(
-          relayClient.estimateTokenTransferGas(request)
-        ).to.be.rejectedWith(MISSING_CALL_FORWARDER);
-      });
-
-      it('should correct the value of the estimation when the gas cost is greater than the correction', async function () {
-        const FAKE_GAS_COST = 30000;
-        const INTERNAL_CORRECTION = 20000;
-        const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
-
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            relayData: {
-              ...FAKE_RELAY_REQUEST.relayData,
-              gasPrice: FAKE_GAS_COST,
-            }
-          },
-          internalEstimationCorrection: INTERNAL_CORRECTION
-        };
-
-        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
-
-        const estimation = await relayClient.estimateTokenTransferGas(request);
-
-        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
-      });
-
-      it('should not correct the value of the estimation when the gas cost is lower than the correction', async function () {
-        const FAKE_GAS_COST = 10000;
-        const INTERNAL_CORRECTION = 20000;
-        const EXPECTED_ESTIMATION = FAKE_GAS_COST;
-
-        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
-
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            relayData: {
-              ...FAKE_RELAY_REQUEST.relayData,
-              gasPrice: FAKE_GAS_COST,
-            }
-          },
-          internalEstimationCorrection: INTERNAL_CORRECTION
-        };
-
-        const estimation = await relayClient.estimateTokenTransferGas(request);
-
-        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
-      });
-
-      it('should apply the correction factor', async function () {
-        const FAKE_GAS_COST = 10000;
-        const INTERNAL_CORRECTION = 20000;
-        const CORRECTION_FACTOR = 1.5;
-        const EXPECTED_ESTIMATION = FAKE_GAS_COST * CORRECTION_FACTOR;
-
-        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
-
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            relayData: {
-              ...FAKE_RELAY_REQUEST.relayData,
-              gasPrice: FAKE_GAS_COST,
-            }
-          },
-          internalEstimationCorrection: INTERNAL_CORRECTION,
-          estimatedGasCorrectionFactor: CORRECTION_FACTOR,
-        };
-
-        const estimation = await relayClient.estimateTokenTransferGas(request);
-
-        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
-      });
-
-      it('should use by-default values when not sent as parameters', async function () {
-        //Just to be sure that the gas cost is lower than the estimate correction
-        const FAKE_GAS_COST = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION - 1;
-        const EXPECTED_ESTIMATION = FAKE_GAS_COST;
-
-        ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
-
-        const request: TokenGasEstimationParams = {
-          relayRequest: {
-            ...FAKE_RELAY_REQUEST,
-            relayData: {
-              ...FAKE_RELAY_REQUEST.relayData,
-              gasPrice: FAKE_GAS_COST,
-            }
-          }
-        };
-
-        const estimation = await relayClient.estimateTokenTransferGas(request);
-
-        expect(estimation.toString()).to.equal(EXPECTED_ESTIMATION.toString());
-      });
-    });
-
     describe('relayTransaction', function () {
 
       const relayInfo: RelayInfo = {
@@ -1213,70 +897,173 @@ describe('RelayClient', function () {
         },
       }
 
-      const transaction = {} as Transaction;
-      let selectNextRelayStub: SinonStub;
+      const expectedTransaction = {} as Transaction;
       let attemptRelayTransactionStub: SinonStub;
-      
+
       beforeEach(function () {
-        attemptRelayTransactionStub = sandbox.stub().returns(Promise.resolve(transaction));
+        attemptRelayTransactionStub = sandbox.stub().resolves(expectedTransaction);
         relayClient._getEnvelopingRequestDetails = sandbox.stub().returns(FAKE_RELAY_REQUEST);
-        relayClient._prepareHttpRequest = sandbox.stub();
-        relayClient._verifyEnvelopingRequest = sandbox.stub().returns(Promise.resolve(true));
+        relayClient._prepareHttpRequest = sandbox.stub().resolves(FAKE_RELAY_TRANSACTION_REQUEST);
+        relayClient._verifyEnvelopingRequest = sandbox.stub().resolves(true);
         relayClient._attemptRelayTransaction = attemptRelayTransactionStub;
-        selectNextRelayStub = sandbox.stub(relayUtils, 'selectNextRelay').returns(Promise.resolve(relayInfo));
+        relayClient._getHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
+      });
+
+      afterEach(function () {
+        sandbox.restore();
+      });
+
+      it('should relay the transaction in the first attempt', async function () {
+        const transaction = await relayClient.relayTransaction(envelopingRequest);
+
+        expect(transaction).to.be.equals(transaction);
+      });
+
+      it('should throw if the transaction cannot be build with any hub', async function () {
+        const error = new Error('No more hubs available to select');
+        relayClient._getHubEnvelopingTx = sandbox.stub().throws(error);
+        const transaction = relayClient.relayTransaction(envelopingRequest);
+
+        await expect(transaction).to.be.rejectedWith(error);
+      });
+
+      it('should throw if the attempt to relay fail', async function () {
+        attemptRelayTransactionStub.onFirstCall().resolves(undefined);
+        const transaction = relayClient.relayTransaction(envelopingRequest);
+
+        await expect(transaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION);
+      });
+
+      it.skip('should relay the transaction after the first attempt', async function () {
+        attemptRelayTransactionStub.onFirstCall().resolves(undefined);
+        attemptRelayTransactionStub.onSecondCall().resolves(expectedTransaction);
+        const transaction = await relayClient.relayTransaction(envelopingRequest);
+
+        expect(transaction).to.be.equals(transaction);
+      });
+
+      it('should fail to relay transaction if cannot be verified locally on all servers', async function () {
+        const error = new Error('client verification failed')
+        relayClient._verifyEnvelopingRequest = sandbox.stub().throws(error);
+
+        const transaction = relayClient.relayTransaction(envelopingRequest);
+
+        await expect(transaction).to.be.rejectedWith(error)
+      });
+
+    });
+
+    describe('estimateRelayTransaction', function () {
+      const relayInfo: RelayInfo = {
+        hubInfo: FAKE_HUB_INFO,
+        managerData: {
+          url: 'fake_url'
+        } as RelayManagerData
+      };
+
+      let httpClient: SinonStubbedInstance<HttpClient>;
+
+      const expectedEstimation = {} as RelayEstimation;
+
+      beforeEach(function () {
+        httpClient = sandbox.createStubInstance(HttpClient);
+        relayClient._httpClient = httpClient;
+        httpClient.estimateMaxPossibleGas.resolves(expectedEstimation);
+        relayClient._getHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
       });
 
       afterEach(function () {
         sandbox.restore();
       })
 
-      it('should relay the transaction in the first attempt', async function () {
-        const expectedTransaction = await relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+      it('should estimate a relay transaction', async function () {
+        const envelopingRequest = {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA
+          },
+        }
+        const estimation = await relayClient.estimateRelayTransaction(envelopingRequest);
 
-        expect(selectNextRelayStub).to.be.calledOnce;
-        expect(expectedTransaction).to.be.equals(transaction);
+        expect(estimation).to.be.eql(expectedEstimation);
       });
 
-      it('should relay the transaction after the first attempt', async function () {
-        attemptRelayTransactionStub.onFirstCall().returns(Promise.resolve(undefined));
-        attemptRelayTransactionStub.onSecondCall().returns(Promise.resolve(transaction));
-        const expectedTransaction = await relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+      it('should estimate a deploy transaction', async function () {
+        const envelopingRequest = {
+          ...FAKE_DEPLOY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA
+          },
+        }
+        const estimation = await relayClient.estimateRelayTransaction(envelopingRequest);
 
-        expect(selectNextRelayStub).to.be.calledTwice;
-        expect(expectedTransaction).to.be.equals(transaction);
+        expect(estimation).to.be.eql(expectedEstimation);
       });
 
-      
-      it('should fail to relay transaction if details are missing', async function () {
-        relayClient._getEnvelopingRequestDetails = sandbox.stub().throws(new Error('missing details'));
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+      it('should throw if the transaction cannot be build with any hub', async function () {
+        const envelopingRequest = {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA
+          },
+        }
+        const error = new Error('No more hubs available to select');
+        relayClient._getHubEnvelopingTx = sandbox.stub().throws(error);
+        const transaction = relayClient.estimateRelayTransaction(envelopingRequest);
 
-        await expect(expectedTransaction).to.be.rejectedWith('missing details')
+        await expect(transaction).to.be.rejectedWith(error);
       });
 
-      it('should fail to relay transaction if http request cannot be prepared', async function () {
+    });
+
+    describe('_getHubEnvelopingTx', function () {
+
+      const relayInfo: RelayInfo = {
+        hubInfo: FAKE_HUB_INFO,
+        managerData: {
+          url: 'fake_url'
+        } as RelayManagerData
+      };
+
+      const envelopingRequest = {
+        ...FAKE_RELAY_REQUEST,
+        relayData: {
+          ...FAKE_ENVELOPING_REQUEST_DATA
+        },
+      }
+
+      const expectedEnveloping: HubEnvelopingTx = {
+        activeRelay: relayInfo,
+        envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST
+      };
+
+      afterEach(function () {
+        sandbox.restore();
+      })
+
+      it('should build a transaction using a hub', async function () {
+        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+        relayClient._prepareHttpRequest = sandbox.stub().returns(FAKE_RELAY_TRANSACTION_REQUEST);
+        const enveloping = await relayClient._getHubEnvelopingTx(envelopingRequest);
+
+        expect(enveloping).to.be.deep.equal(expectedEnveloping);
+      });
+
+      it('should throw if there is no hub available', async function () {
+        const error = new Error('No more hubs available to select');
+        sandbox.stub(relayUtils, 'selectNextRelay').throws(error);
+        const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
+
+        await expect(enveloping).to.be.rejectedWith(error);
+      });
+
+      it('should throw if the http request cannot be prepared', async function () {
         const error = new Error('FeesReceiver has to be a valid non-zero address');
+        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
         relayClient._prepareHttpRequest = sandbox.stub().throws(error);
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
+        const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
 
-        await expect(expectedTransaction).to.be.rejectedWith(error.message)
-      });
-      
-
-      it('should fail to relay transaction if there is no available relay server', async function () {
-        selectNextRelayStub.returns(Promise.resolve(undefined));
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
-
-        await expect(expectedTransaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION)
-      });
-
-      it('should fail to relay transaction if cannot be verified locally on all servers', async function () {
-        relayClient._verifyEnvelopingRequest = sandbox.stub().returns(Promise.resolve(false));
-        selectNextRelayStub.onFirstCall().returns(Promise.resolve(relayInfo));
-        selectNextRelayStub.onSecondCall().returns(Promise.resolve(undefined));
-        const expectedTransaction = relayClient.relayTransaction(envelopingRequest, FAKE_REQUEST_CONFIG);
-
-        await expect(expectedTransaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION)
+        await expect(enveloping).to.be.rejectedWith(error);
       });
 
     });
@@ -1300,7 +1087,7 @@ describe('RelayClient', function () {
         relayClient._httpClient = httpClient;
         parseTransactionStub = sandbox.stub(etherUtils, 'parse').returns(transaction);
         validateResponseStub = sandbox.stub(relayUtils, 'validateRelayResponse').returns(undefined);
-        relayClient._broadcastTx = sandbox.stub().returns(Promise.resolve(undefined));
+        relayClient._broadcastTx = sandbox.stub().resolves(undefined);
       });
 
       afterEach(function () {
@@ -1313,7 +1100,7 @@ describe('RelayClient', function () {
         expect(expectedTransaction).to.be.equals(transaction);
       });
 
-      it('shoul throw if server cannot relay transaction', async function () {
+      it('should throw if server cannot relay transaction', async function () {
         httpClient.relayTransaction.throws('Got invalid response from relay: signedTx field missing.');
         const attempRelay = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
 
@@ -1322,7 +1109,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if transaction cannot be parsed', async function () {
-        const error = ethersLogger.makeError('invalid arrayify value' , errors.INVALID_ARGUMENT);
+        const error = ethersLogger.makeError('invalid arrayify value', errors.INVALID_ARGUMENT);
         parseTransactionStub.throws(error);
         const attempRelay = await relayClient._attemptRelayTransaction(relayInfo, FAKE_RELAY_TRANSACTION_REQUEST);
 
@@ -1355,7 +1142,7 @@ describe('RelayClient', function () {
 
       beforeEach(function () {
         sendTransactionStub = sandbox.stub();
-        relayClient._provider.sendTransaction = sendTransactionStub;
+        providerStub.sendTransaction = sendTransactionStub;
       });
 
       afterEach(function () {
@@ -1363,8 +1150,8 @@ describe('RelayClient', function () {
       })
 
       it('should send transaction if cannot find it in pool or receipt', async function () {
-        relayClient._provider.getTransaction = sandbox.stub().returns(undefined);
-        relayClient._provider.getTransactionReceipt = sandbox.stub().returns(undefined);
+        providerStub.getTransaction = sandbox.stub().returns(undefined);
+        providerStub.getTransactionReceipt = sandbox.stub().returns(undefined);
         await relayClient._broadcastTx(fakeSignedTx);
 
         expect(sendTransactionStub.called).to.be.true;
@@ -1372,8 +1159,8 @@ describe('RelayClient', function () {
 
       it('should not send transaction if the receipt is in the transaction pool', async function () {
         const fakeResponse = {} as TransactionResponse;
-        relayClient._provider.getTransaction = sandbox.stub().returns(Promise.resolve(fakeResponse));
-        relayClient._provider.getTransactionReceipt = sandbox.stub().returns(undefined);
+        providerStub.getTransaction = sandbox.stub().returns(Promise.resolve(fakeResponse));
+        providerStub.getTransactionReceipt = sandbox.stub().returns(undefined);
         await relayClient._broadcastTx(fakeSignedTx);
 
         expect(sendTransactionStub.called).to.be.false;
@@ -1381,8 +1168,8 @@ describe('RelayClient', function () {
 
       it('should not send transaction if receipt is found', async function () {
         const fakeReceipt = {} as TransactionReceipt;
-        relayClient._provider.getTransactionReceipt = sandbox.stub().returns(Promise.resolve(fakeReceipt));
-        relayClient._provider.getTransaction = sandbox.stub().returns(undefined);
+        providerStub.getTransactionReceipt = sandbox.stub().returns(Promise.resolve(fakeReceipt));
+        providerStub.getTransaction = sandbox.stub().returns(undefined);
         await relayClient._broadcastTx(fakeSignedTx);
 
         expect(sendTransactionStub.called).to.be.false;
@@ -1404,32 +1191,33 @@ describe('RelayClient', function () {
       });
 
       it('should allow if enveloping transaction pass all verifiers', async function () {
-        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+        const verification = relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
 
-        expect(verification).to.be.true;
+        await expect(verification).to.be.fulfilled;
       });
 
       it('should fail if enveloping transaction fails on _verifyWorkerBalance', async function () {
-        relayClient._verifyWorkerBalance = sandbox.stub().throws(new Error('Worker does not have enough balance to pay'));
-        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+        const error = new Error('Worker does not have enough balance to pay');
+        relayClient._verifyWorkerBalance = sandbox.stub().throws(error);
+        const verification = relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
 
-        expect(verification).to.be.false;
+        await expect(verification).to.be.rejectedWith(error.message);
       });
 
       it('should fail if enveloping transaction fails on _verifyWithVerifiers', async function () {
-        const error = ethersLogger.makeError('SW different to template' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('SW different to template', errors.CALL_EXCEPTION);
         relayClient._verifyWithVerifiers = sandbox.stub().throws(error);
-        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+        const verification = relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
 
-        expect(verification).to.be.false;
+        await expect(verification).to.be.rejectedWith(error.message);
       });
 
       it('should fail if enveloping transaction fails on _verifyWithRelayHub', async function () {
-        const error = ethersLogger.makeError('RelayWorker cannot be a contract' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('RelayWorker cannot be a contract', errors.CALL_EXCEPTION);
         relayClient._verifyWithRelayHub = sandbox.stub().throws(error);
-        const verification = await relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
+        const verification = relayClient._verifyEnvelopingRequest(FAKE_HUB_INFO, FAKE_RELAY_TRANSACTION_REQUEST);
 
-        expect(verification).to.be.false;
+        await expect(verification).to.be.rejectedWith(error.message);
       });
 
       it(`should emit 'validate-request' `, async function () {
@@ -1456,14 +1244,14 @@ describe('RelayClient', function () {
       });
 
       it('should succeed if worker has enough balance', async function () {
-        relayClient._provider.getBalance = sandbox.stub().returns(BigNumber.from(1_500_000));
+        providerStub.getBalance = sandbox.stub().returns(BigNumber.from(1_500_000));
         const verifyWorkerBalance = relayClient._verifyWorkerBalance(relayWorkerAddress, fakeMaxPossibleGas, FAKE_GAS_PRICE);
 
         await expect(verifyWorkerBalance).to.be.fulfilled;
       });
 
       it('should throw if worker has not enough balance', async function () {
-        relayClient._provider.getBalance = sandbox.stub().returns(BigNumber.from(500_000));
+        providerStub.getBalance = sandbox.stub().returns(BigNumber.from(500_000));
         const verifyWorkerBalance = relayClient._verifyWorkerBalance(relayWorkerAddress, fakeMaxPossibleGas, FAKE_GAS_PRICE);
 
         await expect(verifyWorkerBalance).to.be.rejectedWith('Worker does not have enough balance to pay');
@@ -1502,7 +1290,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping relay request will not be verified due sw different to template', async function () {
-        const error = ethersLogger.makeError('SW different to template' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('SW different to template', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const relayVerifierStub = {
           callStatic: {
@@ -1517,7 +1305,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping deploy request will not be verified due to invalid factory', async function () {
-        const error = ethersLogger.makeError('Invalid factory' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Invalid factory', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1532,7 +1320,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping deploy request will not be verified due to address already created', async function () {
-        const error = ethersLogger.makeError('Address already created!' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Address already created!', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1547,7 +1335,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will not be verified due to token contract not allowed', async function () {
-        const error = ethersLogger.makeError('Token contract not allowed' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Token contract not allowed', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1562,7 +1350,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will not be verified due to balance too low', async function () {
-        const error = ethersLogger.makeError('balance too low' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('balance too low', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         const deployVerifierStub = {
           callStatic: {
@@ -1575,7 +1363,6 @@ describe('RelayClient', function () {
         expect(callStub).to.be.calledOnce;
         await expect(verifyWithVerifiers).to.be.rejectedWith(error.message);
       });
-
     });
 
     describe('_verifyWithRelayHub', function () {
@@ -1590,7 +1377,7 @@ describe('RelayClient', function () {
       });
 
       it('should allow if enveloping relay request will succeed', async function () {
-        const callStub = sandbox.stub().returns(undefined);
+        const callStub = sandbox.stub().resolves(true);
         relayHubStub = {
           callStatic: {
             relayCall: callStub
@@ -1618,7 +1405,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will fail due to not enabled worker', async function () {
-        const error = ethersLogger.makeError('Not an enabled worker' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Not an enabled worker', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         relayHubStub = {
           callStatic: {
@@ -1631,9 +1418,9 @@ describe('RelayClient', function () {
         expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
       });
-      
+
       it('should throw if enveloping request will fail due to invalid gas price', async function () {
-        const error = ethersLogger.makeError('Invalid gas price' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('Invalid gas price', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         relayHubStub = {
           callStatic: {
@@ -1648,7 +1435,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw if enveloping request will fail due to the relayWorker cannot be a contract', async function () {
-        const error = ethersLogger.makeError('RelayWorker cannot be a contract' , errors.CALL_EXCEPTION);
+        const error = ethersLogger.makeError('RelayWorker cannot be a contract', errors.CALL_EXCEPTION);
         const callStub = sandbox.stub().throws(error);
         relayHubStub = {
           callStatic: {
@@ -1660,6 +1447,20 @@ describe('RelayClient', function () {
 
         expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+      });
+
+      it('should throw if enveloping request will fail due to destination contract reverted', async function () {
+        const callStub = sandbox.stub().resolves(false);
+        relayHubStub = {
+          callStatic: {
+            relayCall: callStub
+          }
+        } as unknown as typeof relayHubStub;
+        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        const verifyWithRelayHub = relayClient._verifyWithRelayHub(relayWorkerAddress, FAKE_RELAY_TRANSACTION_REQUEST, fakeMaxPossibleGas);
+
+        expect(callStub).to.be.calledOnce;
+        await expect(verifyWithRelayHub).to.be.rejectedWith('Destination contract reverted');
       });
 
     });

@@ -6,6 +6,7 @@ import axios, {
 } from 'axios';
 import log, { LogLevelDesc } from 'loglevel';
 
+const logger = () => log.getLogger('HttpWrapper');
 const LOGMAXLEN = 120;
 const DEFAULT_TIMEOUT = 30000;
 
@@ -29,17 +30,17 @@ const stringify = (something: unknown): string =>
 const interceptors = {
   logRequest: {
     onErrorResponse: (response: AxiosResponse) => {
-      log.debug('relayTransaction response:', response);
+      logger().debug('relayTransaction response:', response);
       const data = (response.data as {error: string} | undefined);
       if (data?.error) {
-        log.error(`Error within response: ${data.error}`);
+        logger().error(`Error within response: ${data.error}`);
         throw new Error(`Got error response from relay: ${data.error}`);
       }
       
       return response;
     },
     onResponse: (response: AxiosResponse) => {
-      log.info(
+      logger().info(
         `Got a response: ${response.config.url as string}${stringify(
           response.data
         ).slice(0, LOGMAXLEN)}`
@@ -50,15 +51,15 @@ const interceptors = {
     onError: (error: AxiosError) => {
       const { response, message, config } = error;
       if (error.request) {
-        log.error(`Request failed: ${stringify(error.request)}`);
+        logger().error(`Request failed: ${stringify(error.request)}`);
       }
       if (response) {
-        log.error(`Response error: ${stringify(response)}`);
+        logger().error(`Response error: ${stringify(response)}`);
       }
       if (!error.request && !response) {
-        log.error('Error while setting up request', stringify(message));
+        logger().error('Error while setting up request', stringify(message));
       }
-      log.debug(`Configuration: ${stringify(config)}`);
+      logger().debug(`Configuration: ${stringify(config)}`);
 
       return Promise.reject(error);
     },
@@ -77,7 +78,8 @@ export default class HttpWrapper {
       headers: { 'Content-Type': 'application/json' },
       ...opts,
     });
-    log.setLevel(loglLevel);
+
+    logger().setLevel(loglLevel);
 
     this._httpClient.interceptors.response.use(
       interceptors.logRequest.onResponse,
@@ -86,7 +88,7 @@ export default class HttpWrapper {
   }
 
   async sendPromise<T>(url: string, jsonRequestData?: unknown): Promise<T> {
-    log.info(
+    logger().info(
       'Sending request:',
       url,
       jsonRequestData && stringify(jsonRequestData).slice(0, LOGMAXLEN)

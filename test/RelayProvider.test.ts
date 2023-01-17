@@ -2,33 +2,27 @@ import { JsonRpcProvider, TransactionReceipt, Network } from "@ethersproject/pro
 import { Interface, LogDescription } from "@ethersproject/abi";
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import config from 'config';
 import Sinon, { SinonStub } from 'sinon';
 import sinonChai from 'sinon-chai';
 import RelayProvider, { RelayingResult } from '../src/RelayProvider';
-import RelayClient, { RequestConfig } from '../src/RelayClient';
+import RelayClient from '../src/RelayClient';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import type { UserDefinedEnvelopingRequest } from "src/common/relayRequest.types";
 import { BigNumber, Transaction } from "ethers";
 import AccountManager from "../src/AccountManager";
 import { FAKE_RELAY_REQUEST } from "./request.fakes";
-import * as utils from '../src/utils';
 import { relayTransactionHandler } from "../src/handlers/RelayProvider";
+import type { RequestConfig } from "../src/common";
+import * as utils from '../src/utils';
+import * as clientConfiguration from '../src/common/clientConfigurator';
 
 use(sinonChai);
 use(chaiAsPromised);
 const sandbox = Sinon.createSandbox();
 
 describe('RelayProvider', function () {
-  const originalConfig = { ...config };
-  before(function () {
-    config.util.extendDeep(config, {
-      EnvelopingConfig: FAKE_ENVELOPING_CONFIG,
-    });
-  });
-
-  after(function () {
-    config.util.extendDeep(config, originalConfig);
+  beforeEach(function () {
+    sandbox.replace(clientConfiguration, 'getEnvelopingConfig', () => FAKE_ENVELOPING_CONFIG);
   });
 
   afterEach(function () {

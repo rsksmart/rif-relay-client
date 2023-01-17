@@ -1,4 +1,5 @@
 import type { BigNumberish } from 'ethers';
+import type { RelayInfo } from './relayHub.types';
 import type {
   RelayRequestBody,
   EnvelopingRequestData,
@@ -6,13 +7,12 @@ import type {
 import type { EnvelopingTxRequest } from './relayTransaction.types';
 
 type RequestConfig = {
-  isSmartWalletDeploy?: boolean;
-  preDeploySWAddress?: string;
+  isSmartWalletDeploy?: boolean; // its no longer necessary
+  preDeploySWAddress?: string; // its not necessary to be here, we calculate it whenever is needed
   clientId?: string;
   useEnveloping?: boolean;
   forceGasPrice?: string;
   forceGasLimit?: string;
-  forceTokenGasLimit?: string;
   onlyPreferredRelays?: boolean;
   ignoreTransactionReceipt?: boolean;
   retries?: number;
@@ -42,8 +42,14 @@ type EstimateInternalGasParams = Pick<
     'internalEstimationCorrection' | 'estimatedGasCorrectionFactor'
   >;
 
+type HubEnvelopingTx = {
+  envelopingTx: EnvelopingTxRequest;
+  activeRelay: RelayInfo;
+};
+
 export type {
   RequestConfig,
   TokenGasEstimationParams,
   EstimateInternalGasParams,
+  HubEnvelopingTx,
 };

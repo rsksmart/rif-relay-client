@@ -1,46 +1,32 @@
-import sigUtil, {
-  SignTypedDataVersion,
-  TypedMessage
-} from '@metamask/eth-sig-util';
-import { providers, Wallet } from 'ethers';
-import { getAddress } from 'ethers/lib/utils';
+import { providers, Wallet, utils } from 'ethers';
+import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
+import { getProvider, isDeployRequest } from './common';
 import type {
-  EnvelopingRequest,
-  UserDefinedEnvelopingRequest,
-} from './common/relayRequest.types';
+  EnvelopingRequest
+} from './common';
 import {
   deployRequestType,
   EnvelopingMessageTypes,
   getEnvelopingRequestDataV4Field,
   relayRequestType,
+  TypedMessage,
 } from './typedRequestData.utils';
 
 export default class AccountManager {
-  private _provider: providers.Provider;
 
   private _accounts: Wallet[] = [];
-
-  chainId: number;
-
-  constructor(provider: providers.Provider, chainId: number) {
-    this._provider = provider;
-    this.chainId = chainId;
-  }
 
   getAccounts(): string[] {
     return this._accounts.map((it) => it.address);
   }
 
   addAccount(account: Wallet): void {
-    const wallet = new Wallet(account.privateKey, this._provider);
+    const provider = getProvider();
+    const wallet = new Wallet(account.privateKey, provider);
     if (wallet.address !== account.address) {
       throw new Error('invalid keypair');
     }
     this._accounts.push(wallet);
-  }
-
-  isDeployRequest({ request }: UserDefinedEnvelopingRequest): boolean {
-    return 'index' in request;
   }
 
   async sign(envelopingRequest: EnvelopingRequest): Promise<string> {
@@ -48,13 +34,18 @@ export default class AccountManager {
     const fromAddress: string = getAddress(
       envelopingRequest.request.from.toString()
     );
-    const isDeploy = this.isDeployRequest(envelopingRequest);
+
+    const provider = getProvider();
+
+    const { chainId } = await provider.getNetwork();
+
     const data = getEnvelopingRequestDataV4Field({
-      chainId: this.chainId,
+      chainId,
       verifier: callForwarder,
       envelopingRequest,
-      requestTypes: isDeploy ? deployRequestType : relayRequestType,
+      requestTypes: isDeployRequest(envelopingRequest) ? deployRequestType : relayRequestType,
     });
+
     const wallet = this._accounts.find(
       (account) => getAddress(account.address) === fromAddress
     );
@@ -64,8 +55,7 @@ export default class AccountManager {
       wallet
     ).catch((error) => {
       throw new Error(
-        `Failed to sign relayed transaction for ${fromAddress}: ${
-          error as string
+        `Failed to sign relayed transaction for ${fromAddress}: ${error as string
         }`
       );
     });
@@ -84,10 +74,11 @@ export default class AccountManager {
     from: string,
     wallet?: Wallet
   ): Promise<{ signature: string; recoveredAddr: string }> {
+
     const signature: string = wallet
-      ? this._signWithWallet(wallet, data)
+      ? await this._signWithWallet(wallet, data)
       : await this._signWithProvider(from, data);
-    const recoveredAddr = getAddress(this._recoverSignature(data, signature));
+    const recoveredAddr = this._recoverSignature(data, signature);
 
     return { signature, recoveredAddr };
   }
@@ -96,36 +87,44 @@ export default class AccountManager {
     data: TypedMessage<EnvelopingMessageTypes>,
     signature: string
   ) {
-    return sigUtil.recoverTypedSignature<
-      SignTypedDataVersion.V4,
-      EnvelopingMessageTypes
-    >({
-      data,
-      signature,
-      version: SignTypedDataVersion.V4,
-    });
+    const { domain, types, value } = data;
+
+    return utils.verifyTypedData(domain, types, value, signature);
   }
 
   private async _signWithProvider<T>(
     from: string,
-    data: TypedMessage<EnvelopingMessageTypes>
+    data: TypedMessage<EnvelopingMessageTypes>,
+    signatureVersion = 'v4',
+    jsonStringify = true
   ): Promise<T> {
-    const provider = this._provider as providers.JsonRpcProvider;
+    const provider = getProvider() as providers.JsonRpcProvider;
     if (!provider.send) {
       throw new Error(`Not an RPC provider`);
     }
 
-    return (await provider.send('eth_signTypedData_v4', [from, data])) as T;
+    const { domain, types, value } = data;
+
+    let encondedData: TypedMessage<EnvelopingMessageTypes> | string;
+    if (jsonStringify) {
+      encondedData = JSON.stringify(_TypedDataEncoder.getPayload(domain, types, value))
+    } else {
+      encondedData = _TypedDataEncoder.getPayload(domain, types, value) as TypedMessage<EnvelopingMessageTypes>;
+    }
+
+    return (await provider.send(`eth_signTypedData_${signatureVersion}`, [
+      from,
+      encondedData
+    ])) as T;
   }
 
-  private _signWithWallet(
-    { privateKey }: Wallet,
+  private async _signWithWallet(
+    wallet: Wallet,
     data: TypedMessage<EnvelopingMessageTypes>
-  ): string {
-    return sigUtil.signTypedData({
-      privateKey: Buffer.from(privateKey, 'hex'),
-      data,
-      version: SignTypedDataVersion.V4,
-    });
+  ): Promise<string> {
+
+    const { domain, types, value } = data;
+
+    return await wallet._signTypedData(domain, types, value);
   }
 }

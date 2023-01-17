@@ -57,7 +57,7 @@ const DEPLOY_REQUEST: DeployRequest = {
 
 const ENVELOPING_REQUEST_METADATA: EnvelopingMetadata = {
   relayHubAddress: COMMON_REQUEST_BODY.relayHub,
-  relayMaxNonce: COMMON_REQUEST_BODY.nonce,
+  relayMaxNonce: 2,
   signature: ethers.utils.randomBytes(129).toString(),
 };
 

@@ -2,17 +2,18 @@ import { Transaction, BigNumber } from 'ethers';
 import type { Networkish } from "@ethersproject/networks";
 import { JsonRpcProvider, TransactionReceipt } from "@ethersproject/providers";
 import type { ConnectionInfo } from "@ethersproject/web";
-import { getEnvelopingConfig } from './utils';
-import RelayClient, { RequestConfig } from './RelayClient';
+import RelayClient from './RelayClient';
 import log from 'loglevel';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
 import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 import { useEnveloping } from './utils';
-import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
+import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts';
 import type { LogDescription } from 'ethers/lib/utils';
 import type { Either } from './common/utility.types';
 import { RelayTransactionEvents, relayTransactionHandler } from './handlers/RelayProvider';
+import type { RequestConfig } from './common';
+import { getEnvelopingConfig } from './common/clientConfigurator';
 
 export const RELAY_TRANSACTION_EVENTS = 
 [
@@ -91,7 +92,7 @@ export default class RelayProvider extends JsonRpcProvider {
         try {
 
             const transaction = await this.relayClient.relayTransaction(
-                envelopingRequest, requestConfig
+                envelopingRequest
             );
 
             const { hash } = transaction;
@@ -125,7 +126,7 @@ export default class RelayProvider extends JsonRpcProvider {
 
         const { relayData, request } = envelopingRequest;
 
-        let callForwarderValue = await relayData.callForwarder;
+        let callForwarderValue = await relayData?.callForwarder;
         let relayHubValue = await request.relayHub;
         let onlyPreferredRelaysValue = requestConfig.onlyPreferredRelays;
         const gasToSend = requestConfig.forceGasLimit ? BigNumber.from(requestConfig.forceGasLimit) : undefined;
@@ -152,7 +153,7 @@ export default class RelayProvider extends JsonRpcProvider {
          * value that comes from the original provider
          */
 
-        const userDefinedEnvelopingReq: UserDefinedEnvelopingRequest = {
+        const userDefinedEnvelopingReq = {
             relayData: {
                 ...envelopingRequest.relayData,
                 callForwarder: callForwarderValue,
@@ -160,9 +161,9 @@ export default class RelayProvider extends JsonRpcProvider {
             request: {
                 ...envelopingRequest.request,
                 relayHub: relayHubValue,
-                gas: gasToSend,
+                gas: gasToSend
             }
-        }
+        } as UserDefinedEnvelopingRequest;
 
         const fullRequestConfig: RequestConfig = {
             ...requestConfig,
@@ -189,8 +190,7 @@ export default class RelayProvider extends JsonRpcProvider {
         let accountsList = await this.jsonRpcProvider.listAccounts();
 
         if (accountsList && Array.isArray(accountsList)) {
-            const { chainId } = await this.getNetwork();
-            const accountManager = new AccountManager(this, chainId);
+            const accountManager = new AccountManager();
 
             const ephemeralAccounts =
                 accountManager.getAccounts();

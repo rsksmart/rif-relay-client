@@ -4,8 +4,9 @@ import * as solidityUtils from '@ethersproject/solidity';
 import {
   ERC20,
   ERC20__factory,
+  ISmartWalletFactory,
+  ISmartWalletFactory__factory,
   SmartWalletFactory,
-  SmartWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { expect, use } from 'chai';
 import crypto from 'crypto';
@@ -20,6 +21,7 @@ import {
   DiscoveryConfig,
 } from '../../src/discovery';
 import * as discoveryUtils from '../../src/discovery/utils';
+import * as clientConfiguration from '../../src/common/clientConfigurator';
 
 use(sinonChai);
 
@@ -40,7 +42,7 @@ describe('smartWalletDiscovery', function () {
   describe('discoverAccountsFromMnemonic', function () {
     let connectSWFFactoryStub: sinon.SinonStub<
       [string, Signer | Provider],
-      SmartWalletFactory
+      ISmartWalletFactory
     >;
     let fromMnemonicStub: sinon.SinonStub;
     let fakeSmartWalletFactory: SinonStubbedInstance<
@@ -53,8 +55,8 @@ describe('smartWalletDiscovery', function () {
     let derivePathStub: sinon.SinonStub;
     let getAddressStub: sinon.SinonStub;
     let getCreationBytecodeStub: sinon.SinonStub<
-      Parameters<SmartWalletFactory['getCreationBytecode']>,
-      ReturnType<SmartWalletFactory['getCreationBytecode']>
+      Parameters<ISmartWalletFactory['getCreationBytecode']>,
+      ReturnType<ISmartWalletFactory['getCreationBytecode']>
     >;
     let providerStub: sinon.SinonStubbedInstance<providers.BaseProvider>;
     let sha3Stub: sinon.SinonStub;
@@ -74,7 +76,7 @@ describe('smartWalletDiscovery', function () {
       providerStub = sinon.createStubInstance(providers.BaseProvider);
       providerStub.getBalance = getBalanceStub;
       sinon
-        .stub(providers, 'getDefaultProvider')
+        .stub(clientConfiguration, 'getProvider')
         .returns(providerStub as unknown as providers.BaseProvider);
 
       getAddressStub = sinon
@@ -82,8 +84,8 @@ describe('smartWalletDiscovery', function () {
         .returns(`0x${FAKE_SHA3_RESULT.slice(26)}`);
 
       connectSWFFactoryStub = sinon
-        .stub(SmartWalletFactory__factory, 'connect')
-        .returns(fakeSmartWalletFactory as unknown as SmartWalletFactory);
+        .stub(ISmartWalletFactory__factory, 'connect')
+        .returns(fakeSmartWalletFactory as unknown as ISmartWalletFactory);
 
       derivePathStub = sinon
         .stub(HDNode.prototype, 'derivePath')

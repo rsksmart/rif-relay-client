@@ -14,14 +14,31 @@ type EnvelopingRequest = {
 
 type UserDefinedRelayRequestBody = Modify<
   RelayRequestBody,
-  Pick<Partial<RelayRequestBody>, 'relayHub' | 'gas' | 'nonce' | 'tokenGas'>
+  Pick<
+    Partial<RelayRequestBody>,
+    | 'relayHub'
+    | 'nonce'
+    | 'tokenGas'
+    | 'validUntilTime'
+    | 'value'
+    | 'tokenAmount'
+    | 'gas'
+  >
 >;
 
 type UserDefinedDeployRequestBody = Modify<
   DeployRequestBody,
   Pick<
     Partial<DeployRequestBody>,
-    'relayHub' | 'nonce' | 'tokenGas' | 'recoverer' | 'index'
+    | 'relayHub'
+    | 'nonce'
+    | 'tokenGas'
+    | 'validUntilTime'
+    | 'value'
+    | 'tokenAmount'
+    | 'recoverer'
+    | 'data'
+    | 'to'
   >
 >;
 
@@ -63,7 +80,7 @@ type UserDefinedDeployRequest = Modify<
   DeployRequest,
   {
     request: UserDefinedDeployRequestBody;
-    relayData: UserDefinedRelayData;
+    relayData?: UserDefinedDeployData;
   }
 >;
 
@@ -71,6 +88,9 @@ type UserDefinedEnvelopingRequest = Either<
   UserDefinedRelayRequest,
   UserDefinedDeployRequest
 >;
+
+/* type UserDefinedEnvelopingRequest = UserDefinedRelayRequest &
+  UserDefinedDeployRequest;  */
 
 export type {
   UserDefinedRelayRequestBody,
