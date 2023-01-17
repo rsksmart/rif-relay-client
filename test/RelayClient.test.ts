@@ -1049,7 +1049,7 @@ describe('RelayClient', function () {
         expect(enveloping).to.be.deep.equal(expectedEnveloping);
       });
 
-      it('should throw if there is no there is no hub available', async function () {
+      it('should throw if there is no hub available', async function () {
         const error = new Error('No more hubs available to select');
         sandbox.stub(relayUtils, 'selectNextRelay').throws(error);
         const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
