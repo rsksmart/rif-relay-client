@@ -11,7 +11,17 @@ import {
 } from './typedRequestData.utils';
 
 export default class AccountManager {
+  private static instance: AccountManager;
+
   private _accounts: Wallet[] = [];
+
+  public static getInstance(): AccountManager {
+    if (!AccountManager.instance) {
+      AccountManager.instance = new AccountManager();
+    }
+
+    return AccountManager.instance;
+  }
 
   getAccounts(): string[] {
     return this._accounts.map((it) => it.address);
