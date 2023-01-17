@@ -355,7 +355,7 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<Transaction> {
     
-    const { envelopingTx, activeRelay } = await this._buildHubEnvelopingTx(envelopingRequest);
+    const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(envelopingRequest);
 
     log.debug('Relay Client - Relaying transaction');
     log.debug(
@@ -382,7 +382,7 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<RelayEstimation> {
 
-    const { envelopingTx, activeRelay: { managerData: { url } } } = await this._buildHubEnvelopingTx(envelopingRequest);
+    const { envelopingTx, activeRelay: { managerData: { url } } } = await this._getHubEnvelopingTx(envelopingRequest);
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
@@ -395,7 +395,7 @@ class RelayClient extends EnvelopingEventEmitter {
     );
   }
 
-  private async _buildHubEnvelopingTx(request: UserDefinedEnvelopingRequest): Promise<HubEnvelopingTx> {
+  private async _getHubEnvelopingTx(request: UserDefinedEnvelopingRequest): Promise<HubEnvelopingTx> {
 
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
       request

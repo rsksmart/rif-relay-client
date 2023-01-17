@@ -110,7 +110,7 @@ describe('RelayClient', function () {
       _getEnvelopingRequestDetails: (
         request: UserDefinedEnvelopingRequest
       ) => Promise<EnvelopingRequest>;
-      _buildHubEnvelopingTx: (request: UserDefinedEnvelopingRequest) => Promise<HubEnvelopingTx>;
+      _getHubEnvelopingTx: (request: UserDefinedEnvelopingRequest) => Promise<HubEnvelopingTx>;
       _attemptRelayTransaction: (relayInfo: RelayInfo, envelopingTx: EnvelopingTxRequest) => Promise<Transaction>;
       _broadcastTx: (signedTx: string) => Promise<void>;
       _verifyEnvelopingRequest: (hubInfo: HubInfo, envelopingTx: EnvelopingTxRequest) => Promise<void>;
@@ -906,7 +906,7 @@ describe('RelayClient', function () {
         relayClient._prepareHttpRequest = sandbox.stub().resolves(FAKE_RELAY_TRANSACTION_REQUEST);
         relayClient._verifyEnvelopingRequest = sandbox.stub().resolves(true);
         relayClient._attemptRelayTransaction = attemptRelayTransactionStub;
-        relayClient._buildHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
+        relayClient._getHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
       });
 
       afterEach(function () {
@@ -921,7 +921,7 @@ describe('RelayClient', function () {
 
       it('should throw if the transaction cannot be build with any hub', async function () {
         const error = new Error('No more hubs available to select');
-        relayClient._buildHubEnvelopingTx = sandbox.stub().throws(error);
+        relayClient._getHubEnvelopingTx = sandbox.stub().throws(error);
         const transaction = relayClient.relayTransaction(envelopingRequest);
 
         await expect(transaction).to.be.rejectedWith(error);
@@ -969,7 +969,7 @@ describe('RelayClient', function () {
         httpClient = sandbox.createStubInstance(HttpClient);
         relayClient._httpClient = httpClient;
         httpClient.estimateMaxPossibleGas.resolves(expectedEstimation);
-        relayClient._buildHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
+        relayClient._getHubEnvelopingTx = sandbox.stub().resolves({ activeRelay: relayInfo, envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST });
       });
 
       afterEach(function () {
@@ -1008,7 +1008,7 @@ describe('RelayClient', function () {
           },
         }
         const error = new Error('No more hubs available to select');
-        relayClient._buildHubEnvelopingTx = sandbox.stub().throws(error);
+        relayClient._getHubEnvelopingTx = sandbox.stub().throws(error);
         const transaction = relayClient.estimateRelayTransaction(envelopingRequest);
 
         await expect(transaction).to.be.rejectedWith(error);
@@ -1016,7 +1016,7 @@ describe('RelayClient', function () {
 
     });
 
-    describe('_buildHubEnvelopingTx', function () {
+    describe('_getHubEnvelopingTx', function () {
 
       const relayInfo: RelayInfo = {
         hubInfo: FAKE_HUB_INFO,
@@ -1044,7 +1044,7 @@ describe('RelayClient', function () {
       it('should build a transaction using a hub', async function () {
         sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
         relayClient._prepareHttpRequest = sandbox.stub().returns(FAKE_RELAY_TRANSACTION_REQUEST);
-        const enveloping = await relayClient._buildHubEnvelopingTx(envelopingRequest);
+        const enveloping = await relayClient._getHubEnvelopingTx(envelopingRequest);
 
         expect(enveloping).to.be.deep.equal(expectedEnveloping);
       });
@@ -1052,7 +1052,7 @@ describe('RelayClient', function () {
       it('should throw if there is no there is no hub available', async function () {
         const error = new Error('No more hubs available to select');
         sandbox.stub(relayUtils, 'selectNextRelay').throws(error);
-        const enveloping = relayClient._buildHubEnvelopingTx(envelopingRequest);
+        const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
 
         await expect(enveloping).to.be.rejectedWith(error);
       });
@@ -1061,7 +1061,7 @@ describe('RelayClient', function () {
         const error = new Error('FeesReceiver has to be a valid non-zero address');
         sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
         relayClient._prepareHttpRequest = sandbox.stub().throws(error);
-        const enveloping = relayClient._buildHubEnvelopingTx(envelopingRequest);
+        const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
 
         await expect(enveloping).to.be.rejectedWith(error);
       });

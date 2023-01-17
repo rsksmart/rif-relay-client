@@ -8,7 +8,7 @@ import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import AccountManager from './AccountManager';
 import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
 import { useEnveloping } from './utils';
-import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts/dist/typechain-types/contracts/RelayHub';
+import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts';
 import type { LogDescription } from 'ethers/lib/utils';
 import type { Either } from './common/utility.types';
 import { RelayTransactionEvents, relayTransactionHandler } from './handlers/RelayProvider';
