@@ -2,7 +2,7 @@ import axios, {
   AxiosError,
   AxiosInstance,
   AxiosRequestConfig,
-  AxiosResponse
+  AxiosResponse,
 } from 'axios';
 import log, { LogLevelDesc } from 'loglevel';
 
@@ -31,12 +31,12 @@ const interceptors = {
   logRequest: {
     onErrorResponse: (response: AxiosResponse) => {
       logger().debug('relayTransaction response:', response);
-      const data = (response.data as {error: string} | undefined);
+      const data = response.data as { error: string } | undefined;
       if (data?.error) {
         logger().error(`Error within response: ${data.error}`);
         throw new Error(`Got error response from relay: ${data.error}`);
       }
-      
+
       return response;
     },
     onResponse: (response: AxiosResponse) => {

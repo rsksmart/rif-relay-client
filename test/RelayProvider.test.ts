@@ -1,5 +1,9 @@
-import { JsonRpcProvider, TransactionReceipt, Network } from "@ethersproject/providers";
-import { Interface, LogDescription } from "@ethersproject/abi";
+import {
+  JsonRpcProvider,
+  TransactionReceipt,
+  Network,
+} from '@ethersproject/providers';
+import { Interface, LogDescription } from '@ethersproject/abi';
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import Sinon, { SinonStub } from 'sinon';
@@ -7,12 +11,12 @@ import sinonChai from 'sinon-chai';
 import RelayProvider, { RelayingResult } from '../src/RelayProvider';
 import RelayClient from '../src/RelayClient';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
-import type { UserDefinedEnvelopingRequest } from "src/common/relayRequest.types";
-import { BigNumber, Transaction } from "ethers";
-import AccountManager from "../src/AccountManager";
-import { FAKE_RELAY_REQUEST } from "./request.fakes";
-import { relayTransactionHandler } from "../src/handlers/RelayProvider";
-import type { RequestConfig } from "../src/common";
+import type { UserDefinedEnvelopingRequest } from 'src/common/relayRequest.types';
+import { BigNumber, Transaction } from 'ethers';
+import AccountManager from '../src/AccountManager';
+import { FAKE_RELAY_REQUEST } from './request.fakes';
+import { relayTransactionHandler } from '../src/handlers/RelayProvider';
+import type { RequestConfig } from '../src/common';
 import * as utils from '../src/utils';
 import * as clientConfiguration from '../src/common/clientConfigurator';
 
@@ -22,7 +26,11 @@ const sandbox = Sinon.createSandbox();
 
 describe('RelayProvider', function () {
   beforeEach(function () {
-    sandbox.replace(clientConfiguration, 'getEnvelopingConfig', () => FAKE_ENVELOPING_CONFIG);
+    sandbox.replace(
+      clientConfiguration,
+      'getEnvelopingConfig',
+      () => FAKE_ENVELOPING_CONFIG
+    );
   });
 
   afterEach(function () {
@@ -34,15 +42,17 @@ describe('RelayProvider', function () {
       const stubbedProvider = sandbox.createStubInstance(JsonRpcProvider);
       const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
 
-      const relayProvider = new RelayProvider(stubbedRelayClient, stubbedProvider) as unknown as { jsonRpcProvider: JsonRpcProvider, relayClient: RelayClient };
+      const relayProvider = new RelayProvider(
+        stubbedRelayClient,
+        stubbedProvider
+      ) as unknown as {
+        jsonRpcProvider: JsonRpcProvider;
+        relayClient: RelayClient;
+      };
 
       expect(relayProvider).to.be.instanceOf(RelayProvider);
-      expect(
-        relayProvider.jsonRpcProvider,
-      ).to.equal(stubbedProvider);
-      expect(
-        relayProvider.relayClient,
-      ).to.equal(stubbedRelayClient);
+      expect(relayProvider.jsonRpcProvider).to.equal(stubbedProvider);
+      expect(relayProvider.relayClient).to.equal(stubbedRelayClient);
     });
 
     it('should create JsonRpcProvider and store RelayClient', function () {
@@ -50,23 +60,25 @@ describe('RelayProvider', function () {
 
       const network: Network = {
         chainId: 33,
-        name: 'rskj'
-      }
+        name: 'rskj',
+      };
 
       const providerParams = {
         url: 'localhost',
-        network 
-      }
+        network,
+      };
 
-      const relayProvider = new RelayProvider(stubbedRelayClient, providerParams) as unknown as { jsonRpcProvider: JsonRpcProvider, relayClient: RelayClient };
+      const relayProvider = new RelayProvider(
+        stubbedRelayClient,
+        providerParams
+      ) as unknown as {
+        jsonRpcProvider: JsonRpcProvider;
+        relayClient: RelayClient;
+      };
 
       expect(relayProvider).to.be.instanceOf(RelayProvider);
-      expect(
-        relayProvider.jsonRpcProvider,
-      ).to.be.instanceOf(JsonRpcProvider);
-      expect(
-        relayProvider.relayClient,
-      ).to.equal(stubbedRelayClient);
+      expect(relayProvider.jsonRpcProvider).to.be.instanceOf(JsonRpcProvider);
+      expect(relayProvider.relayClient).to.equal(stubbedRelayClient);
     });
   });
 
@@ -76,17 +88,17 @@ describe('RelayProvider', function () {
         relayRevertedOnRecipient: boolean;
         transactionRelayed: boolean;
         reason?: string;
-      },
+      };
       executeRelayTransaction(
         envelopingRequest: UserDefinedEnvelopingRequest,
         requestConfig: RequestConfig
-      ): Promise<RelayingResult>,
+      ): Promise<RelayingResult>;
       _ethSendTransaction(
         envelopingRequest: UserDefinedEnvelopingRequest,
         requestConfig: RequestConfig
-      ): Promise<RelayingResult>,
-      relayClient: RelayClient,
-      jsonRpcProvider: JsonRpcProvider
+      ): Promise<RelayingResult>;
+      relayClient: RelayClient;
+      jsonRpcProvider: JsonRpcProvider;
     } & {
       [key in keyof RelayProvider]: RelayProvider[key];
     };
@@ -96,286 +108,318 @@ describe('RelayProvider', function () {
     beforeEach(function () {
       const stubbedRelayClient = sandbox.createStubInstance(RelayClient);
       const stubbedProvider = sandbox.createStubInstance(JsonRpcProvider);
-      relayProvider = new RelayProvider(stubbedRelayClient, stubbedProvider) as unknown as RelayProviderExposed;
+      relayProvider = new RelayProvider(
+        stubbedRelayClient,
+        stubbedProvider
+      ) as unknown as RelayProviderExposed;
     });
 
-    describe('_getRelayStatus', function() {
+    describe('_getRelayStatus', function () {
       const trxReceipt = {
         logs: [
-          { 
+          {
             blockNumber: 5196629,
-            blockHash: '0x19b083ee0752347f0bba9cd1cf19c827fd108c0f5d4973e33719d97a60cf14ca',
+            blockHash:
+              '0x19b083ee0752347f0bba9cd1cf19c827fd108c0f5d4973e33719d97a60cf14ca',
             transactionIndex: 1,
             removed: false,
             address: '0xF92298d72afE68300EA065c0EdaDbb1A29804faa',
             data: '0x00000000000000000000000000000000000000000000021e19e0c9bab2400000',
-            topics: 
-            [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+            topics: [
+              '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
               '0x0000000000000000000000000000000000000000000000000000000000000000',
-              '0x000000000000000000000000f58e01ac4134468f9ad846034fb9247c6c131d8c' ],
-            transactionHash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
-            logIndex: 0 
-          }
+              '0x000000000000000000000000f58e01ac4134468f9ad846034fb9247c6c131d8c',
+            ],
+            transactionHash:
+              '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+            logIndex: 0,
+          },
         ],
-      }; 
+      };
 
-      it('Should handle transaction with no logs', function() {
-        const trxReceipt = {} as TransactionReceipt
+      it('Should handle transaction with no logs', function () {
+        const trxReceipt = {} as TransactionReceipt;
         const relayStatus = relayProvider._getRelayStatus(trxReceipt);
 
         expect(relayStatus.transactionRelayed).to.be.false;
         expect(relayStatus.relayRevertedOnRecipient).to.be.false;
         expect(relayStatus.reason).to.eq('Tx logs not found');
-      })
+      });
 
-      it('Should handle transaction with logs array of size 0', function() {
-        const trxReceipt = ({
+      it('Should handle transaction with logs array of size 0', function () {
+        const trxReceipt = {
           logs: [],
-        });
-        const relayStatus = relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
+        };
+        const relayStatus = relayProvider._getRelayStatus(
+          trxReceipt as unknown as TransactionReceipt
+        );
 
         expect(relayStatus.transactionRelayed).to.be.false;
         expect(relayStatus.relayRevertedOnRecipient).to.be.false;
         expect(relayStatus.reason).to.eq('Tx logs not found');
-      })
+      });
 
-      it('Should handle transaction with logs', function() {
+      it('Should handle transaction with logs', function () {
+        const relayTrxHandlerSpy = sandbox.spy(
+          relayTransactionHandler,
+          'process'
+        );
 
-        const relayTrxHandlerSpy = sandbox.spy(relayTransactionHandler, 'process');
-        
         const revertReason = 'Transaction reverted because of some reason';
 
         const dummyLogDescription = {
           name: 'TransactionRelayedButRevertedByRecipient',
           args: {
-            reason: revertReason
-          }
-        }
+            reason: revertReason,
+          },
+        };
 
-        sandbox.stub(Interface.prototype, 'parseLog').returns(
-          dummyLogDescription as unknown as LogDescription);
+        sandbox
+          .stub(Interface.prototype, 'parseLog')
+          .returns(dummyLogDescription as unknown as LogDescription);
 
-        relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
+        relayProvider._getRelayStatus(
+          trxReceipt as unknown as TransactionReceipt
+        );
 
         expect(relayTrxHandlerSpy).called;
-      })
+      });
 
-      it('Should handle event unknown', function() {
+      it('Should handle event unknown', function () {
+        const relayTrxHandlerDefaultSpy = sandbox.spy(
+          relayTransactionHandler,
+          'default'
+        );
 
-        const relayTrxHandlerDefaultSpy = sandbox.spy(relayTransactionHandler, 'default');
-        
         const dummyLogDescription = {
           name: 'otherEvent',
-        }
+        };
 
-        sandbox.stub(Interface.prototype, 'parseLog').returns(
-          dummyLogDescription as unknown as LogDescription);
+        sandbox
+          .stub(Interface.prototype, 'parseLog')
+          .returns(dummyLogDescription as unknown as LogDescription);
 
-        relayProvider._getRelayStatus(trxReceipt as unknown as TransactionReceipt);
+        relayProvider._getRelayStatus(
+          trxReceipt as unknown as TransactionReceipt
+        );
 
         expect(relayTrxHandlerDefaultSpy).called;
-      })
-      
-    })
+      });
+    });
 
-    describe('executeRelayTransaction', function() {
-
+    describe('executeRelayTransaction', function () {
       let hashlessTrx: Transaction;
       let relayTrxStub: SinonStub;
 
-      beforeEach(function(){
+      beforeEach(function () {
         sandbox.restore();
         hashlessTrx = {
           chainId: 31,
           data: 'string data',
           nonce: 1,
           gasLimit: BigNumber.from(0),
-          value: BigNumber.from(0)
+          value: BigNumber.from(0),
         };
-        relayTrxStub = sandbox.stub(relayProvider.relayClient, 'relayTransaction').resolves(hashlessTrx);
-      })
+        relayTrxStub = sandbox
+          .stub(relayProvider.relayClient, 'relayTransaction')
+          .resolves(hashlessTrx);
+      });
 
-      it('Should throw error if relayed transaction has no hash', async function() {
-
+      it('Should throw error if relayed transaction has no hash', async function () {
         const envelopingReq = {} as UserDefinedEnvelopingRequest;
         const reqConfig = {} as RequestConfig;
 
-        await expect(relayProvider.executeRelayTransaction(envelopingReq, reqConfig)).to.be.rejectedWith('Transaction has no hash!');
-      })
+        await expect(
+          relayProvider.executeRelayTransaction(envelopingReq, reqConfig)
+        ).to.be.rejectedWith('Transaction has no hash!');
+      });
 
-      it('Should wait for receipt if ignoreTransactionreceipt flag is false', async function() {
-
+      it('Should wait for receipt if ignoreTransactionreceipt flag is false', async function () {
         const trxWithHash = {
-          ...hashlessTrx, 
-            hash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
-        }
+          ...hashlessTrx,
+          hash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+        };
 
         relayTrxStub.resolves(trxWithHash);
 
-        sandbox.stub(JsonRpcProvider.prototype, 'waitForTransaction')
-          .resolves({ 
-            transactionHash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
-           } as TransactionReceipt);
+        sandbox.stub(JsonRpcProvider.prototype, 'waitForTransaction').resolves({
+          transactionHash:
+            '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+        } as TransactionReceipt);
 
         const envelopingReq = {} as UserDefinedEnvelopingRequest;
         const reqConfig = {
-          ignoreTransactionReceipt: false
+          ignoreTransactionReceipt: false,
         } as RequestConfig;
 
-        const relayingResult = await relayProvider.executeRelayTransaction(envelopingReq, reqConfig)
+        const relayingResult = await relayProvider.executeRelayTransaction(
+          envelopingReq,
+          reqConfig
+        );
 
         expect(relayingResult.transaction).to.equal(trxWithHash);
         expect(relayingResult.receipt).not.to.be.undefined;
-      })
+      });
 
-      it('Should ignore receipt if ignoreTransactionreceipt flag is true', async function() {
-
+      it('Should ignore receipt if ignoreTransactionreceipt flag is true', async function () {
         const trxWithHash = {
-          ...hashlessTrx, 
-            hash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
-        }
+          ...hashlessTrx,
+          hash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+        };
 
         relayTrxStub.resolves(trxWithHash);
 
         const envelopingReq = {} as UserDefinedEnvelopingRequest;
         const reqConfig = {
-          ignoreTransactionReceipt: true
+          ignoreTransactionReceipt: true,
         } as RequestConfig;
 
-        const relayingResult = await relayProvider.executeRelayTransaction(envelopingReq, reqConfig)
+        const relayingResult = await relayProvider.executeRelayTransaction(
+          envelopingReq,
+          reqConfig
+        );
 
         expect(relayingResult.transaction).to.equal(trxWithHash);
         expect(relayingResult.receipt).to.be.undefined;
-      })
+      });
     });
 
-    describe('_ethSendTransaction', function() {
-
+    describe('_ethSendTransaction', function () {
       let receiptlessResult: RelayingResult;
 
-      beforeEach(function(){
+      beforeEach(function () {
         receiptlessResult = {
           transaction: {
             chainId: 31,
             data: 'string data',
             nonce: 1,
             gasLimit: BigNumber.from(0),
-            value: BigNumber.from(0)
+            value: BigNumber.from(0),
           },
-        }
-      })
+        };
+      });
 
-      it('should return the result of a relay transaction with no receipt', async function() {
-        sandbox.stub(relayProvider, 'executeRelayTransaction').resolves(receiptlessResult)
+      it('should return the result of a relay transaction with no receipt', async function () {
+        sandbox
+          .stub(relayProvider, 'executeRelayTransaction')
+          .resolves(receiptlessResult);
 
         const reqConfig = {
           onlyPreferredRelays: true,
-          forceGasLimit: '5000'
+          forceGasLimit: '5000',
         };
 
-        const relayingResult = await relayProvider._ethSendTransaction(FAKE_RELAY_REQUEST, reqConfig);
+        const relayingResult = await relayProvider._ethSendTransaction(
+          FAKE_RELAY_REQUEST,
+          reqConfig
+        );
 
         expect(relayingResult).to.equal(receiptlessResult);
-      })
+      });
 
-      it('should throw error if the result includes a receipt and the transaction was reverted', async function() {
-
+      it('should throw error if the result includes a receipt and the transaction was reverted', async function () {
         const receipt = {
-          transactionHash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
-        } as TransactionReceipt
+          transactionHash:
+            '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+        } as TransactionReceipt;
 
-        sandbox.stub(relayProvider, 'executeRelayTransaction').resolves(
-        { 
-            ...receiptlessResult, 
-            receipt
+        sandbox.stub(relayProvider, 'executeRelayTransaction').resolves({
+          ...receiptlessResult,
+          receipt,
         });
 
-        const relayStatus = { 
-          relayRevertedOnRecipient: true, 
-          reason: 'some reason', 
-          transactionRelayed: false 
+        const relayStatus = {
+          relayRevertedOnRecipient: true,
+          reason: 'some reason',
+          transactionRelayed: false,
         };
 
-        sandbox.stub(relayProvider, '_getRelayStatus')
-          .returns(relayStatus)
+        sandbox.stub(relayProvider, '_getRelayStatus').returns(relayStatus);
 
-          const reqConfig = {
-            onlyPreferredRelays: true,
-            forceGasLimit: '5000'
-          };
+        const reqConfig = {
+          onlyPreferredRelays: true,
+          forceGasLimit: '5000',
+        };
 
-        await expect(relayProvider._ethSendTransaction(FAKE_RELAY_REQUEST, reqConfig))
-          .to.be
-          .rejectedWith(`Transaction Relayed but reverted on recipient - TxHash: ${receipt.transactionHash} , Reason: ${relayStatus.reason ?? 'unknown'}`);
-      })
+        await expect(
+          relayProvider._ethSendTransaction(FAKE_RELAY_REQUEST, reqConfig)
+        ).to.be.rejectedWith(
+          `Transaction Relayed but reverted on recipient - TxHash: ${
+            receipt.transactionHash
+          } , Reason: ${relayStatus.reason ?? 'unknown'}`
+        );
+      });
 
-      it('should return a relay result including the transaction and receipt', async function() {
-
+      it('should return a relay result including the transaction and receipt', async function () {
         const receipt = {
-          transactionHash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da'
-        } as TransactionReceipt
+          transactionHash:
+            '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+        } as TransactionReceipt;
 
-        const expectedRelayResult = { 
-          ...receiptlessResult, 
-          receipt
-      }
-
-        sandbox.stub(relayProvider, 'executeRelayTransaction').resolves(
-          expectedRelayResult);
-
-        const relayStatus = { 
-          relayRevertedOnRecipient: false, 
-          transactionRelayed: true 
+        const expectedRelayResult = {
+          ...receiptlessResult,
+          receipt,
         };
 
-        sandbox.stub(relayProvider, '_getRelayStatus')
-          .returns(relayStatus)
+        sandbox
+          .stub(relayProvider, 'executeRelayTransaction')
+          .resolves(expectedRelayResult);
 
-          const reqConfig = {
-            onlyPreferredRelays: true,
-            forceGasLimit: '5000'
-          };
+        const relayStatus = {
+          relayRevertedOnRecipient: false,
+          transactionRelayed: true,
+        };
 
-        const relayResult = await relayProvider._ethSendTransaction(FAKE_RELAY_REQUEST, reqConfig);
+        sandbox.stub(relayProvider, '_getRelayStatus').returns(relayStatus);
+
+        const reqConfig = {
+          onlyPreferredRelays: true,
+          forceGasLimit: '5000',
+        };
+
+        const relayResult = await relayProvider._ethSendTransaction(
+          FAKE_RELAY_REQUEST,
+          reqConfig
+        );
 
         expect(relayResult).to.equal(expectedRelayResult);
-      })
+      });
     });
 
     describe('listAccounts', function () {
       it('should return a response if accountsList param is not an array', async function () {
-
-        sandbox.stub(JsonRpcProvider.prototype, 'listAccounts')
+        sandbox
+          .stub(JsonRpcProvider.prototype, 'listAccounts')
           .resolves(undefined);
 
         const accountsList = await relayProvider.listAccounts();
 
         expect(accountsList).to.be.equal(undefined);
-      })
+      });
 
       it('should return a list of accounts', async function () {
+        sandbox
+          .stub(JsonRpcProvider.prototype, 'listAccounts')
+          .resolves(['0xF92298d72afE68300EA065c0EdaDbb1A29804faa']);
 
-        sandbox.stub(JsonRpcProvider.prototype, 'listAccounts')
-          .resolves([ '0xF92298d72afE68300EA065c0EdaDbb1A29804faa' ]);
-
-        sandbox.stub(AccountManager.prototype, 'getAccounts')
-          .resolves([ '0xF92298d72afE68300EA065c0EdaDbb1A29804fab' ]);
+        sandbox
+          .stub(AccountManager.prototype, 'getAccounts')
+          .resolves(['0xF92298d72afE68300EA065c0EdaDbb1A29804fab']);
 
         const accountsList = await relayProvider.listAccounts();
 
         expect(accountsList).to.be.equal(undefined);
-      })
-    })
-    
-    describe('send', function () {
+      });
+    });
 
+    describe('send', function () {
       let relayingResult: RelayingResult;
       let useEnvelopingStub: SinonStub;
 
-      beforeEach(function(){
-
+      beforeEach(function () {
         const receipt = {
-          transactionHash: '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
+          transactionHash:
+            '0xdad8bc380240548aafecba06bf6cee898513da850bb37859cfea5f93d8dd25da',
         } as TransactionReceipt;
 
         relayingResult = {
@@ -384,70 +428,78 @@ describe('RelayProvider', function () {
             data: 'string data',
             nonce: 1,
             gasLimit: BigNumber.from(0),
-            value: BigNumber.from(0)
+            value: BigNumber.from(0),
           },
           receipt,
         };
 
-        useEnvelopingStub = sandbox.stub(utils, 'useEnveloping')
-          .returns(true);
-      })
+        useEnvelopingStub = sandbox.stub(utils, 'useEnveloping').returns(true);
+      });
 
       it('should throw error if method is eth_sendTransaction and params correspond to a rif relay transaction but there is no recipient address', function () {
+        const params = [
+          {
+            requestConfig: {
+              useEnveloping: true,
+            },
+            envelopingTx: {
+              request: {},
+            },
+          },
+        ];
 
-        const params = [{
-          requestConfig: {
-            useEnveloping: true
-          }, 
-          envelopingTx: {
-            request: {}
-          }
-        }];
-
-        expect(() => { return relayProvider.send('eth_sendTransaction', params )}).to.throw('Relay Provider cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.');
-      })
+        expect(() => {
+          return relayProvider.send('eth_sendTransaction', params);
+        }).to.throw(
+          'Relay Provider cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.'
+        );
+      });
 
       it('should send transaction using relay provider if method is eth_sendTransaction and params correspond to a rif relay transaction', async function () {
-
-        const ethSendTrxStub = sandbox.stub(relayProvider, '_ethSendTransaction')
+        const ethSendTrxStub = sandbox
+          .stub(relayProvider, '_ethSendTransaction')
           .resolves(relayingResult);
 
         const requestConfig = {
-          useEnveloping: true
+          useEnveloping: true,
         };
 
         const envelopingTx = FAKE_RELAY_REQUEST;
 
-        const params = [{
-          requestConfig,
-          envelopingTx
-        }];
+        const params = [
+          {
+            requestConfig,
+            envelopingTx,
+          },
+        ];
 
         await relayProvider.send('eth_sendTransaction', params);
 
         expect(ethSendTrxStub).to.be.calledWith(envelopingTx, requestConfig);
-      })
+      });
 
       it('should send transaction using relay provider if method is eth_accounts and params correspond to a rif relay transaction', async function () {
-
-        const ethListAccountsStub = sandbox.stub(relayProvider, 'listAccounts')
+        const ethListAccountsStub = sandbox
+          .stub(relayProvider, 'listAccounts')
           .resolves(['0xF92298d72afE68300EA065c0EdaDbb1A29804faa']);
 
         const requestConfig = {
-          useEnveloping: true
+          useEnveloping: true,
         };
 
         const envelopingTx = {};
 
-        const params = [{
-          requestConfig,
-          envelopingTx
-        }];
+        const params = [
+          {
+            requestConfig,
+            envelopingTx,
+          },
+        ];
 
         await relayProvider.send('eth_accounts', params);
 
         expect(ethListAccountsStub).to.be.calledWith();
-      })
+      });
 
       it('should use JsonRpcProvider send method if not a relay transaction', async function () {
         useEnvelopingStub.returns(false);
@@ -458,9 +510,11 @@ describe('RelayProvider', function () {
 
         await relayProvider.send(method, params);
 
-        expect(relayProvider.jsonRpcProvider.send).to.be.calledWith(method, params)
-
-      })
-    })
+        expect(relayProvider.jsonRpcProvider.send).to.be.calledWith(
+          method,
+          params
+        );
+      });
+    });
   });
 });

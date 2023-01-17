@@ -46,7 +46,7 @@ class HttpClient {
       relayRequest: {
         request: { tokenGas, nonce, value, tokenAmount, gas },
         relayData: { gasPrice },
-      }
+      },
     } = envelopingTx;
 
     return {
@@ -65,7 +65,7 @@ class HttpClient {
           ...envelopingTx.relayRequest.relayData,
           gasPrice: gasPrice.toString(),
         },
-      }
+      },
     } as EnvelopingTxRequest;
   }
 

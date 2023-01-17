@@ -43,7 +43,10 @@ describe('HttpWrapper', function () {
     });
 
     it('should set logging level', function () {
-      const setLogLevelsSpy = sandbox.spy(log.getLogger('HttpWrapper'), 'setLevel');
+      const setLogLevelsSpy = sandbox.spy(
+        log.getLogger('HttpWrapper'),
+        'setLevel'
+      );
       const expectedLogLevel = LogLevel.INFO;
       new HttpWrapper({}, expectedLogLevel);
 
@@ -131,15 +134,14 @@ describe('HttpWrapper', function () {
 
       it('should throw error if response contains error', async function () {
         const fakeServer = sandbox.useFakeServer();
-        const expectedError = 'foo'
-        fakeServer.respondWith(() => ({data: {error: expectedError}}));
-        
+        const expectedError = 'foo';
+        fakeServer.respondWith(() => ({ data: { error: expectedError } }));
+
         const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await expect(httpWrapper.sendPromise(fakeURL)).to.be.rejectedWith(
           expectedError
         );
-        
       });
     });
   });

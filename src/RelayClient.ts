@@ -23,7 +23,14 @@ import {
 import log from 'loglevel';
 import AccountManager from './AccountManager';
 import { HttpClient } from './api/common';
-import { EthersError, getEnvelopingConfig, getProvider, HubEnvelopingTx, parseEthersError, RelayEstimation } from './common';
+import {
+  EthersError,
+  getEnvelopingConfig,
+  getProvider,
+  HubEnvelopingTx,
+  parseEthersError,
+  RelayEstimation,
+} from './common';
 import type { EnvelopingConfig } from './common';
 import type {
   EnvelopingMetadata,
@@ -59,7 +66,8 @@ import {
   validateRelayResponse,
 } from './utils';
 
-const isNullOrUndefined = (value: unknown) => value === null || value === undefined;
+const isNullOrUndefined = (value: unknown) =>
+  value === null || value === undefined;
 
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _envelopingConfig: EnvelopingConfig;
@@ -79,10 +87,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const isDeployment: boolean = isDeployRequest(
       envelopingRequest as EnvelopingRequest
     );
-    const {
-      relayData,
-      request,
-    } = envelopingRequest;
+    const { relayData, request } = envelopingRequest;
 
     const { from, tokenContract } = request;
 
@@ -108,7 +113,9 @@ class RelayClient extends EnvelopingEventEmitter {
       }
     }
 
-    const callForwarder = relayData?.callForwarder ?? this._envelopingConfig.smartWalletFactoryAddress;
+    const callForwarder =
+      relayData?.callForwarder ??
+      this._envelopingConfig.smartWalletFactoryAddress;
     const data = request.data ?? '0x00';
     const to = request.to ?? constants.AddressZero;
     const value = envelopingRequest.request.value ?? constants.Zero;
@@ -123,7 +130,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const callVerifier: PromiseOrValue<string> =
       envelopingRequest.relayData?.callVerifier ||
       this._envelopingConfig[
-      isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
+        isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
       ];
 
     if (!callVerifier) {
@@ -139,8 +146,7 @@ class RelayClient extends EnvelopingEventEmitter {
     }
 
     const gasPrice: PromiseOrValue<BigNumberish> =
-      (envelopingRequest.relayData?.gasPrice ||
-        (await this.calculateGasPrice()));
+      envelopingRequest.relayData?.gasPrice || (await this.calculateGasPrice());
 
     if (!gasPrice || BigNumber.from(gasPrice).isZero()) {
       throw new Error('Could not get gas price for request');
@@ -152,13 +158,13 @@ class RelayClient extends EnvelopingEventEmitter {
       (envelopingRequest.request.nonce ||
         (isDeployment
           ? await IWalletFactory__factory.connect(
-            callForwarder.toString(),
-            provider
-          ).nonce(from)
+              callForwarder.toString(),
+              provider
+            ).nonce(from)
           : await IForwarder__factory.connect(
-            callForwarder.toString(),
-            provider
-          ).nonce())) ??
+              callForwarder.toString(),
+              provider
+            ).nonce())) ??
       constants.Zero;
 
     const relayHub =
@@ -169,14 +175,15 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('No relay hub address has been given or configured');
     }
 
-    const gasLimit = await
-      ((envelopingRequest.request as UserDefinedRelayRequestBody).gas ??
-        estimateInternalCallGas({
-          data,
-          from: callForwarder,
-          to,
-          gasPrice,
-        }));
+    const gasLimit = await ((
+      envelopingRequest.request as UserDefinedRelayRequestBody
+    ).gas ??
+      estimateInternalCallGas({
+        data,
+        from: callForwarder,
+        to,
+        gasPrice,
+      }));
 
     if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
       throw new Error(
@@ -196,7 +203,8 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     const secondsNow = Math.round(Date.now() / 1000);
-    const validUntilTime = request.validUntilTime ??
+    const validUntilTime =
+      request.validUntilTime ??
       secondsNow + this._envelopingConfig.requestValidSeconds;
 
     const tokenGas = request.tokenGas ?? constants.Zero;
@@ -216,24 +224,24 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const completeRequest: EnvelopingRequest = isDeployment
       ? {
-        request: {
-          ...commonRequestBody,
-          ...{
-            index,
-            recoverer,
+          request: {
+            ...commonRequestBody,
+            ...{
+              index,
+              recoverer,
+            },
           },
-        },
-        relayData: updateRelayData,
-      }
+          relayData: updateRelayData,
+        }
       : {
-        request: {
-          ...commonRequestBody,
-          ...{
-            gas: BigNumber.from(gasLimit),
+          request: {
+            ...commonRequestBody,
+            ...{
+              gas: BigNumber.from(gasLimit),
+            },
           },
-        },
-        relayData: updateRelayData,
-      };
+          relayData: updateRelayData,
+        };
 
     return completeRequest;
   };
@@ -279,15 +287,15 @@ class RelayClient extends EnvelopingEventEmitter {
     const newTokenGas = currentTokenGas.gt(constants.Zero)
       ? currentTokenGas
       : await estimateTokenTransferGas({
-        relayRequest: {
-          ...envelopingRequest,
-          relayData: {
-            ...envelopingRequest.relayData,
-            feesReceiver,
+          relayRequest: {
+            ...envelopingRequest,
+            relayData: {
+              ...envelopingRequest.relayData,
+              feesReceiver,
+            },
           },
-        },
-        preDeploySWAddress,
-      });
+          preDeploySWAddress,
+        });
 
     const updatedRelayRequest: EnvelopingRequest = {
       request: {
@@ -312,7 +320,8 @@ class RelayClient extends EnvelopingEventEmitter {
 
     this.emit(envelopingEvents['sign-request']);
     log.info(
-      `Created HTTP ${isDeployment ? 'deploy' : 'relay'
+      `Created HTTP ${
+        isDeployment ? 'deploy' : 'relay'
       } request: ${JSON.stringify(httpRequest)}`
     );
 
@@ -354,15 +363,16 @@ class RelayClient extends EnvelopingEventEmitter {
   public async relayTransaction(
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<Transaction> {
-    
-    const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(envelopingRequest);
+    const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
+      envelopingRequest
+    );
 
     log.debug('Relay Client - Relaying transaction');
     log.debug(
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
 
-    await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx)
+    await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx);
 
     const transaction = await this._attemptRelayTransaction(
       activeRelay,
@@ -381,8 +391,12 @@ class RelayClient extends EnvelopingEventEmitter {
   public async estimateRelayTransaction(
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<RelayEstimation> {
-
-    const { envelopingTx, activeRelay: { managerData: { url } } } = await this._getHubEnvelopingTx(envelopingRequest);
+    const {
+      envelopingTx,
+      activeRelay: {
+        managerData: { url },
+      },
+    } = await this._getHubEnvelopingTx(envelopingRequest);
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
@@ -395,10 +409,11 @@ class RelayClient extends EnvelopingEventEmitter {
     );
   }
 
-  private async _getHubEnvelopingTx(request: UserDefinedEnvelopingRequest): Promise<HubEnvelopingTx> {
-
+  private async _getHubEnvelopingTx(
+    envelopingRequest: UserDefinedEnvelopingRequest
+  ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
-      request
+      envelopingRequest
     );
 
     //FIXME we should implement the relay selection strategy
@@ -411,7 +426,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     return {
       activeRelay,
-      envelopingTx
+      envelopingTx,
     };
   }
 
@@ -504,11 +519,10 @@ class RelayClient extends EnvelopingEventEmitter {
         maxPossibleGas
       );
     } catch (e) {
-
       const message = parseEthersError(e as EthersError);
 
       log.error('client verification failed: ', message);
-      throw Error(`client verification failed: ${message}`)
+      throw Error(`client verification failed: ${message}`);
     }
   }
 

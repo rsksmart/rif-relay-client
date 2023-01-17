@@ -13,9 +13,7 @@ const ENVELOPING_CONFIG: EnvelopingConfig = {
   methodSuffix: '',
   minGasPrice: 3,
   onlyPreferredRelays: false,
-  preferredRelays: [
-    'http://fake.url'
-  ],
+  preferredRelays: ['http://fake.url'],
   relayHubAddress: Wallet.createRandom().address,
   relayLookupWindowBlocks: 3,
   relayLookupWindowParts: 3,
@@ -23,7 +21,7 @@ const ENVELOPING_CONFIG: EnvelopingConfig = {
   relayVerifierAddress: Wallet.createRandom().address,
   sliceSize: 3,
   smartWalletFactoryAddress: Wallet.createRandom().address,
-  requestValidSeconds: 172800
+  requestValidSeconds: 172800,
 };
 
 export { ENVELOPING_CONFIG as FAKE_ENVELOPING_CONFIG };

@@ -24,7 +24,7 @@ const COMMON_REQUEST_BODY: CommonEnvelopingRequestBody = {
   tokenAmount: constants.Two,
   tokenContract: Wallet.createRandom().address,
   value: constants.Two,
-  validUntilTime: 0
+  validUntilTime: 0,
 };
 
 const RELAY_REQUEST_BODY: RelayRequestBody = {
@@ -84,7 +84,6 @@ const REQUEST_CONFIG: RequestConfig = {
   initialBackoff: 1,
 };
 
-
 export {
   COMMON_REQUEST_BODY as FAKE_COMMON_REQUEST_BODY,
   RELAY_REQUEST_BODY as FAKE_RELAY_REQUEST_BODY,
@@ -94,5 +93,5 @@ export {
   ENVELOPING_REQUEST_METADATA as FAKE_ENVELOPING_REQUEST_METADATA,
   RELAY_TRANSACTION_REQUEST as FAKE_RELAY_TRANSACTION_REQUEST,
   DEPLOY_TRANSACTION_REQUEST as FAKE_DEPLOY_TRANSACTION_REQUEST,
-  REQUEST_CONFIG as FAKE_REQUEST_CONFIG
+  REQUEST_CONFIG as FAKE_REQUEST_CONFIG,
 };

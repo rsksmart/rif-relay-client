@@ -1,20 +1,37 @@
 import type { HttpClient } from './api/common';
 import { BigNumberish, BigNumber, Transaction, constants } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import { ICustomSmartWalletFactory__factory, IERC20__factory, ISmartWalletFactory__factory, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import {
+  ICustomSmartWalletFactory__factory,
+  IERC20__factory,
+  ISmartWalletFactory__factory,
+  RelayHub__factory,
+} from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
-import { EstimateInternalGasParams, getEnvelopingConfig, getProvider, isDeployRequest, isDeployTransaction, TokenGasEstimationParams } from './common';
-import type { RequestConfig, EnvelopingTxRequest, DeployRequest, RelayRequest, RelayInfo } from './common';
-import { MISSING_SMART_WALLET_ADDRESS, MISSING_CALL_FORWARDER } from './constants/errorMessages';
-
+import {
+  EstimateInternalGasParams,
+  getEnvelopingConfig,
+  getProvider,
+  isDeployRequest,
+  isDeployTransaction,
+  TokenGasEstimationParams,
+} from './common';
+import type {
+  RequestConfig,
+  EnvelopingTxRequest,
+  DeployRequest,
+  RelayRequest,
+  RelayInfo,
+} from './common';
+import {
+  MISSING_SMART_WALLET_ADDRESS,
+  MISSING_CALL_FORWARDER,
+} from './constants/errorMessages';
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 
-
-const selectNextRelay = async (
-  httpClient: HttpClient
-): Promise<RelayInfo> => {
+const selectNextRelay = async (httpClient: HttpClient): Promise<RelayInfo> => {
   const { preferredRelays } = getEnvelopingConfig();
 
   for (const preferredRelay of preferredRelays ?? []) {
@@ -23,9 +40,12 @@ const selectNextRelay = async (
 
     try {
       hubInfo = await httpClient.getChainInfo(preferredRelay);
-    
+
       if (hubInfo.ready) {
-        const relayHub = RelayHub__factory.connect(hubInfo.relayHubAddress, getProvider());
+        const relayHub = RelayHub__factory.connect(
+          hubInfo.relayHubAddress,
+          getProvider()
+        );
         managerData = await relayHub.getRelayInfo(hubInfo.relayManagerAddress);
 
         return {
@@ -51,9 +71,7 @@ const estimateInternalCallGas = async ({
 }: EstimateInternalGasParams): Promise<BigNumber> => {
   const provider = getProvider();
 
-  let estimation: BigNumber = await provider.estimateGas(
-    estimateGasParams
-  );
+  let estimation: BigNumber = await provider.estimateGas(estimateGasParams);
 
   estimation = applyInternalEstimationCorrection(
     estimation,
@@ -61,7 +79,7 @@ const estimateInternalCallGas = async ({
   );
 
   return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
-}
+};
 
 const estimateTokenTransferGas = async ({
   internalEstimationCorrection,
@@ -99,15 +117,11 @@ const estimateTokenTransferGas = async ({
 
   const provider = getProvider();
 
-  const erc20 = IERC20__factory.connect(
-    tokenContract.toString(),
-    provider
-  );
-  const gasCost = await erc20.estimateGas.transfer(
-    feesReceiver,
-    tokenAmount,
-    { from: tokenOrigin, gasPrice }
-  );
+  const erc20 = IERC20__factory.connect(tokenContract.toString(), provider);
+  const gasCost = await erc20.estimateGas.transfer(feesReceiver, tokenAmount, {
+    from: tokenOrigin,
+    gasPrice,
+  });
 
   const internalCallCost = applyInternalEstimationCorrection(
     gasCost,
@@ -118,7 +132,7 @@ const estimateTokenTransferGas = async ({
     internalCallCost,
     estimatedGasCorrectionFactor
   );
-}
+};
 
 const getSmartWalletAddress = async (
   owner: string,
@@ -127,12 +141,11 @@ const getSmartWalletAddress = async (
   logic?: string,
   logicParamsHash?: string
 ): Promise<string> => {
-
   log.debug('generateSmartWallet Params', {
     smartWalletIndex,
     recoverer,
     logic,
-    logicParamsHash
+    logicParamsHash,
   });
 
   const isCustom = !!logic && logic !== constants.AddressZero;
@@ -147,19 +160,24 @@ const getSmartWalletAddress = async (
 
   const provider = getProvider();
 
-  const smartWalletAddress = isCustom ?
-    await ICustomSmartWalletFactory__factory.connect(
-      smartWalletFactoryAddress,
-      provider
-    ).getSmartWalletAddress(owner, recovererAddress, logic, initParamsHash, smartWalletIndex) :
-    await ISmartWalletFactory__factory.connect(
-      smartWalletFactoryAddress,
-      provider
-    ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
-
+  const smartWalletAddress = isCustom
+    ? await ICustomSmartWalletFactory__factory.connect(
+        smartWalletFactoryAddress,
+        provider
+      ).getSmartWalletAddress(
+        owner,
+        recovererAddress,
+        logic,
+        initParamsHash,
+        smartWalletIndex
+      )
+    : await ISmartWalletFactory__factory.connect(
+        smartWalletFactoryAddress,
+        provider
+      ).getSmartWalletAddress(owner, recovererAddress, smartWalletIndex);
 
   return smartWalletAddress;
-}
+};
 
 // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
 // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
@@ -195,13 +213,13 @@ const applyInternalEstimationCorrection = (
 };
 
 /**
-   * Decode the signed transaction returned from the Relay Server, compare it to the
-   * requested transaction and validate its signature.
-   */
+ * Decode the signed transaction returned from the Relay Server, compare it to the
+ * requested transaction and validate its signature.
+ */
 const validateRelayResponse = (
   request: EnvelopingTxRequest,
   transaction: Transaction,
-  relayWorkerAddress: string,
+  relayWorkerAddress: string
 ): void => {
   const {
     to: txDestination,
@@ -229,12 +247,20 @@ const validateRelayResponse = (
   const provider = getProvider();
   const envelopingConfig = getEnvelopingConfig();
 
-  const relayHub = RelayHub__factory.connect(envelopingConfig.relayHubAddress, provider);
+  const relayHub = RelayHub__factory.connect(
+    envelopingConfig.relayHubAddress,
+    provider
+  );
 
-  const encodedEnveloping = isDeploy ?
-    relayHub.interface.encodeFunctionData('deployCall', [relayRequest as DeployRequest, signature])
-    : relayHub.interface.encodeFunctionData('relayCall', [relayRequest as RelayRequest, signature]);
-
+  const encodedEnveloping = isDeploy
+    ? relayHub.interface.encodeFunctionData('deployCall', [
+        relayRequest as DeployRequest,
+        signature,
+      ])
+    : relayHub.interface.encodeFunctionData('relayCall', [
+        relayRequest as RelayRequest,
+        signature,
+      ]);
 
   if (txNonce > requestMaxNonce) {
     // TODO: need to validate that client retries the same request and doesn't double-spend.
@@ -245,7 +271,8 @@ const validateRelayResponse = (
   }
 
   if (
-    txDestination.toLowerCase() !== envelopingConfig.relayHubAddress.toLowerCase()
+    txDestination.toLowerCase() !==
+    envelopingConfig.relayHubAddress.toLowerCase()
   ) {
     throw new Error('Transaction recipient must be the RelayHubAddress');
   }
@@ -263,8 +290,7 @@ const validateRelayResponse = (
   }
 
   log.info('validateRelayResponse - valid transaction response');
-}
-
+};
 
 const useEnveloping = (
   method: string,
@@ -292,7 +318,6 @@ const useEnveloping = (
   return false;
 };
 
-
 export {
   selectNextRelay,
   estimateInternalCallGas,
@@ -303,5 +328,5 @@ export {
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   validateRelayResponse,
-  useEnveloping
+  useEnveloping,
 };

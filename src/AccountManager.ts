@@ -1,9 +1,7 @@
 import { providers, Wallet, utils } from 'ethers';
 import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
 import { getProvider, isDeployRequest } from './common';
-import type {
-  EnvelopingRequest
-} from './common';
+import type { EnvelopingRequest } from './common';
 import {
   deployRequestType,
   EnvelopingMessageTypes,
@@ -13,7 +11,6 @@ import {
 } from './typedRequestData.utils';
 
 export default class AccountManager {
-
   private _accounts: Wallet[] = [];
 
   getAccounts(): string[] {
@@ -43,7 +40,9 @@ export default class AccountManager {
       chainId,
       verifier: callForwarder,
       envelopingRequest,
-      requestTypes: isDeployRequest(envelopingRequest) ? deployRequestType : relayRequestType,
+      requestTypes: isDeployRequest(envelopingRequest)
+        ? deployRequestType
+        : relayRequestType,
     });
 
     const wallet = this._accounts.find(
@@ -55,7 +54,8 @@ export default class AccountManager {
       wallet
     ).catch((error) => {
       throw new Error(
-        `Failed to sign relayed transaction for ${fromAddress}: ${error as string
+        `Failed to sign relayed transaction for ${fromAddress}: ${
+          error as string
         }`
       );
     });
@@ -74,7 +74,6 @@ export default class AccountManager {
     from: string,
     wallet?: Wallet
   ): Promise<{ signature: string; recoveredAddr: string }> {
-
     const signature: string = wallet
       ? await this._signWithWallet(wallet, data)
       : await this._signWithProvider(from, data);
@@ -107,14 +106,20 @@ export default class AccountManager {
 
     let encondedData: TypedMessage<EnvelopingMessageTypes> | string;
     if (jsonStringify) {
-      encondedData = JSON.stringify(_TypedDataEncoder.getPayload(domain, types, value))
+      encondedData = JSON.stringify(
+        _TypedDataEncoder.getPayload(domain, types, value)
+      );
     } else {
-      encondedData = _TypedDataEncoder.getPayload(domain, types, value) as TypedMessage<EnvelopingMessageTypes>;
+      encondedData = _TypedDataEncoder.getPayload(
+        domain,
+        types,
+        value
+      ) as TypedMessage<EnvelopingMessageTypes>;
     }
 
     return (await provider.send(`eth_signTypedData_${signatureVersion}`, [
       from,
-      encondedData
+      encondedData,
     ])) as T;
   }
 
@@ -122,7 +127,6 @@ export default class AccountManager {
     wallet: Wallet,
     data: TypedMessage<EnvelopingMessageTypes>
   ): Promise<string> {
-
     const { domain, types, value } = data;
 
     return await wallet._signTypedData(domain, types, value);

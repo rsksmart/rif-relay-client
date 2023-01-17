@@ -8,4 +8,4 @@ export * from './gasEstimator';
 export * from './utils';
 export * from './common';
 
-export { AccountManager, RelayPricer, RelayClient }
+export { AccountManager, RelayPricer, RelayClient };

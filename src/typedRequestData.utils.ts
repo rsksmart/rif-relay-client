@@ -1,4 +1,3 @@
-
 import type { TypedDataDomain, TypedDataField } from 'ethers';
 import type { EnvelopingRequest } from './common/relayRequest.types';
 
@@ -21,7 +20,7 @@ export const relayRequestType = [
   { name: 'tokenGas', type: 'uint256' },
   { name: 'validUntilTime', type: 'uint256' },
   { name: 'data', type: 'bytes' },
-  { name: 'relayData', type: 'RelayData' }
+  { name: 'relayData', type: 'RelayData' },
 ];
 
 export const deployRequestType = [
@@ -37,7 +36,7 @@ export const deployRequestType = [
   { name: 'validUntilTime', type: 'uint256' },
   { name: 'index', type: 'uint256' },
   { name: 'data', type: 'bytes' },
-  { name: 'relayData', type: 'RelayData' }
+  { name: 'relayData', type: 'RelayData' },
 ];
 
 export function getDomainSeparator(
@@ -51,7 +50,6 @@ export function getDomainSeparator(
     verifyingContract: verifyingContract,
   };
 }
-
 
 type GetRequestDataFieldProps = {
   chainId: number;
@@ -70,7 +68,7 @@ export type TypedMessage<T> = {
   primaryType: keyof T;
   domain: TypedDataDomain;
   value: Record<string, unknown>;
-}
+};
 
 export const getEnvelopingRequestDataV4Field = ({
   chainId,

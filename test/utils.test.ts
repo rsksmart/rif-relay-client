@@ -4,19 +4,44 @@ import { BigNumber, constants, providers, Transaction, Wallet } from 'ethers';
 import type Sinon from 'sinon';
 import sinon, { SinonStub } from 'sinon';
 import sinonChai from 'sinon-chai';
-import { EnvelopingTypes, ICustomSmartWalletFactory, ICustomSmartWalletFactory__factory, IERC20, IERC20__factory, ISmartWalletFactory, ISmartWalletFactory__factory, RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import {
+  EnvelopingTypes,
+  ICustomSmartWalletFactory,
+  ICustomSmartWalletFactory__factory,
+  IERC20,
+  IERC20__factory,
+  ISmartWalletFactory,
+  ISmartWalletFactory__factory,
+  RelayHub,
+  RelayHub__factory,
+} from '@rsksmart/rif-relay-contracts';
 import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
-import type {
-  HubInfo
-} from '../src/common/relayHub.types';
-import { estimateInternalCallGas, estimateTokenTransferGas, getSmartWalletAddress, INTERNAL_TRANSACTION_ESTIMATED_CORRECTION, selectNextRelay, useEnveloping, validateRelayResponse } from '../src/utils';
+import type { HubInfo } from '../src/common/relayHub.types';
+import {
+  estimateInternalCallGas,
+  estimateTokenTransferGas,
+  getSmartWalletAddress,
+  INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+  selectNextRelay,
+  useEnveloping,
+  validateRelayResponse,
+} from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import { FAKE_HUB_INFO } from './relayHub.fakes';
-import { FAKE_DEPLOY_REQUEST, FAKE_DEPLOY_TRANSACTION_REQUEST, FAKE_RELAY_REQUEST, FAKE_RELAY_TRANSACTION_REQUEST, FAKE_REQUEST_CONFIG } from './request.fakes';
+import {
+  FAKE_DEPLOY_REQUEST,
+  FAKE_DEPLOY_TRANSACTION_REQUEST,
+  FAKE_RELAY_REQUEST,
+  FAKE_RELAY_TRANSACTION_REQUEST,
+  FAKE_REQUEST_CONFIG,
+} from './request.fakes';
 import * as clientConfiguration from '../src/common/clientConfigurator';
 import type { TokenGasEstimationParams } from '../src/common';
-import { MISSING_SMART_WALLET_ADDRESS, MISSING_CALL_FORWARDER } from '../src/constants/errorMessages';
+import {
+  MISSING_SMART_WALLET_ADDRESS,
+  MISSING_CALL_FORWARDER,
+} from '../src/constants/errorMessages';
 import { createRandomeValue } from './utils';
 
 use(sinonChai);
@@ -38,7 +63,7 @@ describe('utils', function () {
   const preferredRelays: EnvelopingConfig['preferredRelays'] = [
     'https://first.relay.co',
     'http://second.relay.co',
-    'http://third.relay.co'
+    'http://third.relay.co',
   ];
 
   let httpClientStub: Sinon.SinonStubbedInstance<HttpClient>;
@@ -48,7 +73,7 @@ describe('utils', function () {
       return {
         ...FAKE_ENVELOPING_CONFIG,
         preferredRelays,
-      }
+      };
     });
     httpClientStub = sinon.createStubInstance(HttpClient);
   });
@@ -56,7 +81,6 @@ describe('utils', function () {
   afterEach(function () {
     sinon.restore();
   });
-
 
   describe('selectNextRelay() function', function () {
     let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
@@ -69,13 +93,13 @@ describe('utils', function () {
         .onSecondCall()
         .resolves(availableRelayHub);
       relayHubStub = {
-        getRelayInfo: () => Promise.resolve({ url: expectedUrl })
+        getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
       } as unknown as typeof relayHubStub;
       sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
 
       const {
         managerData: { url: actualUrl },
-      } = (await selectNextRelay(httpClientStub));
+      } = await selectNextRelay(httpClientStub);
 
       expect(actualUrl).to.equal(expectedUrl);
     });
@@ -85,7 +109,9 @@ describe('utils', function () {
       const nextRelay = selectNextRelay(httpClientStub);
 
       await expect(nextRelay).to.be.rejected;
-      await expect(nextRelay).to.be.rejectedWith('No more hubs available to select');
+      await expect(nextRelay).to.be.rejectedWith(
+        'No more hubs available to select'
+      );
     });
 
     it('Should keep iterating if a ping call throws an error', async function () {
@@ -96,12 +122,12 @@ describe('utils', function () {
         .onSecondCall()
         .resolves(availableRelayHub);
       relayHubStub = {
-        getRelayInfo: () => Promise.resolve({ url: expectedUrl })
+        getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
       } as unknown as typeof relayHubStub;
       sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
       const {
         managerData: { url: actualUrl },
-      } = (await selectNextRelay(httpClientStub));
+      } = await selectNextRelay(httpClientStub);
 
       expect(actualUrl).to.equal(expectedUrl);
     });
@@ -123,14 +149,12 @@ describe('utils', function () {
         },
       } as EnvelopingTypes.RelayRequestStruct;
       providerStub = sinon.createStubInstance(providers.Provider);
-      sinon.stub(clientConfiguration, 'getProvider').returns(providerStub)
+      sinon.stub(clientConfiguration, 'getProvider').returns(providerStub);
     });
 
     it('should return the estimation applying the internal correction', async function () {
       const estimateGas = BigNumber.from(10000);
-      providerStub.estimateGas = sinon
-        .stub()
-        .resolves(estimateGas);
+      providerStub.estimateGas = sinon.stub().resolves(estimateGas);
       const internalEstimationCorrection = 5000;
       const estimation = await estimateInternalCallGas({
         data: relayRequest.request.data,
@@ -139,20 +163,14 @@ describe('utils', function () {
         gasPrice: relayRequest.relayData.gasPrice,
         internalEstimationCorrection,
       });
-      const expectedEstimation = estimateGas.sub(
-        internalEstimationCorrection
-      );
+      const expectedEstimation = estimateGas.sub(internalEstimationCorrection);
 
-      expect(estimation.toString()).to.be.equal(
-        expectedEstimation.toString()
-      );
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
     });
 
     it('should return the estimation without applying the internal correction', async function () {
       const expectedGasEst = BigNumber.from(4000);
-      providerStub.estimateGas = sinon
-        .stub()
-        .resolves(expectedGasEst);
+      providerStub.estimateGas = sinon.stub().resolves(expectedGasEst);
       const internalEstimationCorrection = 5000;
       const actualGasEst = await estimateInternalCallGas({
         data: relayRequest.request.data,
@@ -167,9 +185,7 @@ describe('utils', function () {
 
     it('should return estimation without applying gas correction factor when addExternalCorrection is set to false', async function () {
       const estimateGas = BigNumber.from(10000);
-      providerStub.estimateGas = sinon
-        .stub()
-        .resolves(estimateGas);
+      providerStub.estimateGas = sinon.stub().resolves(estimateGas);
       const internalEstimationCorrection = 5000;
       const estimation = await estimateInternalCallGas({
         data: relayRequest.request.data,
@@ -179,20 +195,14 @@ describe('utils', function () {
         internalEstimationCorrection,
         estimatedGasCorrectionFactor: '1',
       });
-      const expectedEstimation = estimateGas.sub(
-        internalEstimationCorrection
-      );
+      const expectedEstimation = estimateGas.sub(internalEstimationCorrection);
 
-      expect(estimation.toString()).to.be.equal(
-        expectedEstimation.toString()
-      );
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
     });
 
     it('should return estimation applying gas correction factor when estimatedGasCorrectionFactor different from 1', async function () {
       const expectedEstimation = BigNumber.from(7_500);
-      providerStub.estimateGas = sinon
-        .stub()
-        .resolves(BigNumber.from(10_000));
+      providerStub.estimateGas = sinon.stub().resolves(BigNumber.from(10_000));
       const internalEstimationCorrection = 5_000;
       const estimation = await estimateInternalCallGas({
         data: relayRequest.request.data,
@@ -203,14 +213,11 @@ describe('utils', function () {
         estimatedGasCorrectionFactor: '1.5',
       });
 
-      expect(estimation.toString()).to.be.equal(
-        expectedEstimation.toString()
-      );
+      expect(estimation.toString()).to.be.equal(expectedEstimation.toString());
     });
   });
 
   describe('estimateTokenTransferGas', function () {
-
     let ierc20TransferStub: SinonStub;
 
     beforeEach(function () {
@@ -233,14 +240,14 @@ describe('utils', function () {
           request: {
             ...FAKE_RELAY_REQUEST.request,
             tokenContract: constants.AddressZero,
-          }
+          },
         },
-        ...FAKE_REQUEST_CONFIG
+        ...FAKE_REQUEST_CONFIG,
       };
 
-      expect(
-        (await estimateTokenTransferGas(request)).toString()
-      ).to.be.equal(BigNumber.from(0).toString());
+      expect((await estimateTokenTransferGas(request)).toString()).to.be.equal(
+        BigNumber.from(0).toString()
+      );
     });
 
     it('should return 0 if token amount is 0', async function () {
@@ -250,36 +257,36 @@ describe('utils', function () {
           request: {
             ...FAKE_RELAY_REQUEST.request,
             tokenAmount: constants.Zero,
-          }
+          },
         },
-        ...FAKE_REQUEST_CONFIG
+        ...FAKE_REQUEST_CONFIG,
       };
 
-      expect(
-        (await estimateTokenTransferGas(request)).toString()
-      ).to.be.equal(constants.Zero.toString());
+      expect((await estimateTokenTransferGas(request)).toString()).to.be.equal(
+        constants.Zero.toString()
+      );
     });
 
     it('should fail if it is a deploy and the smartWallet is missing', async function () {
       const request: TokenGasEstimationParams = {
-        relayRequest: {...FAKE_DEPLOY_REQUEST},
+        relayRequest: { ...FAKE_DEPLOY_REQUEST },
         preDeploySWAddress: undefined,
       };
 
-      await expect(
-        estimateTokenTransferGas(request)
-      ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
+      await expect(estimateTokenTransferGas(request)).to.be.rejectedWith(
+        MISSING_SMART_WALLET_ADDRESS
+      );
     });
 
     it('should fail if it is a deploy and the smartWallet is the zero address', async function () {
       const request: TokenGasEstimationParams = {
-        relayRequest: {...FAKE_DEPLOY_REQUEST},
+        relayRequest: { ...FAKE_DEPLOY_REQUEST },
         preDeploySWAddress: constants.AddressZero,
       };
 
-      await expect(
-        estimateTokenTransferGas(request)
-      ).to.be.rejectedWith(MISSING_SMART_WALLET_ADDRESS);
+      await expect(estimateTokenTransferGas(request)).to.be.rejectedWith(
+        MISSING_SMART_WALLET_ADDRESS
+      );
     });
 
     it('should fail if it is a relay transaction and the callForwarder is missing', async function () {
@@ -289,14 +296,14 @@ describe('utils', function () {
           relayData: {
             ...FAKE_RELAY_REQUEST.relayData,
             callForwarder: constants.AddressZero,
-          }
+          },
         },
-        preDeploySWAddress: constants.AddressZero
+        preDeploySWAddress: constants.AddressZero,
       };
 
-      await expect(
-        estimateTokenTransferGas(request)
-      ).to.be.rejectedWith(MISSING_CALL_FORWARDER);
+      await expect(estimateTokenTransferGas(request)).to.be.rejectedWith(
+        MISSING_CALL_FORWARDER
+      );
     });
 
     it('should correct the value of the estimation when the gas cost is greater than the correction', async function () {
@@ -310,9 +317,9 @@ describe('utils', function () {
           relayData: {
             ...FAKE_RELAY_REQUEST.relayData,
             gasPrice: FAKE_GAS_COST,
-          }
+          },
         },
-        internalEstimationCorrection: INTERNAL_CORRECTION
+        internalEstimationCorrection: INTERNAL_CORRECTION,
       };
 
       ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
@@ -335,9 +342,9 @@ describe('utils', function () {
           relayData: {
             ...FAKE_RELAY_REQUEST.relayData,
             gasPrice: FAKE_GAS_COST,
-          }
+          },
         },
-        internalEstimationCorrection: INTERNAL_CORRECTION
+        internalEstimationCorrection: INTERNAL_CORRECTION,
       };
 
       const estimation = await estimateTokenTransferGas(request);
@@ -359,7 +366,7 @@ describe('utils', function () {
           relayData: {
             ...FAKE_RELAY_REQUEST.relayData,
             gasPrice: FAKE_GAS_COST,
-          }
+          },
         },
         internalEstimationCorrection: INTERNAL_CORRECTION,
         estimatedGasCorrectionFactor: CORRECTION_FACTOR,
@@ -383,8 +390,8 @@ describe('utils', function () {
           relayData: {
             ...FAKE_RELAY_REQUEST.relayData,
             gasPrice: FAKE_GAS_COST,
-          }
-        }
+          },
+        },
       };
 
       const estimation = await estimateTokenTransferGas(request);
@@ -393,25 +400,23 @@ describe('utils', function () {
     });
   });
 
-  describe('getSmartWalletAddress', function(){
-
+  describe('getSmartWalletAddress', function () {
     let owner: string;
     let index: string;
 
     beforeEach(function () {
       owner = createRandomAddress();
       index = createRandomeValue(1000);
-      
     });
 
     afterEach(function () {
       sinon.restore();
     });
 
-    it('should return SW address', async function(){
+    it('should return SW address', async function () {
       const expectedAddress = createRandomAddress();
       const factoryStub = {
-        getSmartWalletAddress: () => expectedAddress
+        getSmartWalletAddress: () => expectedAddress,
       } as unknown as ISmartWalletFactory;
       sinon.stub(ISmartWalletFactory__factory, 'connect').returns(factoryStub);
       const address = await getSmartWalletAddress(owner, index);
@@ -419,18 +424,25 @@ describe('utils', function () {
       expect(address).to.be.equals(expectedAddress);
     });
 
-    it('should custom return SW address', async function(){
+    it('should custom return SW address', async function () {
       const expectedAddress = createRandomAddress();
       const factoryStub = {
-        getSmartWalletAddress: () => expectedAddress
+        getSmartWalletAddress: () => expectedAddress,
       } as unknown as ICustomSmartWalletFactory;
-      sinon.stub(ICustomSmartWalletFactory__factory, 'connect').returns(factoryStub);
+      sinon
+        .stub(ICustomSmartWalletFactory__factory, 'connect')
+        .returns(factoryStub);
       const logic = createRandomAddress();
-      const address = await getSmartWalletAddress(owner, index, undefined, logic, '0x0');
+      const address = await getSmartWalletAddress(
+        owner,
+        index,
+        undefined,
+        logic,
+        '0x0'
+      );
 
       expect(address).to.be.equals(expectedAddress);
     });
-
   });
 
   describe('validateRelayResponse', function () {
@@ -443,12 +455,16 @@ describe('utils', function () {
 
       const encodeFunctionDataStub = sinon.stub();
 
-      encodeFunctionDataStub.withArgs('relayCall', sinon.match.any).returns('Dummy Relay Data')
-      encodeFunctionDataStub.withArgs('deployCall', sinon.match.any).returns('Dummy Deploy Data');
+      encodeFunctionDataStub
+        .withArgs('relayCall', sinon.match.any)
+        .returns('Dummy Relay Data');
+      encodeFunctionDataStub
+        .withArgs('deployCall', sinon.match.any)
+        .returns('Dummy Deploy Data');
       const relayHubStub = {
         interface: {
-          encodeFunctionData: encodeFunctionDataStub
-        }
+          encodeFunctionData: encodeFunctionDataStub,
+        },
       } as unknown as RelayHub;
       sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
     });
@@ -530,7 +546,9 @@ describe('utils', function () {
         from: relayWorkerAddress,
       };
 
-      const { metadata: { relayMaxNonce } } = FAKE_DEPLOY_TRANSACTION_REQUEST;
+      const {
+        metadata: { relayMaxNonce },
+      } = FAKE_DEPLOY_TRANSACTION_REQUEST;
 
       expect(() =>
         validateRelayResponse(
@@ -539,7 +557,9 @@ describe('utils', function () {
           relayWorkerAddress
         )
       ).to.throw(
-        `Relay used a tx nonce higher than requested. Requested ${relayMaxNonce.toString()} got ${transaction.nonce}`
+        `Relay used a tx nonce higher than requested. Requested ${relayMaxNonce.toString()} got ${
+          transaction.nonce
+        }`
       );
     });
 
@@ -609,24 +629,25 @@ describe('utils', function () {
   });
 
   describe('useEnveloping', function () {
-
     it('Should return true if method is eth_accounts', function () {
       expect(useEnveloping('eth_accounts', [])).to.be.true;
-    })
+    });
 
     it('Should return false if params is empty', function () {
       expect(useEnveloping('eth_other', [])).to.be.false;
-    })
+    });
 
     it('Should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function () {
-      const result = useEnveloping('eth_sendTransaction', [{
-        envelopingTx: FAKE_RELAY_REQUEST,
-        requestConfig: {
-          useEnveloping: true
-        }
-      }]);
+      const result = useEnveloping('eth_sendTransaction', [
+        {
+          envelopingTx: FAKE_RELAY_REQUEST,
+          requestConfig: {
+            useEnveloping: true,
+          },
+        },
+      ]);
 
       expect(result).to.be.true;
-    })
+    });
   });
 });
