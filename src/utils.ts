@@ -139,7 +139,8 @@ const getSmartWalletAddress = async (
   smartWalletIndex: number | string,
   recoverer?: string,
   logic?: string,
-  logicParamsHash?: string
+  logicParamsHash?: string,
+  factoryAddress?: string
 ): Promise<string> => {
   log.debug('generateSmartWallet Params', {
     smartWalletIndex,
@@ -156,7 +157,8 @@ const getSmartWalletAddress = async (
 
   const initParamsHash = logicParamsHash ?? '0x00';
 
-  const { smartWalletFactoryAddress } = getEnvelopingConfig();
+  const smartWalletFactoryAddress =
+    factoryAddress ?? getEnvelopingConfig().smartWalletFactoryAddress;
 
   const provider = getProvider();
 
