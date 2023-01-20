@@ -13,7 +13,11 @@ import {
 export default class AccountManager {
   private static instance: AccountManager;
 
-  private _accounts: Wallet[] = [];
+  private readonly _accounts: Wallet[];
+
+  private constructor() {
+    this._accounts = [];
+  }
 
   public static getInstance(): AccountManager {
     if (!AccountManager.instance) {

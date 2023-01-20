@@ -206,7 +206,7 @@ export default class RelayProvider extends JsonRpcProvider {
     let accountsList = await this.jsonRpcProvider.listAccounts();
 
     if (accountsList && Array.isArray(accountsList)) {
-      const accountManager = new AccountManager();
+      const accountManager = AccountManager.getInstance();
 
       const ephemeralAccounts = accountManager.getAccounts();
 

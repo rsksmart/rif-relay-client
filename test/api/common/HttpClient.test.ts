@@ -8,7 +8,7 @@ const sandbox = createSandbox();
 use(sinonChai);
 
 const fakeURL = 'http://foo.bar';
-const GET_ADDRESS_PATH = '/getaddr';
+const GET_ADDRESS_PATH = '/get-chain-info';
 const RELAY_PATH = '/relay';
 const POST_ESTIMATE = '/estimate';
 const VERIFIER_SUFFIX = '?verifier=';

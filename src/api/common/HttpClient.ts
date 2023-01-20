@@ -6,7 +6,7 @@ import type { EnvelopingTxRequest } from '../../common/relayTransaction.types';
 import HttpWrapper, { requestInterceptors } from './HttpWrapper';
 
 const PATHS = {
-  GET_INFO: '/getaddr',
+  GET_INFO: '/get-chain-info',
   POST_RELAY_REQUEST: '/relay',
   POST_ESTIMATE: '/estimate',
 } as const;
