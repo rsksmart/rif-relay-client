@@ -8,7 +8,7 @@ const sandbox = createSandbox();
 use(sinonChai);
 
 const fakeURL = 'http://foo.bar';
-const GET_ADDRESS_PATH = '/get-chain-info';
+const CHAIN_INFO_PATH = '/chain-info';
 const RELAY_PATH = '/relay';
 const POST_ESTIMATE = '/estimate';
 const VERIFIER_SUFFIX = '?verifier=';
@@ -51,8 +51,8 @@ describe('HttpClient', function () {
         ) as unknown as HttpClientExposed;
       });
 
-      it(`should call httpWrapper.sendPromise with given url + '${GET_ADDRESS_PATH}'`, async function () {
-        const expectedSendPromiseUrl = fakeURL + GET_ADDRESS_PATH;
+      it(`should call httpWrapper.sendPromise with given url + '${CHAIN_INFO_PATH}'`, async function () {
+        const expectedSendPromiseUrl = fakeURL + CHAIN_INFO_PATH;
         const httpWrapperSendPromiseSpy = sandbox
           .stub(HttpWrapper.prototype, 'sendPromise')
           .resolves({ foo: 'bar' });
@@ -64,10 +64,10 @@ describe('HttpClient', function () {
         );
       });
 
-      it(`should call httpWrapper.sendPromise with given url + '${GET_ADDRESS_PATH}' + given verifier`, async function () {
+      it(`should call httpWrapper.sendPromise with given url + '${CHAIN_INFO_PATH}' + given verifier`, async function () {
         const verifier = '0x123';
         const expectedSendPromiseUrl =
-          fakeURL + GET_ADDRESS_PATH + VERIFIER_SUFFIX + verifier;
+          fakeURL + CHAIN_INFO_PATH + VERIFIER_SUFFIX + verifier;
         const httpWrapperSendPromiseSpy = sandbox
           .stub(HttpWrapper.prototype, 'sendPromise')
           .resolves({ foo: 'bar' });

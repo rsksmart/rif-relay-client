@@ -29,6 +29,7 @@ const DEFAULT_ENVELOPING_CONFIG: Required<OptionalEnvelopingConfig> = {
   clientId: 1,
   requestValidSeconds: 172800,
   forwarderAddress: constants.AddressZero,
+  smartWalletFactoryAddress: constants.AddressZero,
 };
 
 const getEnvelopingConfig = (): EnvelopingConfig => {
