@@ -1,5 +1,5 @@
 import type { HttpClient } from './api/common';
-import { BigNumberish, BigNumber, Transaction, constants } from 'ethers';
+import { BigNumberish, BigNumber, Transaction, constants, utils } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   ICustomSmartWalletFactory__factory,
@@ -30,6 +30,7 @@ import {
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
+const SHA3_NULL_S = utils.keccak256('0x');
 
 const selectNextRelay = async (httpClient: HttpClient): Promise<RelayInfo> => {
   const { preferredRelays } = getEnvelopingConfig();
@@ -155,7 +156,7 @@ const getSmartWalletAddress = async (
 
   const recovererAddress = recoverer ?? constants.AddressZero;
 
-  const initParamsHash = logicParamsHash ?? '0x00';
+  const initParamsHash = logicParamsHash ?? SHA3_NULL_S;
 
   const smartWalletFactoryAddress =
     factoryAddress ?? getEnvelopingConfig().smartWalletFactoryAddress;
@@ -329,6 +330,7 @@ export {
   applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
+  SHA3_NULL_S,
   validateRelayResponse,
   useEnveloping,
 };
