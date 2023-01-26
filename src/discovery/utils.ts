@@ -22,7 +22,7 @@ import {
   ISmartWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { getProvider } from '../common/clientConfigurator';
-const SHA3_NULL_S = keccak256('0x');
+import { SHA3_NULL_S } from '../utils';
 
 type Account = {
   eoaAccount: string;

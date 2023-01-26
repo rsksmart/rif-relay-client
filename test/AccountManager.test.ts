@@ -62,7 +62,7 @@ describe('AccountManager', function () {
       };
       sandbox.stub(_TypedDataEncoder, 'getPayload').returns('');
       sandbox.stub(clientConfigurator, 'getProvider').returns(stubProvider);
-      accountManager = new AccountManager();
+      accountManager = AccountManager.getInstance();
     });
 
     afterEach(function () {

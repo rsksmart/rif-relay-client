@@ -7,5 +7,6 @@ export * from './discovery';
 export * from './gasEstimator';
 export * from './utils';
 export * from './common';
+export * from './typedRequestData.utils';
 
 export { AccountManager, RelayPricer, RelayClient };

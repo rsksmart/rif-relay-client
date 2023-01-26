@@ -255,7 +255,7 @@ class RelayClient extends EnvelopingEventEmitter {
     } = envelopingRequest;
 
     const provider = getProvider();
-    const accountManager = new AccountManager();
+
     const relayMaxNonce =
       (await provider.getTransactionCount(relayWorkerAddress)) +
       this._envelopingConfig.maxRelayNonceGap;
@@ -307,6 +307,8 @@ class RelayClient extends EnvelopingEventEmitter {
         feesReceiver,
       },
     };
+
+    const accountManager = AccountManager.getInstance();
 
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,

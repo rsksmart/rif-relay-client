@@ -6,7 +6,7 @@ import type { EnvelopingTxRequest } from '../../common/relayTransaction.types';
 import HttpWrapper, { requestInterceptors } from './HttpWrapper';
 
 const PATHS = {
-  GET_INFO: '/getaddr',
+  CHAIN_INFO: '/chain-info',
   POST_RELAY_REQUEST: '/relay',
   POST_ESTIMATE: '/estimate',
 } as const;
@@ -29,7 +29,7 @@ class HttpClient {
   async getChainInfo(relayUrl: string, verifier = ''): Promise<HubInfo> {
     const verifierSuffix = verifier && `${VERIFIER_SUFFIX}${verifier}`;
     const hubInfo: HubInfo = await this._httpWrapper.sendPromise(
-      relayUrl + PATHS.GET_INFO + verifierSuffix
+      relayUrl + PATHS.CHAIN_INFO + verifierSuffix
     );
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
     requestInterceptors.logRequest.onErrorResponse({

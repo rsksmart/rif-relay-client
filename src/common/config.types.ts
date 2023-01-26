@@ -13,6 +13,7 @@ type OptionalEnvelopingConfig = Partial<{
   clientId: number;
   requestValidSeconds: number;
   forwarderAddress: string;
+  smartWalletFactoryAddress: string;
 }>;
 
 type RequiredEnvelopingConfig = {
@@ -21,7 +22,6 @@ type RequiredEnvelopingConfig = {
   relayHubAddress: string;
   deployVerifierAddress: string;
   relayVerifierAddress: string;
-  smartWalletFactoryAddress: string;
 };
 
 type EnvelopingConfig = RequiredEnvelopingConfig &

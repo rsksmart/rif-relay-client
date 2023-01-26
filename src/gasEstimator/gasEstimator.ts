@@ -26,8 +26,17 @@ const estimateRelayMaxPossibleGas = async (
     data: string;
   };
 
+  const callForwarder = relayRequest.relayData.callForwarder.toString();
+
   const preDeploySWAddress = isSmartWalletDeploy
-    ? await getSmartWalletAddress(from, index, recoverer, to, data)
+    ? await getSmartWalletAddress(
+        from,
+        index,
+        recoverer,
+        to,
+        data,
+        callForwarder
+      )
     : undefined;
 
   const tokenEstimation = await estimateTokenTransferGas({
