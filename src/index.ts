@@ -1,34 +1,12 @@
 import AccountManager from './AccountManager';
-import Enveloping from './Enveloping';
-import HttpClient from './HttpClient';
-import HttpWrapper from './HttpWrapper';
-import RelayedTransactionValidator from './RelayedTransactionValidator';
-import RelayProvider from './RelayProvider';
-import RelaySelectionManager from './RelaySelectionManager';
 import RelayPricer from './RelayPricer';
+import RelayClient from './RelayClient';
 
-export * from './types/Aliases';
-export * from './types/RelayFailureInfo';
-export * from './types/RelayInfo';
-export * from './types/RelayRegisteredEventInfo';
-export * from './types/TmpRelayTransactionJsonRequest';
-export * from './AccountManager';
-export * from './Configurator';
-export * from './Enveloping';
-export * from './KnownRelaysManager';
-export * from './RelayClient';
-export * from './RelayEvents';
-export * from './RelayProvider';
-export * from './RelaySelectionManager';
-export * from './SmartWalletDiscovery';
+export * from './api';
+export * from './discovery';
+export * from './gasEstimator';
+export * from './utils';
+export * from './common';
+export * from './typedRequestData.utils';
 
-export {
-    AccountManager,
-    Enveloping,
-    HttpClient,
-    HttpWrapper,
-    RelayedTransactionValidator,
-    RelayProvider,
-    RelaySelectionManager,
-    RelayPricer
-};
+export { AccountManager, RelayPricer, RelayClient };

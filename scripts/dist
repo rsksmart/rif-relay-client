@@ -1,5 +1,5 @@
 #!/bin/bash
 
-rm -rf dist
+npx tsc --build --clean
 
-npx webpack
+npx tsc --p ./tsconfig.build.json
