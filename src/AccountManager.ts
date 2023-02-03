@@ -1,163 +1,148 @@
-// @ts-ignore
-import ethWallet from 'ethereumjs-wallet';
+import { providers, Wallet, utils } from 'ethers';
+import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
+import { getProvider, isDeployRequest } from './common';
+import type { EnvelopingRequest } from './common';
 import {
-    getEip712Signature,
-    isSameAddress,
-    EnvelopingConfig
-} from '@rsksmart/rif-relay-common';
-import {
-    DeployRequest,
-    RelayRequest,
-    TypedDeployRequestData,
-    TypedRequestData
-} from '@rsksmart/rif-relay-contracts';
-import sigUtil from 'eth-sig-util';
-import { Address } from './types/Aliases';
-import { PrefixedHexString } from 'ethereumjs-tx';
-import { HttpProvider } from 'web3-core';
-import Web3 from 'web3';
+  deployRequestType,
+  EnvelopingMessageTypes,
+  getEnvelopingRequestDataV4Field,
+  relayRequestType,
+  TypedMessage,
+} from './typedRequestData.utils';
 
-//@ts-ignore
-import sourceMapSupport from 'source-map-support';
-//@ts-ignore
-sourceMapSupport.install({ errorFormatterForce: true });
-
-export interface AccountKeypair {
-    privateKey: Buffer;
-    address: Address;
-}
-
-function toAddress(wallet: any): string {
-    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    return `0x${wallet.getAddress().toString('hex')}`;
-}
 export default class AccountManager {
-    private readonly web3: Web3;
-    private readonly accounts: AccountKeypair[] = [];
-    private readonly config: EnvelopingConfig;
-    readonly chainId: number;
-    private readonly signWithProviderImpl: (signedData: any) => Promise<string>;
+  private static instance: AccountManager;
 
-    constructor(
-        provider: HttpProvider,
-        chainId: number,
-        config: EnvelopingConfig,
-        signWithProviderImpl?: (signedData: any) => Promise<string>
-    ) {
-        this.web3 = new Web3(provider);
-        this.chainId = chainId;
-        this.config = config;
-        this.signWithProviderImpl =
-            signWithProviderImpl ?? this._signWithProviderDefault;
+  private readonly _accounts: Wallet[];
+
+  private constructor() {
+    this._accounts = [];
+  }
+
+  public static getInstance(): AccountManager {
+    if (!AccountManager.instance) {
+      AccountManager.instance = new AccountManager();
     }
 
-    addAccount(keypair: AccountKeypair): void {
-        const wallet = ethWallet.fromPrivateKey(keypair.privateKey);
-        if (!isSameAddress(toAddress(wallet), keypair.address)) {
-            throw new Error('invalid keypair');
-        }
-        this.accounts.push(keypair);
+    return AccountManager.instance;
+  }
+
+  getAccounts(): string[] {
+    return this._accounts.map((it) => it.address);
+  }
+
+  addAccount(account: Wallet): void {
+    const provider = getProvider();
+    const wallet = new Wallet(account.privateKey, provider);
+    if (wallet.address !== account.address) {
+      throw new Error('invalid keypair');
+    }
+    this._accounts.push(wallet);
+  }
+
+  async sign(envelopingRequest: EnvelopingRequest): Promise<string> {
+    const callForwarder = envelopingRequest.relayData.callForwarder.toString();
+    const fromAddress: string = getAddress(
+      envelopingRequest.request.from.toString()
+    );
+
+    const provider = getProvider();
+
+    const { chainId } = await provider.getNetwork();
+
+    const data = getEnvelopingRequestDataV4Field({
+      chainId,
+      verifier: callForwarder,
+      envelopingRequest,
+      requestTypes: isDeployRequest(envelopingRequest)
+        ? deployRequestType
+        : relayRequestType,
+    });
+
+    const wallet = this._accounts.find(
+      (account) => getAddress(account.address) === fromAddress
+    );
+    const { signature, recoveredAddr } = await this._getSignatureFromTypedData(
+      data,
+      fromAddress,
+      wallet
+    ).catch((error) => {
+      throw new Error(
+        `Failed to sign relayed transaction for ${fromAddress}: ${
+          error as string
+        }`
+      );
+    });
+
+    if (recoveredAddr !== fromAddress) {
+      throw new Error(
+        `Internal RelayClient exception: signature is not correct: sender=${fromAddress}, recovered=${recoveredAddr}`
+      );
     }
 
-    newAccount(): AccountKeypair {
-        const a = ethWallet.generate();
-        const keypair = {
-            privateKey: a.getPrivateKey(),
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            address: toAddress(a)
-        };
-        this.addAccount(keypair);
-        return keypair;
+    return signature;
+  }
+
+  private async _getSignatureFromTypedData(
+    data: TypedMessage<EnvelopingMessageTypes>,
+    from: string,
+    wallet?: Wallet
+  ): Promise<{ signature: string; recoveredAddr: string }> {
+    const signature: string = wallet
+      ? await this._signWithWallet(wallet, data)
+      : await this._signWithProvider(from, data);
+    const recoveredAddr = this._recoverSignature(data, signature);
+
+    return { signature, recoveredAddr };
+  }
+
+  private _recoverSignature(
+    data: TypedMessage<EnvelopingMessageTypes>,
+    signature: string
+  ) {
+    const { domain, types, value } = data;
+
+    return utils.verifyTypedData(domain, types, value, signature);
+  }
+
+  private async _signWithProvider<T>(
+    from: string,
+    data: TypedMessage<EnvelopingMessageTypes>,
+    signatureVersion = 'v4',
+    jsonStringify = true
+  ): Promise<T> {
+    const provider = getProvider() as providers.JsonRpcProvider;
+    if (!provider.send) {
+      throw new Error(`Not an RPC provider`);
     }
 
-    isDeployRequest(req: any): boolean {
-        let isDeploy = false;
-        if (req.request.recoverer !== undefined) {
-            isDeploy = true;
-        }
+    const { domain, types, value } = data;
 
-        return isDeploy;
+    let encondedData: TypedMessage<EnvelopingMessageTypes> | string;
+    if (jsonStringify) {
+      encondedData = JSON.stringify(
+        _TypedDataEncoder.getPayload(domain, types, value)
+      );
+    } else {
+      encondedData = _TypedDataEncoder.getPayload(
+        domain,
+        types,
+        value
+      ) as TypedMessage<EnvelopingMessageTypes>;
     }
 
-    async sign(
-        relayRequest: RelayRequest | DeployRequest
-    ): Promise<PrefixedHexString> {
-        const cloneRequest = { ...relayRequest };
+    return (await provider.send(`eth_signTypedData_${signatureVersion}`, [
+      from,
+      encondedData,
+    ])) as T;
+  }
 
-        const isDeploy = this.isDeployRequest(relayRequest);
+  private async _signWithWallet(
+    wallet: Wallet,
+    data: TypedMessage<EnvelopingMessageTypes>
+  ): Promise<string> {
+    const { domain, types, value } = data;
 
-        const signedData = isDeploy
-            ? new TypedDeployRequestData(
-                  this.chainId,
-                  relayRequest.relayData.callForwarder,
-                  cloneRequest as DeployRequest
-              )
-            : new TypedRequestData(
-                  this.chainId,
-                  relayRequest.relayData.callForwarder,
-                  cloneRequest as RelayRequest
-              );
-
-        const keypair = this.accounts.find((account) =>
-            isSameAddress(account.address, relayRequest.request.from)
-        );
-        let rec: Address;
-        let signature: string;
-
-        try {
-            if (keypair != null) {
-                signature = this._signWithControlledKey(keypair, signedData);
-            } else {
-                signature = await this._signWithProvider(signedData);
-            }
-            // Sanity check only
-            // @ts-ignore
-            rec = sigUtil.recoverTypedSignature_v4({
-                data: signedData,
-                sig: signature
-            });
-        } catch (error) {
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            throw new Error(
-                `Failed to sign relayed transaction for ${relayRequest.request.from}: ${error}`
-            );
-        }
-        if (!isSameAddress(relayRequest.request.from.toLowerCase(), rec)) {
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            throw new Error(
-                `Internal RelayClient exception: signature is not correct: sender=${relayRequest.request.from}, recovered=${rec}`
-            );
-        }
-        return signature;
-    }
-
-    // These methods is extracted to
-    // a) allow different implementations in the future, and
-    // b) allow spying on Account Manager in tests
-    async _signWithProvider(signedData: any): Promise<string> {
-        return await this.signWithProviderImpl(signedData);
-    }
-
-    async _signWithProviderDefault(signedData: any): Promise<string> {
-        return await getEip712Signature(
-            this.web3,
-            signedData,
-            this.config.methodSuffix ?? '',
-            this.config.jsonStringifyRequest ?? false
-        );
-    }
-
-    _signWithControlledKey(
-        keypair: AccountKeypair,
-        signedData: TypedRequestData | TypedDeployRequestData
-    ): string {
-        // @ts-ignore
-        return sigUtil.signTypedData_v4(keypair.privateKey, {
-            data: signedData
-        });
-    }
-
-    getAccounts(): string[] {
-        return this.accounts.map((it) => it.address);
-    }
+    return await wallet._signTypedData(domain, types, value);
+  }
 }

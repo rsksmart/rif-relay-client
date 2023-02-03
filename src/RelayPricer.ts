@@ -1,8 +1,10 @@
-import BigNumber from 'bignumber.js';
-import BaseExchangeApi from './api/ExchangeApi';
-import CoinBase from './api/CoinBase';
-import RdocExchange from './api/RdocExchange';
-import TestExchange from './api/TestExchange';
+import type { BigNumber as BigNumberJs } from 'bignumber.js';
+import {
+  BaseExchangeApi,
+  CoinBase,
+  RdocExchange,
+  TestExchange,
+} from './api/pricer';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
@@ -13,46 +15,45 @@ const rdocExchange = new RdocExchange();
 const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
 
 export default class RelayPricer {
-    findAvailableApi(token: string): BaseExchangeApi {
-        const upperCaseToken = token?.toUpperCase();
-        const availableApi = EXCHANGE_APIS.find((api) =>
-            api.tokens.includes(upperCaseToken)
-        );
+  findAvailableApi(token: string): BaseExchangeApi {
+    const upperCaseToken = token?.toUpperCase();
+    const availableApi = EXCHANGE_APIS.find((api) =>
+      api.tokens.includes(upperCaseToken)
+    );
 
-        if (!availableApi) {
-            throw Error(`There is no available API for token ${token}`);
-        }
-        return availableApi;
+    if (!availableApi) {
+      throw Error(`There is no available API for token ${token}`);
     }
 
-    async getExchangeRate(
-        sourceCurrency: string,
-        targetCurrency: string,
-        intermediateCurrency?: string
-    ): Promise<BigNumber> {
-        const sourceApi = this.findAvailableApi(sourceCurrency);
-        const targetApi = this.findAvailableApi(targetCurrency);
+    return availableApi;
+  }
 
-        const sourceTokenName = sourceApi.getApiTokenName(sourceCurrency);
-        const targetTokenName = targetApi.getApiTokenName(targetCurrency);
+  async getExchangeRate(
+    sourceCurrency: string,
+    targetCurrency: string,
+    intermediateCurrency?: string
+  ): Promise<BigNumberJs> {
+    const sourceApi = this.findAvailableApi(sourceCurrency);
+    const targetApi = this.findAvailableApi(targetCurrency);
 
-        const intermediary = intermediateCurrency
-            ? intermediateCurrency
-            : INTERMEDIATE_CURRENCY;
+    const sourceTokenName = sourceApi.getApiTokenName(sourceCurrency);
+    const targetTokenName = targetApi.getApiTokenName(targetCurrency);
 
-        const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
-            sourceApi.queryExchangeRate(sourceTokenName, intermediary),
-            targetApi.queryExchangeRate(targetTokenName, intermediary)
-        ]);
+    const intermediary = intermediateCurrency
+      ? intermediateCurrency
+      : INTERMEDIATE_CURRENCY;
 
-        if (
-            sourceExchangeRate.isEqualTo(0) ||
-            targetExchangeRate.isEqualTo(0)
-        ) {
-            throw Error(
-                `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`
-            );
-        }
-        return sourceExchangeRate.dividedBy(targetExchangeRate);
+    const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
+      sourceApi.queryExchangeRate(sourceTokenName, intermediary),
+      targetApi.queryExchangeRate(targetTokenName, intermediary),
+    ]);
+
+    if (sourceExchangeRate.isEqualTo(0) || targetExchangeRate.isEqualTo(0)) {
+      throw Error(
+        `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`
+      );
     }
+
+    return sourceExchangeRate.dividedBy(targetExchangeRate);
+  }
 }

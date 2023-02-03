@@ -1,765 +1,254 @@
-// @ts-ignore
-import abiDecoder from 'abi-decoder';
+import { Transaction, BigNumber } from 'ethers';
+import type { Networkish } from '@ethersproject/networks';
+import { JsonRpcProvider, TransactionReceipt } from '@ethersproject/providers';
+import type { ConnectionInfo } from '@ethersproject/web';
+import RelayClient from './RelayClient';
 import log from 'loglevel';
-import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers';
-import { HttpProvider, TransactionReceipt } from 'web3-core';
-import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts';
+import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import AccountManager from './AccountManager';
+import type { UserDefinedEnvelopingRequest } from './common/relayRequest.types';
+import { useEnveloping } from './utils';
+import type { RelayHubInterface } from '@rsksmart/rif-relay-contracts';
+import type { LogDescription } from 'ethers/lib/utils';
+import type { Either } from './common/utility.types';
 import {
-    _dumpRelayingResult,
-    RelayClient,
-    RelayingResult
-} from './RelayClient';
-import {
-    EnvelopingTransactionDetails,
-    EnvelopingConfig,
-    constants
-} from '@rsksmart/rif-relay-common';
-import { configure, EnvelopingDependencies } from './Configurator';
-import { AccountKeypair } from './AccountManager';
-import { RelayEvent } from './RelayEvents';
-import { Address } from './types/Aliases';
-import { toBN, toChecksumAddress, toHex } from 'web3-utils';
+  RelayTransactionEvents,
+  relayTransactionHandler,
+} from './handlers/RelayProvider';
+import type { RequestConfig } from './common';
+import { getEnvelopingConfig } from './common/clientConfigurator';
 
-// @ts-ignore
-abiDecoder.addABI(IRelayHub.abi);
-// @ts-ignore
-abiDecoder.addABI(IWalletFactory.abi);
+export const RELAY_TRANSACTION_EVENTS = [
+  'TransactionRelayedButRevertedByRecipient',
+  'TransactionRelayed',
+  'Deployed',
+] as RelayTransactionEvents[];
 
-export interface BaseTransactionReceipt {
-    logs: any[];
-    status: string | boolean;
+export interface RelayingResult {
+  validUntilTime?: string;
+  transaction: Transaction;
+  receipt?: TransactionReceipt;
 }
 
-export type JsonRpcCallback = (
-    error: Error | null,
-    result?: JsonRpcResponse
-) => void;
-
-export interface ISendAsync {
-    sendAsync?: any;
+export interface ProviderParams {
+  url: ConnectionInfo | string;
+  network: Networkish;
 }
 
-export interface JsonRpcResponseRelay extends JsonRpcResponse {
-    relayingResult?: RelayingResult;
+export interface RelayStatus {
+  relayRevertedOnRecipient: boolean;
+  transactionRelayed: boolean;
+  reason?: string;
 }
 
-export default class RelayProvider implements HttpProvider {
-    protected readonly origProvider: HttpProvider & ISendAsync;
-    private readonly origProviderSend: any;
-    protected readonly config: EnvelopingConfig;
+export default class RelayProvider extends JsonRpcProvider {
+  private readonly relayClient!: RelayClient;
 
-    readonly relayClient: RelayClient;
+  private readonly jsonRpcProvider!: JsonRpcProvider;
 
-    /**
-     * create a proxy provider, to relay transaction
-     * @param overrideDependencies
-     * @param relayClient
-     * @param origProvider - the underlying web3 provider
-     * @param envelopingConfig
-     */
-    constructor(
-        origProvider: HttpProvider,
-        envelopingConfig: Partial<EnvelopingConfig>,
-        overrideDependencies?: Partial<EnvelopingDependencies>,
-        relayClient?: RelayClient
-    ) {
-        const config = configure(envelopingConfig);
-        this.host = origProvider.host;
-        this.connected = origProvider.connected;
+  constructor(
+    relayClient = new RelayClient(),
+    providerOrProviderParams: Either<JsonRpcProvider, ProviderParams>
+  ) {
+    let url: ConnectionInfo | string;
+    let network: Networkish;
 
-        this.origProvider = origProvider;
-        this.config = config;
-        if (typeof this.origProvider.sendAsync === 'function') {
-            this.origProviderSend = this.origProvider.sendAsync.bind(
-                this.origProvider
-            );
-        } else {
-            this.origProviderSend = this.origProvider.send.bind(
-                this.origProvider
-            );
-        }
-        this.relayClient =
-            relayClient ??
-            new RelayClient(
-                origProvider,
-                envelopingConfig,
-                overrideDependencies
-            );
+    if (providerOrProviderParams.connection) {
+      url = providerOrProviderParams.connection.url;
+      network = providerOrProviderParams._network;
+    } else {
+      url = providerOrProviderParams.url;
+      network = providerOrProviderParams.network;
+    }
+    super(url, network);
+    this.jsonRpcProvider =
+      providerOrProviderParams instanceof JsonRpcProvider
+        ? providerOrProviderParams
+        : new JsonRpcProvider(url, network);
+    this.relayClient = relayClient;
+  }
 
-        this._delegateEventsApi(origProvider);
+  private _getRelayStatus(respResult: TransactionReceipt): RelayStatus {
+    if (!respResult.logs || respResult.logs.length === 0) {
+      return {
+        relayRevertedOnRecipient: false,
+        transactionRelayed: false,
+        reason: 'Tx logs not found',
+      };
     }
 
-    registerEventListener(handler: (event: RelayEvent) => void): void {
-        this.relayClient.registerEventListener(handler);
+    const relayHubInterface: RelayHubInterface =
+      RelayHub__factory.createInterface();
+    const parsedLogs: LogDescription[] = respResult.logs.map((log) =>
+      relayHubInterface.parseLog(log)
+    );
+
+    for (const event of RELAY_TRANSACTION_EVENTS) {
+      const logDescription = parsedLogs.find((log) => log.name == event);
+      if (logDescription) {
+        return relayTransactionHandler.process(event, logDescription);
+      }
     }
 
-    unregisterEventListener(handler: (event: RelayEvent) => void): void {
-        this.relayClient.unregisterEventListener(handler);
+    return relayTransactionHandler.default();
+  }
+
+  private async executeRelayTransaction(
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    requestConfig: RequestConfig
+  ): Promise<RelayingResult> {
+    try {
+      const transaction = await this.relayClient.relayTransaction(
+        envelopingRequest
+      );
+
+      const { hash } = transaction;
+
+      if (!hash) {
+        throw new Error('Transaction has no hash!');
+      }
+
+      let receipt;
+      if (!requestConfig.ignoreTransactionReceipt) {
+        receipt = await this.waitForTransaction(hash, 1);
+      }
+
+      return {
+        transaction,
+        receipt,
+      };
+    } catch (error) {
+      log.error('Rejected relayTransaction call', error);
+      throw new Error(
+        `Rejected relayTransaction call - Reason: ${(error as Error).message}`
+      );
+    }
+  }
+
+  private async _ethSendTransaction(
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    requestConfig: RequestConfig
+  ): Promise<RelayingResult> {
+    const config = getEnvelopingConfig();
+
+    const { relayData, request } = envelopingRequest;
+
+    let callForwarderValue = await relayData?.callForwarder;
+    let relayHubValue = await request.relayHub;
+    let onlyPreferredRelaysValue = requestConfig.onlyPreferredRelays;
+    const gasToSend = requestConfig.forceGasLimit
+      ? BigNumber.from(requestConfig.forceGasLimit)
+      : undefined;
+
+    if (!Number(callForwarderValue)) {
+      callForwarderValue = config.forwarderAddress;
     }
 
-    _delegateEventsApi(origProvider: HttpProvider): void {
-        // If the subprovider is a ws or ipc provider, then register all its methods on this provider
-        // and delegate calls to the subprovider. This allows subscriptions to work.
-        [
-            'on',
-            'removeListener',
-            'removeAllListeners',
-            'reset',
-            'disconnect',
-            'addDefaultEvents',
-            'once',
-            'reconnect'
-        ].forEach((func) => {
-            // @ts-ignore
-            if (origProvider[func] !== undefined) {
-                // @ts-ignore
-                this[func] = origProvider[func].bind(origProvider);
-            }
-        });
+    if (!Number(relayHubValue)) {
+      relayHubValue = config.relayHubAddress;
     }
 
-    send(payload: JsonRpcPayload, callback: JsonRpcCallback): void {
-        if (this._useEnveloping(payload)) {
-            if (payload.method === 'eth_sendTransaction') {
-                if (payload.params[0].to === undefined) {
-                    throw new Error(
-                        'Enveloping cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.'
-                    );
-                }
-                this._ethSendTransaction(payload, callback);
-                log.debug('Relay Provider - Transaction sent');
-                return;
-            }
-            if (payload.method === 'eth_getTransactionReceipt') {
-                this._ethGetTransactionReceipt(payload, callback);
-                return;
-            }
-            if (payload.method === 'eth_accounts') {
-                this._getAccounts(payload, callback);
-                return;
-            }
-        }
-
-        this.origProviderSend(
-            this._getPayloadForRSKProvider(payload),
-            (error: Error | null, result?: JsonRpcResponse) => {
-                callback(error, result);
-            }
-        );
+    if (!onlyPreferredRelaysValue) {
+      onlyPreferredRelaysValue = config.onlyPreferredRelays;
     }
 
     /**
-     * Generates a Enveloping deploy transaction, to deploy the Smart Wallet of the requester
-     * @param transactionDetails All the necessary information for creating the deploy request
-     * from:address => EOA of the Smart Wallet owner
-     * to:address => Optional custom logic address
-     * data:bytes => init params for the optional custom logic
-     * tokenContract:address => Token used to pay for the deployment, can be address(0) if the deploy is subsidized
-     * tokenAmount:IntString => Amount of tokens paid for the deployment, can be 0 if the deploy is subsidized
-     * tokenGas:IntString => Gas to be passed to the token transfer function. This was added because some ERC20 tokens (e.g, USDT) are unsafe, they use
-     * assert() instead of require(). An elaborated (and quite difficult in terms of timing) attack by a user could plan to deplete their token balance between the time
-     * the Relay Server makes the local relayCall to check the transaction passes and it actually submits it to the blockchain. In that scenario,
-     * when the SmartWallet tries to pay with the user's USDT tokens and the balance is 0, instead of reverting and reimbursing the unused gas, it would revert and spend all the gas,
-     * by adding tokeGas we prevent this attack, the gas reserved to actually execute the rest of the relay call is not lost but reimbursed to the relay worker/
-     * factory:address => Address of the factory used to deploy the Smart Wallet
-     * recoverer:address => Optional recoverer account/contract, can be address(0)
-     * index:IntString => Numeric value used to generate several SW instances using the same paramaters defined above
-     *
-     * value: Not used here, only used in other scenarios where the worker account of the relay server needs to replenish balance.
-     * Any value put here wont be sent to the "to" property, it won't be moved at all.
-     *
-     * @returns The transaction hash
+     * When using a RelayProvider, and the gas field is not manually set, then the original provider within calculates a ridiculously high gas.
+     * In order to avoid this, we created a new field called forceGas, which is optional.
+     * If the user wants to manually set the gas, then she can put a value in the forceGas field, otherwise it will be
+     * automatically estimated (correctly) by the RelayClient.
+     * The reason why we added this new forceGas field is because at this point, by reading the gas field,
+     * we cannot differentiate between a user-entered gas value from the auto-calculated (and a very poor calculation)
+     * value that comes from the original provider
      */
-    async deploySmartWallet(
-        transactionDetails: EnvelopingTransactionDetails
-    ): Promise<RelayingResult> {
-        log.debug('Relay Provider - Deploying Smart wallet');
-        let isSmartWalletDeployValue = transactionDetails.isSmartWalletDeploy;
-        let relayHubValue = transactionDetails.relayHub;
-        let onlyPreferredRelaysValue = transactionDetails.onlyPreferredRelays;
-        let txDetailsChanged = false;
 
-        if (
-            isSmartWalletDeployValue === undefined ||
-            isSmartWalletDeployValue === null
-        ) {
-            isSmartWalletDeployValue = true;
-            txDetailsChanged = true;
-        }
+    const userDefinedEnvelopingReq = {
+      relayData: {
+        ...envelopingRequest.relayData,
+        callForwarder: callForwarderValue,
+      },
+      request: {
+        ...envelopingRequest.request,
+        relayHub: relayHubValue,
+        gas: gasToSend,
+      },
+    } as UserDefinedEnvelopingRequest;
 
-        if (!isSmartWalletDeployValue) {
-            throw new Error('Request is not for SmartWallet deploy');
-        }
+    const fullRequestConfig: RequestConfig = {
+      ...requestConfig,
+      onlyPreferredRelays: onlyPreferredRelaysValue,
+    };
 
-        if (
-            relayHubValue === undefined ||
-            relayHubValue === null ||
-            relayHubValue === constants.ZERO_ADDRESS
-        ) {
-            relayHubValue = this.config.relayHubAddress;
-            txDetailsChanged = true;
-        }
+    const relayingResult = await this.executeRelayTransaction(
+      userDefinedEnvelopingReq,
+      fullRequestConfig
+    );
 
-        if (
-            onlyPreferredRelaysValue === undefined ||
-            onlyPreferredRelaysValue === null
-        ) {
-            onlyPreferredRelaysValue = this.config.onlyPreferredRelays;
-            txDetailsChanged = true;
-        }
+    if (relayingResult.receipt) {
+      const { relayRevertedOnRecipient, reason } = this._getRelayStatus(
+        relayingResult.receipt
+      );
+      const { transactionHash } = relayingResult.receipt;
 
-        if (txDetailsChanged) {
-            transactionDetails = {
-                ...transactionDetails,
-                isSmartWalletDeploy: isSmartWalletDeployValue,
-                relayHub: relayHubValue,
-                onlyPreferredRelays: onlyPreferredRelaysValue
-            };
-        }
-
-        log.debug(`Relay Provider - Relay hub: ${transactionDetails.relayHub}`);
-
-        const tokenGas = transactionDetails.tokenGas ?? '0';
-        const tokenContract =
-            transactionDetails.tokenContract ?? constants.ZERO_ADDRESS;
-        log.debug(`Relay Provider - Token gas: ${tokenGas}`);
-        log.debug(`Relay Provider - Token contract: ${tokenContract}`);
-        if (
-            tokenContract !== constants.ZERO_ADDRESS &&
-            toBN(transactionDetails.tokenAmount ?? '0').gt(toBN('0')) &&
-            toBN(tokenGas).isZero() &&
-            (transactionDetails.smartWalletAddress ??
-                constants.ZERO_ADDRESS) === constants.ZERO_ADDRESS
-        ) {
-            // There is a token payment involved
-            // The user expects the client to estimate the gas required for the token call
-            throw Error(
-                'In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value'
-            );
-        }
-
-        return this.executeRelayTransaction(transactionDetails);
-    }
-
-    private async processTransactionReceipt(
-        txHash: string,
-        retries: number,
-        initialBackoff: number
-    ): Promise<TransactionReceipt> {
-        const receipt: TransactionReceipt =
-            await this.relayClient.getTransactionReceipt(
-                txHash,
-                retries,
-                initialBackoff
-            );
-        const relayStatus = this._getRelayStatus(receipt);
-        if (relayStatus.relayRevertedOnRecipient) {
-            throw new Error(
-                `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-            );
-        }
-        return receipt;
-    }
-
-    async executeRelayTransaction(
-        transactionDetails: EnvelopingTransactionDetails
-    ): Promise<RelayingResult> {
-        try {
-            log.debug('Relay Provider - Relaying transaction started');
-            const relayingResult = await this.relayClient.relayTransaction(
-                transactionDetails
-            );
-            if (
-                relayingResult.transaction !== undefined &&
-                relayingResult.transaction !== null
-            ) {
-                const txHash: string = relayingResult.transaction
-                    .hash(true)
-                    .toString('hex');
-                const hash = `0x${txHash}`;
-                log.debug(
-                    `Relay Provider - Transaction relay done, txHash: ${hash}`
-                );
-                if (!transactionDetails.ignoreTransactionReceipt) {
-                    const { retries, initialBackoff } = transactionDetails;
-                    const receipt: TransactionReceipt =
-                        await this.processTransactionReceipt(
-                            txHash,
-                            retries,
-                            initialBackoff
-                        );
-                    relayingResult.receipt = receipt;
-                }
-                return relayingResult;
-            } else {
-                const message = `Failed to relay call. Results:\n${_dumpRelayingResult(
-                    relayingResult
-                )}`;
-                log.error(message);
-                throw new Error(message);
-            }
-        } catch (error) {
-            const reasonStr =
-                error instanceof Error ? error.message : JSON.stringify(error);
-            log.info('Rejected relayTransaction call', error);
-            throw new Error(
-                `Rejected relayTransaction call - Reason: ${reasonStr}`
-            );
-        }
-    }
-
-    /**
-     * @param ownerEOA EOA of the Smart Wallet onwer
-     * @param recoverer Address of a recoverer account, can be smart contract. It's used in gasless tokens, can be address(0) if desired
-     * @param customLogic An optional custom logic code that the wallet will proxy to as fallback, optional, can be address(0)
-     * @param walletIndex Numeric value used to generate different wallet instances for the owner using the same parameters and factory
-     * @param logicInitParamsHash If customLogic was defined and it needs initialization params, they are passed as abi-encoded here, do not include the function selector
-     * If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero
-     */
-    calculateCustomSmartWalletAddress(
-        factory: Address,
-        ownerEOA: Address,
-        recoverer: Address,
-        customLogic: Address,
-        walletIndex: number,
-        bytecodeHash: string,
-        logicInitParamsHash?: string
-    ): Address {
-        const salt: string =
-            web3.utils.soliditySha3(
-                { t: 'address', v: ownerEOA },
-                { t: 'address', v: recoverer },
-                { t: 'address', v: customLogic },
-                {
-                    t: 'bytes32',
-                    v: logicInitParamsHash ?? constants.SHA3_NULL_S
-                },
-                { t: 'uint256', v: walletIndex }
-            ) ?? '';
-
-        const _data: string =
-            web3.utils.soliditySha3(
-                { t: 'bytes1', v: '0xff' },
-                { t: 'address', v: factory },
-                { t: 'bytes32', v: salt },
-                { t: 'bytes32', v: bytecodeHash }
-            ) ?? '';
-
-        return toChecksumAddress(
-            '0x' + _data.slice(26, _data.length),
-            this.config.chainId
+      if (relayRevertedOnRecipient) {
+        throw new Error(
+          `Transaction Relayed but reverted on recipient - TxHash: ${transactionHash} , Reason: ${
+            reason as string
+          }`
         );
+      }
     }
 
-    calculateSmartWalletAddress(
-        factory: Address,
-        ownerEOA: Address,
-        recoverer: Address,
-        walletIndex: number,
-        bytecodeHash: string
-    ): Address {
-        const salt: string =
-            web3.utils.soliditySha3(
-                { t: 'address', v: ownerEOA },
-                { t: 'address', v: recoverer },
-                { t: 'uint256', v: walletIndex }
-            ) ?? '';
+    return relayingResult;
+  }
 
-        const _data: string =
-            web3.utils.soliditySha3(
-                { t: 'bytes1', v: '0xff' },
-                { t: 'address', v: factory },
-                { t: 'bytes32', v: salt },
-                { t: 'bytes32', v: bytecodeHash }
-            ) ?? '';
+  override async listAccounts() {
+    let accountsList = await this.jsonRpcProvider.listAccounts();
 
-        return toChecksumAddress(
-            '0x' + _data.slice(26, _data.length),
-            this.config.chainId
-        );
+    if (accountsList && Array.isArray(accountsList)) {
+      const accountManager = AccountManager.getInstance();
+
+      const ephemeralAccounts = accountManager.getAccounts();
+
+      accountsList = accountsList.concat(ephemeralAccounts);
     }
 
-    _ethGetTransactionReceipt(
-        payload: JsonRpcPayload,
-        callback: JsonRpcCallback
-    ): void {
-        log.info('calling sendAsync' + JSON.stringify(payload));
-        this.origProviderSend(
-            payload,
-            (error: Error | null, rpcResponse?: JsonRpcResponse): void => {
-                // Sometimes, ganache seems to return 'false' for 'no error' (breaking TypeScript declarations)
-                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-                if (error) {
-                    callback(error, rpcResponse);
-                    return;
-                }
-                if (rpcResponse == null || rpcResponse.result == null) {
-                    // Commenting out this line: RSKJ replies immediatly with a null response if the transaction
-                    // is still pending to be mined
-                    // (console.error('Empty JsonRpcResponse with no error message')
-                    callback(error, rpcResponse);
-                    return;
-                }
+    return accountsList;
+  }
 
-                callback(error, rpcResponse);
-            }
-        );
+  override send(
+    method: string,
+    params: Array<Record<string, unknown>>
+  ): Promise<unknown> {
+    if (useEnveloping(method, params)) {
+      const { requestConfig, envelopingTx } = params[0] as {
+        requestConfig: RequestConfig;
+        envelopingTx: UserDefinedEnvelopingRequest;
+      };
+      const { request } = envelopingTx;
+
+      type RelayProviderMethods = 'eth_sendTransaction' | 'eth_accounts';
+      const ethSendTransaction = () => {
+        if (!request.to) {
+          throw new Error(
+            'Relay Provider cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.'
+          );
+        }
+
+        return this._ethSendTransaction(envelopingTx, requestConfig);
+      };
+      const eventHandlers: Record<
+        RelayProviderMethods,
+        () => Promise<unknown>
+      > = {
+        eth_sendTransaction: ethSendTransaction,
+        eth_accounts: this.listAccounts.bind(this),
+      };
+      if (method in eventHandlers) {
+        return eventHandlers[method as RelayProviderMethods]();
+      }
     }
 
-    _ethSendTransaction(
-        payload: JsonRpcPayload,
-        callback: JsonRpcCallback
-    ): void {
-        log.info('calling sendAsync' + JSON.stringify(payload));
-        log.debug('Relay Provider - _ethSendTransaction called');
-        let transactionDetails: EnvelopingTransactionDetails =
-            payload.params[0];
-
-        let callForwarderValue = transactionDetails.callForwarder;
-        let relayHubValue = transactionDetails.relayHub;
-        let onlyPreferredRelaysValue = transactionDetails.onlyPreferredRelays;
-        let gasToSend = transactionDetails.forceGas;
-
-        if (
-            callForwarderValue === undefined ||
-            callForwarderValue === null ||
-            callForwarderValue === constants.ZERO_ADDRESS
-        ) {
-            callForwarderValue = this.config.forwarderAddress;
-        }
-
-        if (
-            relayHubValue === undefined ||
-            relayHubValue === null ||
-            relayHubValue === constants.ZERO_ADDRESS
-        ) {
-            relayHubValue = this.config.relayHubAddress;
-        }
-
-        if (
-            onlyPreferredRelaysValue === undefined ||
-            onlyPreferredRelaysValue === null
-        ) {
-            onlyPreferredRelaysValue = this.config.onlyPreferredRelays;
-        }
-
-        if (gasToSend !== undefined && gasToSend !== null) {
-            gasToSend = toHex(gasToSend);
-        }
-
-        /**
-         * When using a RelayProvider, and the gas field is not manually set, then the original provider within calculates a ridiculously high gas.
-         * In order to avoid this, we created a new field called forceGas, which is optional.
-         * If the user wants to manually set the gas, then she can put a value in the forceGas field, otherwise it will be
-         * automatically estimated (correctly) by the RelayClient.
-         * The reason why we added this new forceGas field is because at this point, by reading the gas field,
-         * we cannot differentiate between a user-entered gas value from the auto-calculated (and a very poor calculation)
-         * value that comes from the original provider
-         */
-        transactionDetails = {
-            ...transactionDetails,
-            callForwarder: callForwarderValue,
-            relayHub: relayHubValue,
-            onlyPreferredRelays: onlyPreferredRelaysValue,
-            gas: gasToSend // it is either undefined or a user-entered value
-        };
-
-        log.debug(`Relay Provider - Relay hub: ${transactionDetails.relayHub}`);
-        log.debug(
-            `Relay Provider - callForwarder: ${transactionDetails.callForwarder}`
-        );
-
-        this.executeRelayTransaction(transactionDetails).then(
-            (relayingResult: RelayingResult) => {
-                const txHash: string =
-                    '0x' +
-                    relayingResult.transaction.hash(true).toString('hex');
-                if (
-                    relayingResult.transaction === undefined ||
-                    relayingResult.transaction === null
-                ) {
-                    // Imposible scenario, but we addded it so the linter does not complain since it wont allow using ! keyword
-                    callback(
-                        new Error(
-                            `Unknown Runtime error while processing result of txHash: ${txHash}`
-                        )
-                    );
-                } else {
-                    if (relayingResult.receipt) {
-                        const relayStatus = this._getRelayStatus(
-                            relayingResult.receipt
-                        );
-                        if (relayStatus.transactionRelayed) {
-                            const jsonRpcSendResult =
-                                this._convertTransactionToRpcSendResponse(
-                                    relayingResult,
-                                    payload
-                                );
-                            callback(null, jsonRpcSendResult);
-                        } else if (relayStatus.relayRevertedOnRecipient) {
-                            callback(
-                                new Error(
-                                    `Transaction Relayed but reverted on recipient - TxHash: ${txHash} , Reason: ${relayStatus.reason}`
-                                )
-                            );
-                        }
-                    }
-                    const jsonRpcSendResult =
-                        this._convertTransactionToRpcSendResponse(
-                            relayingResult,
-                            payload
-                        );
-                    callback(null, jsonRpcSendResult);
-                }
-            },
-            (error) => {
-                callback(new Error(error));
-            }
-        );
-    }
-
-    _convertTransactionToRpcSendResponse(
-        relayingResult: RelayingResult,
-        request: JsonRpcPayload
-    ): JsonRpcResponseRelay {
-        const txHash: string = relayingResult.transaction
-            .hash(true)
-            .toString('hex');
-        const hash = `0x${txHash}`;
-        const id =
-            (typeof request.id === 'string'
-                ? parseInt(request.id)
-                : request.id) ?? -1;
-        log.debug('Relay Provider - rpc message sent, jsonRpcResult');
-        log.debug('Relay Provider - txHash: ' + hash);
-        log.debug('Relay Provider - id: ' + id.toString());
-        return {
-            jsonrpc: '2.0',
-            id,
-            result: hash,
-            relayingResult
-        };
-    }
-
-    _getRelayStatus(respResult: BaseTransactionReceipt): {
-        relayRevertedOnRecipient: boolean;
-        transactionRelayed: boolean;
-        reason: string;
-    } {
-        if (respResult.logs === null || respResult.logs.length === 0) {
-            return {
-                relayRevertedOnRecipient: false,
-                transactionRelayed: false,
-                reason: 'Tx logs not found'
-            };
-        }
-        const logs = abiDecoder.decodeLogs(respResult.logs);
-        const recipientRejectedEvents = logs.find(
-            (e: any) =>
-                e != null &&
-                e.name === 'TransactionRelayedButRevertedByRecipient'
-        );
-
-        if (
-            recipientRejectedEvents !== undefined &&
-            recipientRejectedEvents !== null
-        ) {
-            const recipientRejectionReason: { value: string } =
-                recipientRejectedEvents.events.find(
-                    (e: any) => e.name === 'reason'
-                );
-            let revertReason = 'Unknown';
-            if (
-                recipientRejectionReason !== undefined &&
-                recipientRejectionReason !== null
-            ) {
-                log.info(
-                    `Recipient rejected on-chain: ${recipientRejectionReason.value}`
-                );
-                revertReason = recipientRejectionReason.value;
-            }
-            return {
-                relayRevertedOnRecipient: true,
-                transactionRelayed: false,
-                reason: revertReason
-            };
-        }
-
-        const transactionRelayed = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed'
-        );
-        if (transactionRelayed !== undefined && transactionRelayed !== null) {
-            return {
-                relayRevertedOnRecipient: false,
-                transactionRelayed: true,
-                reason: ''
-            };
-        }
-
-        // Check if it wasn't a deploy call which does not emit TransactionRelayed events but Deployed events
-        const deployedEvent = logs.find(
-            (e: any) => e != null && e.name === 'Deployed'
-        );
-        if (deployedEvent !== undefined && deployedEvent !== null) {
-            return {
-                relayRevertedOnRecipient: false,
-                transactionRelayed: true,
-                reason: ''
-            };
-        }
-
-        log.info(
-            'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction '
-        );
-        return {
-            relayRevertedOnRecipient: false,
-            transactionRelayed: false,
-            reason: 'Neither TransactionRelayed, Deployed, nor TransactionRelayedButRevertedByRecipient events found. This might be a non-enveloping transaction'
-        };
-    }
-
-    _useEnveloping(payload: JsonRpcPayload): boolean {
-        if (payload.method === 'eth_accounts') {
-            return true;
-        }
-        if (payload.params[0] === undefined) {
-            return false;
-        }
-        const transactionDetails: EnvelopingTransactionDetails =
-            payload.params[0];
-        return transactionDetails?.useEnveloping ?? true;
-    }
-
-    /* wrapping HttpProvider interface */
-
-    host: string;
-    connected: boolean;
-
-    supportsSubscriptions(): boolean {
-        return this.origProvider.supportsSubscriptions();
-    }
-
-    disconnect(): boolean {
-        return this.origProvider.disconnect();
-    }
-
-    newAccount(): AccountKeypair {
-        return this.relayClient.accountManager.newAccount();
-    }
-
-    addAccount(keypair: AccountKeypair): void {
-        this.relayClient.accountManager.addAccount(keypair);
-    }
-
-    _getAccounts(payload: JsonRpcPayload, callback: JsonRpcCallback): void {
-        this.origProviderSend(
-            payload,
-            (error: Error | null, rpcResponse?: JsonRpcResponse): void => {
-                if (rpcResponse != null && Array.isArray(rpcResponse.result)) {
-                    const ephemeralAccounts =
-                        this.relayClient.accountManager.getAccounts();
-                    rpcResponse.result =
-                        rpcResponse.result.concat(ephemeralAccounts);
-                }
-                callback(error, rpcResponse);
-            }
-        );
-    }
-
-    // The RSKJ node doesn't support additional parameters in RPC calls.
-    // When using the original provider with the RSKJ node it is necessary to remove the additional useEnveloping property.
-    _getPayloadForRSKProvider(payload: JsonRpcPayload): JsonRpcPayload {
-        let p: JsonRpcPayload = payload;
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        p = JSON.parse(JSON.stringify(payload));
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'useEnveloping'
-            )
-        ) {
-            delete p.params[0].useEnveloping;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'callVerifier'
-            )
-        ) {
-            delete p.params[0].callVerifier;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'forceGasPrice'
-            )
-        ) {
-            delete p.params[0].forceGasPrice;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'callForwarder'
-            )
-        ) {
-            delete p.params[0].callForwarder;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'isSmartWalletDeploy'
-            )
-        ) {
-            delete p.params[0].isSmartWalletDeploy;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'onlyPreferredRelays'
-            )
-        ) {
-            delete p.params[0].onlyPreferredRelays;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'tokenAmount'
-            )
-        ) {
-            delete p.params[0].tokenAmount;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(
-                payload.params[0],
-                'tokenContract'
-            )
-        ) {
-            delete p.params[0].tokenContract;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (
-            Object.prototype.hasOwnProperty.call(payload.params[0], 'forceGas')
-        ) {
-            delete p.params[0].forceGas;
-        }
-        return p;
-    }
+    return this.jsonRpcProvider.send(method, params);
+  }
 }
