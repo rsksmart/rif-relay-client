@@ -17,7 +17,6 @@ import { getProvider } from '../common/clientConfigurator';
 const standardMaxPossibleGasEstimation = async (
   { relayRequest, metadata: { signature } }: EnvelopingTxRequest,
   relayWorkerAddress: string,
-  tokenEstimation: BigNumberish,
   estimatedGasCorrectionFactor?: BigNumberish
 ): Promise<BigNumber> => {
   const {
@@ -50,7 +49,7 @@ const standardMaxPossibleGasEstimation = async (
     estimatedGasCorrectionFactor
   );
 
-  return correctedEstimation.add(tokenEstimation);
+  return correctedEstimation;
 };
 
 const linearFitMaxPossibleGasEstimation = async (
