@@ -28,8 +28,11 @@ class HttpClient {
 
   async getChainInfo(relayUrl: string, verifier = ''): Promise<HubInfo> {
     const verifierSuffix = verifier && `${VERIFIER_SUFFIX}${verifier}`;
+
+    const url = new URL(PATHS.CHAIN_INFO + verifierSuffix, relayUrl);
+
     const hubInfo: HubInfo = await this._httpWrapper.sendPromise(
-      relayUrl + PATHS.CHAIN_INFO + verifierSuffix
+      url.toString()
     );
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
     requestInterceptors.logRequest.onErrorResponse({
@@ -73,9 +76,11 @@ class HttpClient {
     relayUrl: string,
     envelopingTx: EnvelopingTxRequest
   ): Promise<string> {
+    const url = new URL(PATHS.POST_RELAY_REQUEST, relayUrl);
+
     const { signedTx } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
-        relayUrl + PATHS.POST_RELAY_REQUEST,
+        url.toString(),
         this._stringifyEnvelopingTx(envelopingTx)
       );
     log.info('relayTransaction response:', signedTx);
@@ -93,8 +98,10 @@ class HttpClient {
     relayUrl: string,
     envelopingTx: EnvelopingTxRequest
   ): Promise<RelayEstimation> {
+    const url = new URL(PATHS.POST_ESTIMATE, relayUrl);
+
     const response = await this._httpWrapper.sendPromise<RelayEstimation>(
-      relayUrl + PATHS.POST_ESTIMATE,
+      url.toString(),
       this._stringifyEnvelopingTx(envelopingTx)
     );
     log.info('esimation relayTransaction response:', response);
