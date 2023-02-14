@@ -75,9 +75,11 @@ describe('GasEstimator', function () {
         relayWorker
       );
 
+      const expectedEstimation = fakeRelayEstimation.add(fakeTokenGas);
+
       expect(
-        estimation.eq(fakeRelayEstimation),
-        `${estimation.toString()} should equal ${fakeRelayEstimation.toString()}`
+        estimation.eq(expectedEstimation),
+        `${estimation.toString()} should equal ${expectedEstimation.toString()}`
       ).to.be.true;
     });
 
@@ -91,9 +93,11 @@ describe('GasEstimator', function () {
         relayWorker
       );
 
+      const expectedEstimation = fakeDeployEstimation.add(fakeTokenGas);
+
       expect(
-        estimation.eq(fakeDeployEstimation),
-        `${estimation.toString()} should equal ${fakeDeployEstimation.toString()}`
+        estimation.eq(expectedEstimation),
+        `${estimation.toString()} should equal ${expectedEstimation.toString()}`
       ).to.be.true;
     });
 
@@ -140,7 +144,6 @@ describe('GasEstimator', function () {
   });
 
   describe('standardMaxPossibleGasEstimation', function () {
-    let fakeTokenGas: BigNumber;
     let fakeDeployGas: BigNumber;
     let fakeRelayGas: BigNumber;
     let relayWorker: string;
@@ -148,7 +151,6 @@ describe('GasEstimator', function () {
     let relayHubStub: SinonStubbedInstance<RelayHub>;
 
     beforeEach(function () {
-      fakeTokenGas = randomBigNumber(10000);
       fakeDeployGas = randomBigNumber(10000);
       fakeRelayGas = randomBigNumber(10000);
       relayWorker = Wallet.createRandom().address;
@@ -174,15 +176,12 @@ describe('GasEstimator', function () {
 
       const estimation = await standardMaxPossibleGasEstimation(
         FAKE_RELAY_TRANSACTION_REQUEST,
-        relayWorker,
-        fakeTokenGas
+        relayWorker
       );
 
-      const relayEstimation = fakeTokenGas.add(fakeRelayGas);
-
       expect(
-        estimation.eq(relayEstimation),
-        `${estimation.toString()} should equal ${relayEstimation.toString()}`
+        estimation.eq(fakeRelayGas),
+        `${estimation.toString()} should equal ${fakeRelayGas.toString()}`
       ).to.be.true;
     });
 
@@ -191,14 +190,12 @@ describe('GasEstimator', function () {
 
       const estimation = await standardMaxPossibleGasEstimation(
         FAKE_DEPLOY_TRANSACTION_REQUEST,
-        relayWorker,
-        fakeTokenGas
+        relayWorker
       );
-      const relayEstimation = fakeTokenGas.add(fakeDeployGas);
 
       expect(
-        estimation.eq(relayEstimation),
-        `${estimation.toString()} should equal ${relayEstimation.toString()}`
+        estimation.eq(fakeDeployGas),
+        `${estimation.toString()} should equal ${fakeDeployGas.toString()}`
       ).to.be.true;
     });
   });

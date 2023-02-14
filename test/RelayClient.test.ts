@@ -126,6 +126,7 @@ describe('RelayClient', function () {
         hubInfo: HubInfo,
         envelopingRequest: EnvelopingRequest
       ) => Promise<EnvelopingTxRequest>;
+      _calculateGasPrice(): Promise<BigNumber>;
       _getEnvelopingRequestDetails: (
         envelopingRequest: UserDefinedEnvelopingRequest
       ) => Promise<EnvelopingRequest>;
@@ -466,7 +467,7 @@ describe('RelayClient', function () {
         const expectedGasPrice = BigNumber.from(
           (Math.random() * 100).toFixed(0)
         );
-        relayClient.calculateGasPrice = sandbox
+        relayClient._calculateGasPrice = sandbox
           .stub()
           .resolves(expectedGasPrice);
 
@@ -484,7 +485,7 @@ describe('RelayClient', function () {
       });
 
       it('should throw error if gasPrice not in request data or calculated', async function () {
-        relayClient.calculateGasPrice = sandbox.stub().resolves(undefined);
+        relayClient._calculateGasPrice = sandbox.stub().resolves(undefined);
 
         const call = relayClient._getEnvelopingRequestDetails({
           ...FAKE_DEPLOY_REQUEST,
@@ -804,7 +805,7 @@ describe('RelayClient', function () {
       });
     });
 
-    describe('calculateGasPrice', function () {
+    describe('_calculateGasPrice', function () {
       it('should return minGasPrice when minGasPrice is higher than gas price from provider', async function () {
         const expectedGasPrice = 30000;
         relayClient._envelopingConfig.minGasPrice = expectedGasPrice;
@@ -814,7 +815,7 @@ describe('RelayClient', function () {
             console.log('getGasPrice called');
           })
           .resolves(BigNumber.from(2000));
-        const actualGasPrice = await relayClient.calculateGasPrice();
+        const actualGasPrice = await relayClient._calculateGasPrice();
 
         expect(actualGasPrice.toNumber()).to.be.equal(expectedGasPrice);
       });
@@ -825,7 +826,7 @@ describe('RelayClient', function () {
         const expectedGasEstimate = estimateGas.mul(
           FAKE_ENVELOPING_CONFIG.gasPriceFactorPercent + 1
         );
-        const actualGasPrice = await relayClient.calculateGasPrice();
+        const actualGasPrice = await relayClient._calculateGasPrice();
 
         expect(actualGasPrice.toString()).to.be.equal(
           expectedGasEstimate.toString()

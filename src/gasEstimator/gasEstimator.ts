@@ -51,11 +51,12 @@ const estimateRelayMaxPossibleGas = async (
   });
 
   if (signature > '0x0') {
-    return await standardMaxPossibleGasEstimation(
+    const maxPossibleGas = await standardMaxPossibleGasEstimation(
       envelopingRequest,
-      relayWorkerAddress,
-      tokenEstimation
+      relayWorkerAddress
     );
+
+    return maxPossibleGas.add(tokenEstimation);
   }
 
   return await linearFitMaxPossibleGasEstimation(relayRequest, tokenEstimation);
