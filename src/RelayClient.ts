@@ -146,7 +146,8 @@ class RelayClient extends EnvelopingEventEmitter {
     }
 
     const gasPrice: PromiseOrValue<BigNumberish> =
-      envelopingRequest.relayData?.gasPrice || (await this.calculateGasPrice());
+      envelopingRequest.relayData?.gasPrice ||
+      (await this._calculateGasPrice());
 
     if (!gasPrice || BigNumber.from(gasPrice).isZero()) {
       throw new Error('Could not get gas price for request');
@@ -330,7 +331,7 @@ class RelayClient extends EnvelopingEventEmitter {
     return httpRequest;
   }
 
-  async calculateGasPrice(): Promise<BigNumber> {
+  private async _calculateGasPrice(): Promise<BigNumber> {
     const { minGasPrice, gasPriceFactorPercent } = this._envelopingConfig;
 
     const provider = getProvider();
