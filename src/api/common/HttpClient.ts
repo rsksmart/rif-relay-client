@@ -12,7 +12,7 @@ const PATHS = {
 } as const;
 const VERIFIER_SUFFIX = '?verifier=';
 
-type RelayPath = typeof PATHS[keyof typeof PATHS];
+type RelayPath = (typeof PATHS)[keyof typeof PATHS];
 
 type SignedTransactionDetails = {
   transactionHash: string;
