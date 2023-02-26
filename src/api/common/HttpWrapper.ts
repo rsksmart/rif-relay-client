@@ -1,14 +1,13 @@
-import axios, {
-  AxiosError,
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse,
-} from 'axios';
+import SuperAgent, { Response, ResponseError } from 'superagent'
 import log, { LogLevelDesc } from 'loglevel';
 
-const logger = () => log.getLogger('HttpWrapper');
+const logger = log.getLogger('HttpWrapper');
 const LOGMAXLEN = 120;
 const DEFAULT_TIMEOUT = 30000;
+
+type HttpWrapperOpts = {
+  timeout?: number,
+}
 
 const getCircularReplacer = () => {
   const seen = new WeakSet();
@@ -29,78 +28,75 @@ const stringify = (something: unknown): string =>
 
 const interceptors = {
   logRequest: {
-    onErrorResponse: (response: AxiosResponse) => {
-      logger().debug('relayTransaction response:', response);
-      const data = response.data as { error: string } | undefined;
-      if (data?.error) {
-        logger().error(`Error within response: ${data.error}`);
+    onErrorResponse: (response: Response) => {
+      logger.debug('relayTransaction response:', response.body);
+      const data = response.body as { error: string } | undefined;
+
+      if(!data){
+        throw new Error('Got undefined response from relay')
+      }
+
+      if (data.error) {
+        logger.error(`Error within response: ${data.error}`);
         throw new Error(`Got error response from relay: ${data.error}`);
       }
 
       return response;
     },
-    onResponse: (response: AxiosResponse) => {
-      logger().info(
-        `Got a response: ${response.config.url as string}${stringify(
-          response.data
-        ).slice(0, LOGMAXLEN)}`
+    onResponse: (response: Response) => {
+      logger.info(
+        `Got a response:${response.text.slice(0, LOGMAXLEN)}`
       );
 
       return response;
     },
-    onError: (error: AxiosError) => {
-      const { response, message, config } = error;
-      if (error.request) {
-        logger().error(`Request failed: ${stringify(error.request)}`);
-      }
+    onError: (error: ResponseError) => {
+      const { response, message } = error;
+      logger.error('Error while setting up request', message);
       if (response) {
-        logger().error(`Response error: ${stringify(response)}`);
+        logger.error(`Response error: ${stringify(response)}`);
       }
-      if (!error.request && !response) {
-        logger().error('Error while setting up request', stringify(message));
-      }
-      logger().debug(`Configuration: ${stringify(config)}`);
 
-      return Promise.reject(error);
+      return error
     },
   },
 };
 
 export default class HttpWrapper {
-  private readonly _httpClient: AxiosInstance;
+  private readonly _httpClient;
+
+  private timeout;
 
   constructor(
-    opts: AxiosRequestConfig = {},
+    opts: HttpWrapperOpts = {},
     loglLevel: LogLevelDesc = 'error'
   ) {
-    this._httpClient = axios.create({
-      timeout: DEFAULT_TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
-      ...opts,
-    });
+    this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
+    this._httpClient = SuperAgent.agent()
+      .timeout(this.timeout)
+      .type('json')
+      .on('response', interceptors.logRequest.onResponse)
+      .on('error', interceptors.logRequest.onError);
 
-    logger().setLevel(loglLevel);
-
-    this._httpClient.interceptors.response.use(
-      interceptors.logRequest.onResponse,
-      interceptors.logRequest.onError
-    );
+    logger.setLevel(loglLevel);
   }
 
-  async sendPromise<T>(url: string, jsonRequestData?: unknown): Promise<T> {
-    logger().info(
+  async sendPromise<T>(url: string, jsonRequestData?: unknown) {
+    logger.info(
       'Sending request:',
       url,
       jsonRequestData && stringify(jsonRequestData).slice(0, LOGMAXLEN)
     );
 
-    const { data } = await this._httpClient.request<T>({
-      url,
-      method: jsonRequestData ? 'POST' : 'GET',
-      data: jsonRequestData,
+    const request = jsonRequestData ? this._httpClient.post(url).send(jsonRequestData) : this._httpClient.get(url)
+    
+    const response = await request.catch(() => {
+      logger.debug(`Request failed: ${stringify(request)}`);
+
+      return request;
     });
 
-    return data;
+    return response.body as T;
   }
 }
 

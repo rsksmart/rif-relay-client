@@ -54,10 +54,10 @@
     "package.json": "npx sort-package-json"
   },
   "dependencies": {
-    "axios": "~0.27.2",
     "bignumber.js": "^9.1.1",
     "loglevel": "~1.8.0",
-    "npmignore": "^0.3.0"
+    "npmignore": "^0.3.0",
+    "superagent": "^8.0.9"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
@@ -69,6 +69,7 @@
     "@types/node": "^18.8.4",
     "@types/sinon": "^10.0.13",
     "@types/sinon-chai": "^3.2.8",
+    "@types/superagent": "^4.1.16",
     "@typescript-eslint/eslint-plugin": "^5.40.0",
     "@typescript-eslint/parser": "^5.40.0",
     "chai": "4.3.6",

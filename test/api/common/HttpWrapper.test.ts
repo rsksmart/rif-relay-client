@@ -1,10 +1,10 @@
 import { LogLevel } from '@ethersproject/logger';
-import axios, { Axios } from 'axios';
+import { agent } from 'superagent';
 import { expect, use } from 'chai';
 import log from 'loglevel';
 import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
-import HttpWrapper from '../../../src/api/common/HttpWrapper';
+import HttpWrapper, { requestInterceptors } from '../../../src/api/common/HttpWrapper';
 
 const sandbox = createSandbox();
 use(sinonChai);
@@ -18,28 +18,18 @@ describe('HttpWrapper', function () {
 
   describe('constructor', function () {
     it('should create new http client with given params', function () {
-      const axiosCreateSpy = sandbox.spy(axios, 'create');
       const expectedCreateParams = {
         timeout: 1,
-        headers: { 'Content-Type': 'application/json' },
-        foo: 'bar',
       };
-      new HttpWrapper(expectedCreateParams);
+      const httpWrapper = new HttpWrapper(expectedCreateParams);
 
-      expect(axiosCreateSpy).to.be.called;
-      expect(axiosCreateSpy).to.be.calledWith(expectedCreateParams);
+      expect(httpWrapper).to.be.instanceOf(HttpWrapper);
     });
 
     it('should create new http client with default params', function () {
-      const axiosCreateSpy = sandbox.spy(axios, 'create');
-      const expectedCreateParams = {
-        timeout: 30000,
-        headers: { 'Content-Type': 'application/json' },
-      };
-      new HttpWrapper();
-
-      expect(axiosCreateSpy).to.be.called;
-      expect(axiosCreateSpy).to.be.calledWith(expectedCreateParams);
+      const httpWrapper = new HttpWrapper();
+      
+      expect(httpWrapper).to.be.instanceOf(HttpWrapper);
     });
 
     it('should set logging level', function () {
@@ -52,18 +42,39 @@ describe('HttpWrapper', function () {
 
       expect(setLogLevelsSpy).to.be.calledWith(expectedLogLevel);
     });
+
+    it('should set interceptors', function () {
+      const superAgentEventSpy = sandbox.spy(agent.prototype, 'on');
+      new HttpWrapper();
+
+      expect(superAgentEventSpy).to.be.calledWith('response', requestInterceptors.logRequest.onResponse);
+      expect(superAgentEventSpy).to.be.calledWith('error', requestInterceptors.logRequest.onError);
+    });
   });
 
   describe('methods', function () {
     describe('sendPromise', function () {
-      it('should call axios.request with given params', async function () {
-        const axiosPostSpy = sandbox
-          .stub(Axios.prototype, 'request')
-          .resolves({ foo: 'bar' });
+
+      it('should call SuperAgent.post.send if request data exists', async function () {
         const expectedPostParams = {
           url: fakeURL,
           data: { foo: 'bar' },
         };
+
+        const postResponse = {
+          send: () => Promise.resolve(expectedPostParams.data)
+        }
+
+        const superAgentSendSpy = sandbox
+          .stub(postResponse, 'send')
+          .resolves(expectedPostParams.data);
+        const superAgentPostSpy = sandbox
+          .stub(agent.prototype, 'post')
+          .returns({
+            send: superAgentSendSpy
+          });
+        
+        
         const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await httpWrapper.sendPromise(
@@ -71,41 +82,16 @@ describe('HttpWrapper', function () {
           expectedPostParams.data
         );
 
-        expect(axiosPostSpy).to.be.called;
-        expect(axiosPostSpy).to.be.calledWith({
-          url: expectedPostParams.url,
-          method: sandbox.match.any,
-          data: expectedPostParams.data,
-        });
-      });
-
-      it('should call axios.request with POST method if request data exists', async function () {
-        const axiosPostSpy = sandbox
-          .stub(Axios.prototype, 'request')
-          .resolves({ foo: 'bar' });
-        const expectedPostParams = {
-          url: fakeURL,
-          data: { foo: 'bar' },
-        };
-        const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
-
-        await httpWrapper.sendPromise(
-          expectedPostParams.url,
-          expectedPostParams.data
+        expect(superAgentPostSpy).to.be.calledWith(
+          fakeURL,
         );
-
-        expect(axiosPostSpy).to.be.called;
-        expect(axiosPostSpy).to.be.calledWith({
-          url: sandbox.match.any,
-          method: 'POST',
-          data: sandbox.match.any,
-        });
+        expect(superAgentSendSpy).to.be.calledWith(expectedPostParams.data);
       });
 
-      it('should call axios.request with GET method if request data does not exist', async function () {
-        const axiosPostSpy = sandbox
-          .stub(Axios.prototype, 'request')
-          .resolves({ foo: 'bar' });
+      it('should call SuperAgent.get if request data does not exist', async function () {
+        const superAgentPostSpy = sandbox
+          .stub(agent.prototype, 'get')
+          .resolvesThis()
         const expectedPostParams = {
           url: fakeURL,
         };
@@ -113,19 +99,17 @@ describe('HttpWrapper', function () {
 
         await httpWrapper.sendPromise(expectedPostParams.url);
 
-        expect(axiosPostSpy).to.be.called;
-        expect(axiosPostSpy).to.be.calledWith({
-          url: sandbox.match.any,
-          method: 'GET',
-          data: sandbox.match.any,
-        });
+        expect(superAgentPostSpy).to.be.called;
+        expect(superAgentPostSpy).to.be.calledWith(
+          fakeURL,
+        );
       });
 
       it('should return response data', async function () {
         const expectedResponse = { foo: 'bar' };
         sandbox
-          .stub(Axios.prototype, 'request')
-          .resolves({ data: expectedResponse });
+          .stub(agent.prototype, 'get')
+          .resolves({ body: expectedResponse });
         const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
         const result = await httpWrapper.sendPromise(fakeURL);
 

@@ -1,4 +1,3 @@
-import type { AxiosError } from 'axios';
 import { use, assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { SinonStubbedInstance, createStubInstance, restore } from 'sinon';
@@ -90,28 +89,26 @@ describe('CoinBase', function () {
     });
 
     it('should fail if API returns handled error message', async function () {
-      const expectedStatusCode = 400;
-      const expectedStatusText = 'Bad Request';
+      const expectedStatus = 400;
       const fakeError = {
         response: {
-          status: expectedStatusCode,
-          statusText: expectedStatusText,
+          status: expectedStatus,
         },
-      } as AxiosError;
+      };
 
-      httpWrapperStub.sendPromise.returns(Promise.reject(fakeError));
+      httpWrapperStub.sendPromise.rejects(fakeError);
       await assert.isRejected(
         coinBase.queryExchangeRate('NA', targetCurrency),
-        `CoinBase API status ${expectedStatusCode}/${expectedStatusText}`
+        `CoinBase API status ${expectedStatus}`
       );
     });
 
     it("should fail if API doesn't return a response", async function () {
       const fakeError = {
-        request: {},
-      } as AxiosError;
+        status: 500,
+      };
 
-      httpWrapperStub.sendPromise.returns(Promise.reject(fakeError));
+      httpWrapperStub.sendPromise.rejects(fakeError);
       await assert.isRejected(
         coinBase.queryExchangeRate('NA', targetCurrency),
         'No response received from CoinBase API'
@@ -119,7 +116,7 @@ describe('CoinBase', function () {
     });
 
     it('should fail if the request cannot be sent', async function () {
-      const fakeError = {} as AxiosError;
+      const fakeError = {};
 
       httpWrapperStub.sendPromise.returns(Promise.reject(fakeError));
       await assert.isRejected(
