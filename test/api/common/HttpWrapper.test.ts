@@ -93,18 +93,18 @@ describe('HttpWrapper', function () {
       });
 
       it('should call SuperAgent.get if request data does not exist', async function () {
-        const superAgentPostSpy = sandbox
+        const superAgentGetSpy = sandbox
           .stub(agent.prototype, 'get')
           .resolvesThis();
-        const expectedPostParams = {
+        const expectedGetParams = {
           url: fakeURL,
         };
         const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
-        await httpWrapper.sendPromise(expectedPostParams.url);
+        await httpWrapper.sendPromise(expectedGetParams.url);
 
-        expect(superAgentPostSpy).to.be.called;
-        expect(superAgentPostSpy).to.be.calledWith(fakeURL);
+        expect(superAgentGetSpy).to.be.called;
+        expect(superAgentGetSpy).to.be.calledWith(fakeURL);
       });
 
       it('should return response data', async function () {
