@@ -1,4 +1,4 @@
-import SuperAgent, { Response, ResponseError } from 'superagent'
+import SuperAgent, { Response, ResponseError } from 'superagent';
 import log, { LogLevelDesc } from 'loglevel';
 
 const logger = log.getLogger('HttpWrapper');
@@ -6,8 +6,8 @@ const LOGMAXLEN = 120;
 const DEFAULT_TIMEOUT = 30000;
 
 type HttpWrapperOpts = {
-  timeout?: number,
-}
+  timeout?: number;
+};
 
 const getCircularReplacer = () => {
   const seen = new WeakSet();
@@ -32,8 +32,8 @@ const interceptors = {
       logger.debug('relayTransaction response:', response.body);
       const data = response.body as { error: string } | undefined;
 
-      if(!data){
-        throw new Error('Got undefined response from relay')
+      if (!data) {
+        throw new Error('Got undefined response from relay');
       }
 
       if (data.error) {
@@ -44,9 +44,7 @@ const interceptors = {
       return response;
     },
     onResponse: (response: Response) => {
-      logger.info(
-        `Got a response:${response.text.slice(0, LOGMAXLEN)}`
-      );
+      logger.info(`Got a response:${response.text.slice(0, LOGMAXLEN)}`);
 
       return response;
     },
@@ -57,7 +55,7 @@ const interceptors = {
         logger.error(`Response error: ${stringify(response)}`);
       }
 
-      return error
+      return error;
     },
   },
 };
@@ -67,10 +65,7 @@ export default class HttpWrapper {
 
   private timeout;
 
-  constructor(
-    opts: HttpWrapperOpts = {},
-    loglLevel: LogLevelDesc = 'error'
-  ) {
+  constructor(opts: HttpWrapperOpts = {}, loglLevel: LogLevelDesc = 'error') {
     this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
     this._httpClient = SuperAgent.agent()
       .timeout(this.timeout)
@@ -88,8 +83,10 @@ export default class HttpWrapper {
       jsonRequestData && stringify(jsonRequestData).slice(0, LOGMAXLEN)
     );
 
-    const request = jsonRequestData ? this._httpClient.post(url).send(jsonRequestData) : this._httpClient.get(url)
-    
+    const request = jsonRequestData
+      ? this._httpClient.post(url).send(jsonRequestData)
+      : this._httpClient.get(url);
+
     const response = await request.catch(() => {
       logger.debug(`Request failed: ${stringify(request)}`);
 

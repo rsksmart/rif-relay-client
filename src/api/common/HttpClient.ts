@@ -12,7 +12,7 @@ const PATHS = {
 } as const;
 const VERIFIER_SUFFIX = '?verifier=';
 
-type RelayPath = (typeof PATHS)[keyof typeof PATHS];
+type RelayPath = typeof PATHS[keyof typeof PATHS];
 
 type SignedTransactionDetails = {
   transactionHash: string;
@@ -35,7 +35,9 @@ class HttpClient {
       url.toString()
     );
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
-    requestInterceptors.logRequest.onErrorResponse({ body: hubInfo } as Response);
+    requestInterceptors.logRequest.onErrorResponse({
+      body: hubInfo,
+    } as Response);
 
     return hubInfo;
   }

@@ -40,14 +40,12 @@ export default class CoinBase extends BaseExchangeApi {
     } catch (error: unknown) {
       const { response, status } = error as ResponseError;
 
-      if(status && status.toString() == '500'){
-        throw new Error('No response received from CoinBase API')
+      if (status && status.toString() == '500') {
+        throw new Error('No response received from CoinBase API');
       }
 
       if (response) {
-        throw Error(
-          `CoinBase API status ${response.status}`
-        );
+        throw Error(`CoinBase API status ${response.status}`);
       }
       throw new Error('The request was not sent to the CoinBase API');
     }

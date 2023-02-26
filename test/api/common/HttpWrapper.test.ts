@@ -4,7 +4,9 @@ import { expect, use } from 'chai';
 import log from 'loglevel';
 import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
-import HttpWrapper, { requestInterceptors } from '../../../src/api/common/HttpWrapper';
+import HttpWrapper, {
+  requestInterceptors,
+} from '../../../src/api/common/HttpWrapper';
 
 const sandbox = createSandbox();
 use(sinonChai);
@@ -28,7 +30,7 @@ describe('HttpWrapper', function () {
 
     it('should create new http client with default params', function () {
       const httpWrapper = new HttpWrapper();
-      
+
       expect(httpWrapper).to.be.instanceOf(HttpWrapper);
     });
 
@@ -47,14 +49,19 @@ describe('HttpWrapper', function () {
       const superAgentEventSpy = sandbox.spy(agent.prototype, 'on');
       new HttpWrapper();
 
-      expect(superAgentEventSpy).to.be.calledWith('response', requestInterceptors.logRequest.onResponse);
-      expect(superAgentEventSpy).to.be.calledWith('error', requestInterceptors.logRequest.onError);
+      expect(superAgentEventSpy).to.be.calledWith(
+        'response',
+        requestInterceptors.logRequest.onResponse
+      );
+      expect(superAgentEventSpy).to.be.calledWith(
+        'error',
+        requestInterceptors.logRequest.onError
+      );
     });
   });
 
   describe('methods', function () {
     describe('sendPromise', function () {
-
       it('should call SuperAgent.post.send if request data exists', async function () {
         const expectedPostParams = {
           url: fakeURL,
@@ -62,8 +69,8 @@ describe('HttpWrapper', function () {
         };
 
         const postResponse = {
-          send: () => Promise.resolve(expectedPostParams.data)
-        }
+          send: () => Promise.resolve(expectedPostParams.data),
+        };
 
         const superAgentSendSpy = sandbox
           .stub(postResponse, 'send')
@@ -71,10 +78,9 @@ describe('HttpWrapper', function () {
         const superAgentPostSpy = sandbox
           .stub(agent.prototype, 'post')
           .returns({
-            send: superAgentSendSpy
+            send: superAgentSendSpy,
           });
-        
-        
+
         const httpWrapper = new HttpWrapper({}, log.levels.SILENT);
 
         await httpWrapper.sendPromise(
@@ -82,16 +88,14 @@ describe('HttpWrapper', function () {
           expectedPostParams.data
         );
 
-        expect(superAgentPostSpy).to.be.calledWith(
-          fakeURL,
-        );
+        expect(superAgentPostSpy).to.be.calledWith(fakeURL);
         expect(superAgentSendSpy).to.be.calledWith(expectedPostParams.data);
       });
 
       it('should call SuperAgent.get if request data does not exist', async function () {
         const superAgentPostSpy = sandbox
           .stub(agent.prototype, 'get')
-          .resolvesThis()
+          .resolvesThis();
         const expectedPostParams = {
           url: fakeURL,
         };
@@ -100,9 +104,7 @@ describe('HttpWrapper', function () {
         await httpWrapper.sendPromise(expectedPostParams.url);
 
         expect(superAgentPostSpy).to.be.called;
-        expect(superAgentPostSpy).to.be.calledWith(
-          fakeURL,
-        );
+        expect(superAgentPostSpy).to.be.calledWith(fakeURL);
       });
 
       it('should return response data', async function () {
