@@ -104,24 +104,12 @@ describe('CoinBase', function () {
     });
 
     it("should fail if API doesn't return a response", async function () {
-      const fakeError = {
-        status: 500,
-      };
+      const fakeError = {};
 
       httpWrapperStub.sendPromise.rejects(fakeError);
       await assert.isRejected(
         coinBase.queryExchangeRate('NA', targetCurrency),
         'No response received from CoinBase API'
-      );
-    });
-
-    it('should fail if the request cannot be sent', async function () {
-      const fakeError = {};
-
-      httpWrapperStub.sendPromise.returns(Promise.reject(fakeError));
-      await assert.isRejected(
-        coinBase.queryExchangeRate('NA', targetCurrency),
-        'The request was not sent to the CoinBase API'
       );
     });
   });

@@ -38,16 +38,13 @@ export default class CoinBase extends BaseExchangeApi {
         `${URL}?currency=${sourceCurrency}`
       );
     } catch (error: unknown) {
-      const { response, status } = error as ResponseError;
+      const { response } = error as ResponseError;
 
-      if (status && status.toString() == '500') {
+      if (!response) {
         throw new Error('No response received from CoinBase API');
       }
-
-      if (response) {
-        throw Error(`CoinBase API status ${response.status}`);
-      }
-      throw new Error('The request was not sent to the CoinBase API');
+      
+      throw Error(`CoinBase API status ${response.status}`);
     }
 
     const {
