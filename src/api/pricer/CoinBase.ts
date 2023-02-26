@@ -43,7 +43,7 @@ export default class CoinBase extends BaseExchangeApi {
       if (!response) {
         throw new Error('No response received from CoinBase API');
       }
-      
+
       throw Error(`CoinBase API status ${response.status}`);
     }
 
