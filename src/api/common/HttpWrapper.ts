@@ -33,7 +33,9 @@ const interceptors = {
       const data = response.body as { error: string } | undefined;
 
       if (!data) {
-        throw new Error('Got undefined response from relay');
+        const message = 'Got undefined response from relay';
+        logger.error(message)
+        throw new Error(message);
       }
 
       if (data.error) {
@@ -65,7 +67,7 @@ export default class HttpWrapper {
 
   private timeout;
 
-  constructor(opts: HttpWrapperOpts = {}, loglLevel: LogLevelDesc = 'error') {
+  constructor(opts: HttpWrapperOpts = {}, logLevel: LogLevelDesc = 'error') {
     this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
     this._httpClient = SuperAgent.agent()
       .timeout(this.timeout)
@@ -73,7 +75,7 @@ export default class HttpWrapper {
       .on('response', interceptors.logRequest.onResponse)
       .on('error', interceptors.logRequest.onError);
 
-    logger.setLevel(loglLevel);
+    logger.setLevel(logLevel);
   }
 
   async sendPromise<T>(url: string, jsonRequestData?: unknown) {
