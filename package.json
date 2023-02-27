@@ -1,6 +1,6 @@
 {
   "name": "@rsksmart/rif-relay-client",
-  "version": "2.0.0-beta.2",
+  "version": "2.0.0-beta.3",
   "private": false,
   "description": "This project contains all the client code for the rif relay system.",
   "license": "MIT",
@@ -89,7 +89,7 @@
     "typescript": "4.8.2"
   },
   "peerDependencies": {
-    "@rsksmart/rif-relay-contracts": "2.0.0-beta.0",
+    "@rsksmart/rif-relay-contracts": "^2.0.0-beta.1",
     "ethers": "^5.7.0"
   },
   "publishConfig": {
