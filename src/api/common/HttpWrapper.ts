@@ -34,7 +34,7 @@ const interceptors = {
 
       if (!data) {
         const message = 'Got undefined response from relay';
-        logger.error(message)
+        logger.error(message);
         throw new Error(message);
       }
 
