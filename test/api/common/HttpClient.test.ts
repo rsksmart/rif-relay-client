@@ -89,10 +89,10 @@ describe('HttpClient', function () {
         expect(response).to.be.equal(expectedResponse);
       });
 
-      it('should throw error if response contains message field', async function () {
+      it('should throw error if response contains error field', async function () {
         sandbox
           .stub(HttpWrapper.prototype, 'sendPromise')
-          .resolves({ message: 'bar' });
+          .resolves({ error: 'bar' });
 
         await expect(httpClient.getChainInfo(fakeURL)).to.be.rejectedWith(
           'Got error response from relay: bar'

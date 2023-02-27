@@ -1,4 +1,4 @@
-import type { AxiosResponse } from 'axios';
+import type { Response } from 'superagent';
 import log from 'loglevel';
 import type { RelayEstimation } from '../../common/estimation.types';
 import type { HubInfo } from '../../common/relayHub.types';
@@ -36,8 +36,8 @@ class HttpClient {
     );
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
     requestInterceptors.logRequest.onErrorResponse({
-      data: { error: (hubInfo as unknown as { message: string }).message },
-    } as unknown as AxiosResponse); //FIXME: the server return data should not morph like this. In any case, the response should be same across all endpoints, meaning this too should contain "error" property instead of "message"
+      body: hubInfo,
+    } as Response);
 
     return hubInfo;
   }

@@ -1,4 +1,4 @@
-import type { AxiosError } from 'axios';
+import type { ResponseError } from 'superagent';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
 import HttpWrapper from '../common/HttpWrapper';
@@ -38,17 +38,13 @@ export default class CoinBase extends BaseExchangeApi {
         `${URL}?currency=${sourceCurrency}`
       );
     } catch (error: unknown) {
-      const axiosError = error as AxiosError;
-      const { response } = axiosError;
-      if (response) {
-        throw Error(
-          `CoinBase API status ${response.status}/${response.statusText}`
-        );
+      const { response } = error as ResponseError;
+
+      if (!response) {
+        throw new Error('No response received from CoinBase API');
       }
-      if (axiosError.request) {
-        throw Error('No response received from CoinBase API');
-      }
-      throw new Error('The request was not sent to the CoinBase API');
+
+      throw Error(`CoinBase API status ${response.status}`);
     }
 
     const {
