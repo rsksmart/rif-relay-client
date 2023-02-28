@@ -10,7 +10,6 @@ const PATHS = {
   POST_RELAY_REQUEST: '/relay',
   POST_ESTIMATE: '/estimate',
 } as const;
-const VERIFIER_SUFFIX = '?verifier=';
 
 type RelayPath = (typeof PATHS)[keyof typeof PATHS];
 
@@ -19,12 +18,15 @@ type SignedTransactionDetails = {
   signedTx: string;
 };
 
-export function buildUrl(base: string, path: string): string {
+export function buildUrl(base: string, path: string,  verifier = ''): string {
   const url = new URL(base);
   const basePathname = url.pathname.endsWith('/')
     ? url.pathname.substring(0, url.pathname.length - 1)
     : url.pathname;
   url.pathname = `${basePathname}${path}`;
+  if (verifier) {
+    url.searchParams.append('verifier', verifier) ;
+  }
 
   return url.toString();
 }
@@ -37,9 +39,8 @@ class HttpClient {
   }
 
   async getChainInfo(relayUrl: string, verifier = ''): Promise<HubInfo> {
-    const verifierSuffix = verifier && `${VERIFIER_SUFFIX}${verifier}`;
 
-    const url = buildUrl(relayUrl, PATHS.CHAIN_INFO + verifierSuffix);
+    const url = buildUrl(relayUrl, PATHS.CHAIN_INFO, verifier);
 
     const hubInfo: HubInfo = await this._httpWrapper.sendPromise(url);
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
@@ -120,5 +121,5 @@ class HttpClient {
 
 export default HttpClient;
 
-export { PATHS as RELAY_PATHS, VERIFIER_SUFFIX };
+export { PATHS as RELAY_PATHS };
 export type { RelayPath, SignedTransactionDetails };
