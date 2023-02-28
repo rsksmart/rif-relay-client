@@ -19,6 +19,14 @@ type SignedTransactionDetails = {
   signedTx: string;
 };
 
+export function buildUrl(base: string, path: string): string {
+  const url = new URL(base);
+  const basePathname = url.pathname.endsWith('/') ? url.pathname.substring(0, url.pathname.length - 1) : url.pathname;
+  url.pathname = `${basePathname}${path}`;
+
+  return url.toString();
+}
+
 class HttpClient {
   private readonly _httpWrapper: HttpWrapper;
 
@@ -29,11 +37,9 @@ class HttpClient {
   async getChainInfo(relayUrl: string, verifier = ''): Promise<HubInfo> {
     const verifierSuffix = verifier && `${VERIFIER_SUFFIX}${verifier}`;
 
-    const url = new URL(PATHS.CHAIN_INFO + verifierSuffix, relayUrl);
+    const url = buildUrl(relayUrl, PATHS.CHAIN_INFO + verifierSuffix);
 
-    const hubInfo: HubInfo = await this._httpWrapper.sendPromise(
-      url.toString()
-    );
+    const hubInfo: HubInfo = await this._httpWrapper.sendPromise(url);
     log.info(`hubInfo: ${JSON.stringify(hubInfo)}`);
     requestInterceptors.logRequest.onErrorResponse({
       body: hubInfo,
@@ -76,11 +82,11 @@ class HttpClient {
     relayUrl: string,
     envelopingTx: EnvelopingTxRequest
   ): Promise<string> {
-    const url = new URL(PATHS.POST_RELAY_REQUEST, relayUrl);
+    const url = buildUrl(relayUrl, PATHS.POST_RELAY_REQUEST);
 
     const { signedTx } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
-        url.toString(),
+        url,
         this._stringifyEnvelopingTx(envelopingTx)
       );
     log.info('relayTransaction response:', signedTx);
@@ -98,10 +104,10 @@ class HttpClient {
     relayUrl: string,
     envelopingTx: EnvelopingTxRequest
   ): Promise<RelayEstimation> {
-    const url = new URL(PATHS.POST_ESTIMATE, relayUrl);
+    const url = buildUrl(relayUrl, PATHS.POST_ESTIMATE);
 
     const response = await this._httpWrapper.sendPromise<RelayEstimation>(
-      url.toString(),
+      url,
       this._stringifyEnvelopingTx(envelopingTx)
     );
     log.info('esimation relayTransaction response:', response);
