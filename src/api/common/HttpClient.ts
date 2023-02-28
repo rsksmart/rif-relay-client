@@ -18,14 +18,14 @@ type SignedTransactionDetails = {
   signedTx: string;
 };
 
-export function buildUrl(base: string, path: string,  verifier = ''): string {
+export function buildUrl(base: string, path: string, verifier = ''): string {
   const url = new URL(base);
   const basePathname = url.pathname.endsWith('/')
     ? url.pathname.substring(0, url.pathname.length - 1)
     : url.pathname;
   url.pathname = `${basePathname}${path}`;
   if (verifier) {
-    url.searchParams.append('verifier', verifier) ;
+    url.searchParams.append('verifier', verifier);
   }
 
   return url.toString();
@@ -39,7 +39,6 @@ class HttpClient {
   }
 
   async getChainInfo(relayUrl: string, verifier = ''): Promise<HubInfo> {
-
     const url = buildUrl(relayUrl, PATHS.CHAIN_INFO, verifier);
 
     const hubInfo: HubInfo = await this._httpWrapper.sendPromise(url);
