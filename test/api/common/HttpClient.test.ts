@@ -14,7 +14,7 @@ const RELAY_PATH = '/relay';
 const POST_ESTIMATE = '/estimate';
 const VERIFIER_SUFFIX = '?verifier=';
 
-describe.only('HttpClient', function () {
+describe('HttpClient', function () {
   afterEach(function () {
     sandbox.restore();
   });
@@ -215,7 +215,7 @@ describe.only('HttpClient', function () {
     });
   });
 
-  describe.only('buildUrl', function () {
+  describe('buildUrl', function () {
     it('should build the correct URL when the base URL does not have the relative path', function () {
       const base = 'http://www.relay.com';
       const path = '/path';

@@ -21,7 +21,9 @@ type SignedTransactionDetails = {
 
 export function buildUrl(base: string, path: string): string {
   const url = new URL(base);
-  const basePathname = url.pathname.endsWith('/') ? url.pathname.substring(0, url.pathname.length - 1) : url.pathname;
+  const basePathname = url.pathname.endsWith('/')
+    ? url.pathname.substring(0, url.pathname.length - 1)
+    : url.pathname;
   url.pathname = `${basePathname}${path}`;
 
   return url.toString();
