@@ -3,6 +3,7 @@ import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import type { EnvelopingTxRequest } from '../../../src/common/relayTransaction.types';
 import { HttpClient, HttpWrapper } from '../../../src/api/common';
+import { buildUrl } from '../../../src/api/common/HttpClient';
 
 const sandbox = createSandbox();
 use(sinonChai);
@@ -211,6 +212,38 @@ describe('HttpClient', function () {
 
         expect(result).to.be.equal(expectedGasEstimation);
       });
+    });
+  });
+
+  describe('buildUrl', function () {
+    it('should build the correct URL when the base URL does not have the relative path', function () {
+      const base = 'http://www.relay.com';
+      const path = '/path';
+      const expected = 'http://www.relay.com/path';
+
+      const url = buildUrl(base, path);
+
+      expect(url).to.be.equal(expected);
+    });
+
+    it('should build the correct URL when the base URL has the relative path', function () {
+      const base = 'http://www.relay.com/path/to/something';
+      const path = '/path';
+      const expected = 'http://www.relay.com/path/to/something/path';
+
+      const url = buildUrl(base, path);
+
+      expect(url).to.be.equal(expected);
+    });
+
+    it("should not include the '/' char twice when joining the base URL and the relative path", function () {
+      const base = 'http://www.relay.com/path/to/something/';
+      const path = '/path';
+      const expected = 'http://www.relay.com/path/to/something/path';
+
+      const url = buildUrl(base, path);
+
+      expect(url).to.be.equal(expected);
     });
   });
 });
