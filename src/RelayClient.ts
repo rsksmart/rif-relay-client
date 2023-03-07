@@ -69,6 +69,10 @@ import {
 const isNullOrUndefined = (value: unknown) =>
   value === null || value === undefined;
 
+type RelayTxOptions = {
+  privateKey: string
+};
+
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _envelopingConfig: EnvelopingConfig;
 
@@ -249,7 +253,8 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _prepareHttpRequest(
     { feesReceiver, relayWorkerAddress }: HubInfo,
-    envelopingRequest: EnvelopingRequest
+    envelopingRequest: EnvelopingRequest,
+    signerPrivateKey?: string
   ): Promise<EnvelopingTxRequest> {
     const {
       request: { relayHub, tokenGas },
@@ -313,7 +318,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,
-      signature: await accountManager.sign(updatedRelayRequest),
+      signature: await accountManager.sign(updatedRelayRequest, signerPrivateKey),
       relayMaxNonce,
     };
     const httpRequest: EnvelopingTxRequest = {
@@ -364,10 +369,14 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   public async relayTransaction(
-    envelopingRequest: UserDefinedEnvelopingRequest
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    options?: RelayTxOptions
   ): Promise<Transaction> {
+    const privateKey =  options?.privateKey;
+
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
-      envelopingRequest
+      envelopingRequest,
+      privateKey
     );
 
     log.debug('Relay Client - Relaying transaction');
@@ -392,14 +401,15 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   public async estimateRelayTransaction(
-    envelopingRequest: UserDefinedEnvelopingRequest
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    signerPrivateKey?: string
   ): Promise<RelayEstimation> {
     const {
       envelopingTx,
       activeRelay: {
         managerData: { url },
       },
-    } = await this._getHubEnvelopingTx(envelopingRequest);
+    } = await this._getHubEnvelopingTx(envelopingRequest, signerPrivateKey);
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
@@ -413,7 +423,8 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   private async _getHubEnvelopingTx(
-    envelopingRequest: UserDefinedEnvelopingRequest
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    privateKey?: string
   ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
       envelopingRequest
@@ -424,7 +435,8 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const envelopingTx = await this._prepareHttpRequest(
       activeRelay.hubInfo,
-      envelopingRequestDetails
+      envelopingRequestDetails,
+      privateKey
     );
 
     return {
@@ -613,3 +625,5 @@ class RelayClient extends EnvelopingEventEmitter {
 }
 
 export default RelayClient;
+
+export {RelayTxOptions as relayTxOptions}; 

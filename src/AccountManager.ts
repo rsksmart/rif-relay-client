@@ -33,22 +33,51 @@ export default class AccountManager {
 
   addAccount(account: Wallet): void {
     const provider = getProvider();
-    const wallet = new Wallet(account.privateKey, provider);
+    const wallet = new Wallet(account.privateKey, provider); //***************?????????? */
     if (wallet.address !== account.address) {
       throw new Error('invalid keypair');
     }
     this._accounts.push(wallet);
   }
 
-  async sign(envelopingRequest: EnvelopingRequest): Promise<string> {
+  removeAccount(addressToRemove: string) {
+    const indexToDelete = this._accounts.findIndex(function (wallet) {
+      return wallet.address === addressToRemove;
+    });
+
+    if (indexToDelete !== -1) {
+      this._accounts.splice(indexToDelete, 1);
+    } else {
+      throw new Error('Account not founded');
+    }
+  }
+
+  async sign(
+    envelopingRequest: EnvelopingRequest,
+    signerPrivateKey?: string
+  ): Promise<string> {
     const callForwarder = envelopingRequest.relayData.callForwarder.toString();
-    const fromAddress: string = getAddress(
-      envelopingRequest.request.from.toString()
-    );
-
     const provider = getProvider();
-
     const { chainId } = await provider.getNetwork();
+
+    let signerWallet: Wallet | undefined;
+    let fromAddress: string;
+
+    if (signerPrivateKey) {
+      signerWallet = new Wallet(signerPrivateKey, provider);//*******TODO: What if the PK is wrong*/
+      fromAddress = signerWallet.address;
+    } else {
+      fromAddress = getAddress(
+        envelopingRequest.request.from.toString()
+      );
+      signerWallet = this._accounts.find(
+        (account) => getAddress(account.address) === fromAddress
+      );
+
+      if(!signerWallet){
+        throw new Error('Account not founded');
+      }
+    }
 
     const data = getEnvelopingRequestDataV4Field({
       chainId,
@@ -59,13 +88,10 @@ export default class AccountManager {
         : relayRequestType,
     });
 
-    const wallet = this._accounts.find(
-      (account) => getAddress(account.address) === fromAddress
-    );
-    const { signature, recoveredAddr } = await this._getSignatureFromTypedData(
+    const { signature, recoveredAddr } = await this._getSignatureFromTypedData(//*******fromAddress is being ignored here */
       data,
       fromAddress,
-      wallet
+      signerWallet
     ).catch((error) => {
       throw new Error(
         `Failed to sign relayed transaction for ${fromAddress}: ${
