@@ -41,12 +41,12 @@ export default class AccountManager {
   }
 
   removeAccount(addressToRemove: string) {
-    const indexToDelete = this._accounts.findIndex(function (wallet) {
+    const indexToRemove = this._accounts.findIndex(function (wallet) {
       return wallet.address === addressToRemove;
     });
 
-    if (indexToDelete !== -1) {
-      this._accounts.splice(indexToDelete, 1);
+    if (indexToRemove !== -1) {
+      this._accounts.splice(indexToRemove, 1);
     } else {
       throw new Error('Account not founded');
     }
@@ -54,30 +54,21 @@ export default class AccountManager {
 
   async sign(
     envelopingRequest: EnvelopingRequest,
-    signerPrivateKey?: string
+    signerWalletOnTheFly?: Wallet
   ): Promise<string> {
+    console.log('****sign59: in');
     const callForwarder = envelopingRequest.relayData.callForwarder.toString();
     const provider = getProvider();
     const { chainId } = await provider.getNetwork();
+    const fromAddress = getAddress(envelopingRequest.request.from.toString());
 
-    let signerWallet: Wallet | undefined;
-    let fromAddress: string;
-
-    if (signerPrivateKey) {
-      signerWallet = new Wallet(signerPrivateKey, provider);//*******TODO: What if the PK is wrong*/
-      fromAddress = signerWallet.address;
-    } else {
-      fromAddress = getAddress(
-        envelopingRequest.request.from.toString()
-      );
-      signerWallet = this._accounts.find(
+    const signerWallet =
+      signerWalletOnTheFly ||
+      this._accounts.find(
         (account) => getAddress(account.address) === fromAddress
       );
 
-      if(!signerWallet){
-        throw new Error('Account not founded');
-      }
-    }
+    console.log('****sign79: signerWallet: ', signerWallet);
 
     const data = getEnvelopingRequestDataV4Field({
       chainId,
@@ -88,7 +79,7 @@ export default class AccountManager {
         : relayRequestType,
     });
 
-    const { signature, recoveredAddr } = await this._getSignatureFromTypedData(//*******fromAddress is being ignored here */
+    const { signature, recoveredAddr } = await this._getSignatureFromTypedData(
       data,
       fromAddress,
       signerWallet
@@ -114,10 +105,13 @@ export default class AccountManager {
     from: string,
     wallet?: Wallet
   ): Promise<{ signature: string; recoveredAddr: string }> {
+    console.log('********_getSignatureFromTypedData in');
     const signature: string = wallet
       ? await this._signWithWallet(wallet, data)
       : await this._signWithProvider(from, data);
     const recoveredAddr = this._recoverSignature(data, signature);
+    console.log('********_getSignatureFromTypedData wallet.address: ', wallet?.address);
+    console.log('********_getSignatureFromTypedData recoveredAddr: ', recoveredAddr);
 
     return { signature, recoveredAddr };
   }
@@ -167,6 +161,7 @@ export default class AccountManager {
     wallet: Wallet,
     data: TypedMessage<EnvelopingMessageTypes>
   ): Promise<string> {
+    console.log('***********_signWithWallet in');
     const { domain, types, value } = data;
 
     return await wallet._signTypedData(domain, types, value);

@@ -1,9 +1,9 @@
 import type { ResponseError } from 'superagent';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
-import HttpWrapper from '../common/HttpWrapper';
+// import HttpWrapper from '../common/HttpWrapper';
 
-const URL = 'https://api.coinbase.com/v2/exchange-rates';
+// const URL = 'https://api.coinbase.com/v2/exchange-rates';
 
 export type CoinBaseResponse = {
   data: {
@@ -19,11 +19,11 @@ const CURRENCY_MAPPING: CurrencyMapping = {
 };
 
 export default class CoinBase extends BaseExchangeApi {
-  private readonly _httpWrapper: HttpWrapper;
+  // private readonly _httpWrapper: HttpWrapper;
 
-  constructor(httpWrapper: HttpWrapper = new HttpWrapper()) {
+  constructor(/*httpWrapper: HttpWrapper = new HttpWrapper()*/) {
     super('CoinBase', CURRENCY_MAPPING, ['RIF', 'RBTC', 'tRif']);
-    this._httpWrapper = httpWrapper;
+    // this._httpWrapper = httpWrapper;
   }
 
   async queryExchangeRate(
@@ -34,9 +34,17 @@ export default class CoinBase extends BaseExchangeApi {
     let response: CoinBaseResponse;
 
     try {
-      response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
+      /* response =await this._httpWrapper.sendPromise<CoinBaseResponse>(
         `${URL}?currency=${sourceCurrency}`
-      );
+      );*/
+      response = await Promise.resolve({
+        data: {
+          currency: 'RBTC',
+          rates: {
+            'USD': '22096.37'
+          },
+        }
+      });
     } catch (error: unknown) {
       const { response } = error as ResponseError;
 
@@ -51,6 +59,7 @@ export default class CoinBase extends BaseExchangeApi {
       data: { rates },
     }: CoinBaseResponse = response;
     const conversionRate = rates[upperCaseTargetCurrency];
+    console.log('conversionRate: ', conversionRate);
 
     if (!conversionRate) {
       throw Error(
@@ -58,6 +67,9 @@ export default class CoinBase extends BaseExchangeApi {
       );
     }
 
-    return BigNumberJs(conversionRate);
+    const returnValue = BigNumberJs(conversionRate);
+    console.log('ConversionRate to BigNumberJS', returnValue.toString());
+    
+    return returnValue;
   }
 }
