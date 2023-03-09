@@ -13,7 +13,7 @@ import {
   CallOverrides,
   constants,
   Transaction,
-  Wallet
+  Wallet,
 } from 'ethers';
 import {
   isAddress,
@@ -71,7 +71,7 @@ const isNullOrUndefined = (value: unknown) =>
   value === null || value === undefined;
 
 type RelayTxOptions = {
-  signerWallet: Wallet
+  signerWallet: Wallet;
 };
 
 class RelayClient extends EnvelopingEventEmitter {
@@ -144,7 +144,7 @@ class RelayClient extends EnvelopingEventEmitter {
       this._envelopingConfig[
         isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
       ];
-      console.log('RelayClient _getEnvelopingRequestDetails147');
+    console.log('RelayClient _getEnvelopingRequestDetails147');
 
     if (!callVerifier) {
       throw new Error('No call verifier present. Check your configuration.');
@@ -170,8 +170,14 @@ class RelayClient extends EnvelopingEventEmitter {
     console.log('RelayClient _getEnvelopingRequestDetails170');
     const provider = getProvider();
 
-    console.log('RelayClient _getEnvelopingRequestDetails173 isDeployment, ', isDeployment);
-    console.log('RelayClient _getEnvelopingRequestDetails173 callForwarder, ', callForwarder);
+    console.log(
+      'RelayClient _getEnvelopingRequestDetails173 isDeployment, ',
+      isDeployment
+    );
+    console.log(
+      'RelayClient _getEnvelopingRequestDetails173 callForwarder, ',
+      callForwarder
+    );
     const nonce =
       (envelopingRequest.request.nonce ||
         (isDeployment
@@ -179,13 +185,13 @@ class RelayClient extends EnvelopingEventEmitter {
               callForwarder.toString(),
               provider
             ).nonce(from)
-            : await IForwarder__factory.connect(
+          : await IForwarder__factory.connect(
               callForwarder.toString(),
               provider
             ).nonce())) ??
       constants.Zero;
 
-      console.log('RelayClient _getEnvelopingRequestDetails187');
+    console.log('RelayClient _getEnvelopingRequestDetails187');
     const relayHub =
       envelopingRequest.request.relayHub?.toString() ||
       this._envelopingConfig.relayHubAddress;
@@ -215,7 +221,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const recoverer =
       (envelopingRequest.request as DeployRequestBody).recoverer ??
       constants.AddressZero;
-      console.log('RelayClient _getEnvelopingRequestDetails217');
+    console.log('RelayClient _getEnvelopingRequestDetails217');
 
     const updateRelayData: EnvelopingRequestData = {
       callForwarder,
@@ -267,7 +273,7 @@ class RelayClient extends EnvelopingEventEmitter {
           },
           relayData: updateRelayData,
         };
-        console.log('RelayClient _getEnvelopingRequestDetails269');
+    console.log('RelayClient _getEnvelopingRequestDetails269');
 
     return completeRequest;
   };
@@ -394,9 +400,12 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<Transaction> {
-    console.log('RelayClient relayTransaction() envelopingRequest: ', envelopingRequest);
+    console.log(
+      'RelayClient relayTransaction() envelopingRequest: ',
+      envelopingRequest
+    );
     console.log('RelayClient relayTransaction() options: ', options);
-    const signerWallet =  options?.signerWallet;
+    const signerWallet = options?.signerWallet;
     console.log('RelayClient relayTransaction() signerWallet: ', signerWallet);
 
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
@@ -430,7 +439,7 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<RelayEstimation> {
-    const signerWallet =  options?.signerWallet;
+    const signerWallet = options?.signerWallet;
 
     const {
       envelopingTx,
@@ -655,4 +664,4 @@ class RelayClient extends EnvelopingEventEmitter {
 
 export default RelayClient;
 
-export {RelayTxOptions as relayTxOptions}; 
+export { RelayTxOptions as relayTxOptions };

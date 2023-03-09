@@ -3,7 +3,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { providers, Wallet } from 'ethers';
 import type { Network } from '@ethersproject/providers';
 import { _TypedDataEncoder } from 'ethers/lib/utils';
-import { createSandbox } from 'sinon';
+import Sinon, { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import AccountManager from '../src/AccountManager';
 import * as typedDataUtils from '../src/typedRequestData.utils';
@@ -95,6 +95,42 @@ describe('AccountManager', function () {
             address: createRandomAddress(),
           } as Wallet);
         }).to.throw('invalid keypair');
+      });
+    });
+
+    describe('removeAccount()', function () {
+      let fakeAccounts: Array<Wallet>;
+
+      beforeEach(function () {
+        fakeAccounts = new Array<Wallet>(3).fill(Wallet.createRandom());
+
+        (accountManager as unknown as { _accounts: Wallet[] })._accounts =
+          fakeAccounts;
+      });
+
+      it('Should remove only account sent as parameter', function () {
+        accountManager.removeAccount(fakeAccounts[1]?.address as string);
+
+        expect(
+          accountManager.getAccounts().length === fakeAccounts.length - 1,
+          'Incorrect length'
+        );
+        expect(
+          accountManager.getAccounts()[0] === fakeAccounts[0]?.address,
+          'First element missing'
+        );
+        expect(
+          accountManager.getAccounts()[1] === fakeAccounts[2]?.address,
+          'Second element missing'
+        );
+      });
+
+      it('Should throw an error if the account sent as parameter does not exists', function () {
+        const inexistentWallet = Wallet.createRandom();
+
+        expect(() =>
+          accountManager.removeAccount(inexistentWallet.address)
+        ).to.throw('Account not founded');
       });
     });
 
@@ -238,6 +274,54 @@ describe('AccountManager', function () {
         await accountManager.sign(relayRequest);
 
         expect(stubSignWithWallet).to.be.called;
+      });
+
+      describe('When the wallet used for signature is sent as parameter', function () {
+        let signerWallet: Wallet;
+        let stubSignWithWallet: Sinon.SinonStub;
+
+        beforeEach(function () {
+          signerWallet = Wallet.createRandom();
+
+          stubSignWithWallet = sandbox.stub(
+            accountManager as unknown as {
+              _signWithWallet: () => string;
+            },
+            '_signWithWallet'
+          );
+        });
+
+        it('Should sign with wallet sent as parameter', async function () {
+          sandbox
+            .stub(
+              accountManager as unknown as {
+                _recoverSignature: () => string;
+              },
+              '_recoverSignature'
+            )
+            .callsFake(() => relayRequest.request.from.toString());
+
+          await accountManager.sign(relayRequest, signerWallet);
+
+          expect(stubSignWithWallet).to.be.calledWith(signerWallet);
+        });
+
+        it('Should fail if the from in request does not correspond to wallet sent as parameter', async function () {
+          sandbox
+            .stub(
+              accountManager as unknown as {
+                _recoverSignature: () => string;
+              },
+              '_recoverSignature'
+            )
+            .callsFake(() => signerWallet.address);
+
+          await expect(
+            accountManager.sign(relayRequest, signerWallet)
+          ).to.be.rejectedWith(
+            'Internal RelayClient exception: signature is not correct:'
+          );
+        });
       });
     });
   });

@@ -124,14 +124,16 @@ describe('RelayClient', function () {
       _httpClient: HttpClient;
       _prepareHttpRequest: (
         hubInfo: HubInfo,
-        envelopingRequest: EnvelopingRequest
+        envelopingRequest: EnvelopingRequest,
+        signerWallet?: Wallet
       ) => Promise<EnvelopingTxRequest>;
       _calculateGasPrice(): Promise<BigNumber>;
       _getEnvelopingRequestDetails: (
         envelopingRequest: UserDefinedEnvelopingRequest
       ) => Promise<EnvelopingRequest>;
       _getHubEnvelopingTx: (
-        envelopingRequest: UserDefinedEnvelopingRequest
+        envelopingRequest: UserDefinedEnvelopingRequest,
+        signerWallet?: Wallet
       ) => Promise<HubEnvelopingTx>;
       _attemptRelayTransaction: (
         relayInfo: RelayInfo,
@@ -366,6 +368,30 @@ describe('RelayClient', function () {
         });
 
         expect(actualSignature).to.equal(expectedSignature);
+      });
+
+      it('Should use wallet sent as parameter to sign', async function () {
+        const signerWallet = Wallet.createRandom();
+        const signStub = accountManagerStub.sign;
+
+        await relayClient._prepareHttpRequest(
+          {
+            feesReceiver: FAKE_HUB_INFO.feesReceiver,
+          } as HubInfo,
+          {
+            ...FAKE_RELAY_REQUEST,
+            relayData: {
+              ...FAKE_RELAY_REQUEST.relayData,
+              feesReceiver: FAKE_HUB_INFO.feesReceiver,
+            },
+          },
+          signerWallet
+        );
+
+        expect(signStub).to.have.been.calledWith(
+          sandbox.match.any,
+          signerWallet
+        );
       });
     });
 
@@ -952,6 +978,17 @@ describe('RelayClient', function () {
 
         await expect(transaction).to.be.rejectedWith(error);
       });
+
+      it('Should relay transaction with wallet sent as parameter', async function () {
+        const signerWallet = Wallet.createRandom();
+
+        await relayClient.relayTransaction(envelopingRequest, { signerWallet });
+
+        expect(relayClient._getHubEnvelopingTx).to.be.calledWith(
+          sandbox.match.any,
+          signerWallet
+        );
+      });
     });
 
     describe('estimateRelayTransaction', function () {
@@ -1022,6 +1059,25 @@ describe('RelayClient', function () {
 
         await expect(transaction).to.be.rejectedWith(error);
       });
+
+      it('Should estimate transaction with wallet sent as parameter', async function () {
+        const signerWallet = Wallet.createRandom();
+        const envelopingRequest = {
+          ...FAKE_RELAY_REQUEST,
+          relayData: {
+            ...FAKE_ENVELOPING_REQUEST_DATA,
+          },
+        };
+
+        await relayClient.estimateRelayTransaction(envelopingRequest, {
+          signerWallet,
+        });
+
+        expect(relayClient._getHubEnvelopingTx).to.be.calledWith(
+          sandbox.match.any,
+          signerWallet
+        );
+      });
     });
 
     describe('_getHubEnvelopingTx', function () {
@@ -1077,6 +1133,23 @@ describe('RelayClient', function () {
         const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
 
         await expect(enveloping).to.be.rejectedWith(error);
+      });
+
+      it('Should build a transaction using a wallet sent as parameter', async function () {
+        const signerWallet = Wallet.createRandom();
+        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+
+        relayClient._prepareHttpRequest = sandbox
+          .stub()
+          .returns(FAKE_RELAY_TRANSACTION_REQUEST);
+
+        await relayClient._getHubEnvelopingTx(envelopingRequest, signerWallet);
+
+        expect(relayClient._prepareHttpRequest).to.have.been.calledWith(
+          sandbox.match.any,
+          sandbox.match.any,
+          signerWallet
+        );
       });
     });
 

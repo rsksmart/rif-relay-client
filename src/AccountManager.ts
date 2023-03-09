@@ -110,8 +110,14 @@ export default class AccountManager {
       ? await this._signWithWallet(wallet, data)
       : await this._signWithProvider(from, data);
     const recoveredAddr = this._recoverSignature(data, signature);
-    console.log('********_getSignatureFromTypedData wallet.address: ', wallet?.address);
-    console.log('********_getSignatureFromTypedData recoveredAddr: ', recoveredAddr);
+    console.log(
+      '********_getSignatureFromTypedData wallet.address: ',
+      wallet?.address
+    );
+    console.log(
+      '********_getSignatureFromTypedData recoveredAddr: ',
+      recoveredAddr
+    );
 
     return { signature, recoveredAddr };
   }
