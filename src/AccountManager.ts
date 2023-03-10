@@ -56,7 +56,6 @@ export default class AccountManager {
     envelopingRequest: EnvelopingRequest,
     signerWalletOnTheFly?: Wallet
   ): Promise<string> {
-    console.log('****sign59: in');
     const callForwarder = envelopingRequest.relayData.callForwarder.toString();
     const provider = getProvider();
     const { chainId } = await provider.getNetwork();
@@ -67,8 +66,6 @@ export default class AccountManager {
       this._accounts.find(
         (account) => getAddress(account.address) === fromAddress
       );
-
-    console.log('****sign79: signerWallet: ', signerWallet);
 
     const data = getEnvelopingRequestDataV4Field({
       chainId,
@@ -105,19 +102,10 @@ export default class AccountManager {
     from: string,
     wallet?: Wallet
   ): Promise<{ signature: string; recoveredAddr: string }> {
-    console.log('********_getSignatureFromTypedData in');
     const signature: string = wallet
       ? await this._signWithWallet(wallet, data)
       : await this._signWithProvider(from, data);
     const recoveredAddr = this._recoverSignature(data, signature);
-    console.log(
-      '********_getSignatureFromTypedData wallet.address: ',
-      wallet?.address
-    );
-    console.log(
-      '********_getSignatureFromTypedData recoveredAddr: ',
-      recoveredAddr
-    );
 
     return { signature, recoveredAddr };
   }
@@ -167,7 +155,6 @@ export default class AccountManager {
     wallet: Wallet,
     data: TypedMessage<EnvelopingMessageTypes>
   ): Promise<string> {
-    console.log('***********_signWithWallet in');
     const { domain, types, value } = data;
 
     return await wallet._signTypedData(domain, types, value);

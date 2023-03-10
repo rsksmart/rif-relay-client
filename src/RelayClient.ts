@@ -89,11 +89,9 @@ class RelayClient extends EnvelopingEventEmitter {
   private _getEnvelopingRequestDetails = async (
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<EnvelopingRequest> => {
-    console.log('RelayClient _getEnvelopingRequestDetails92');
     const isDeployment: boolean = isDeployRequest(
       envelopingRequest as EnvelopingRequest
     );
-    console.log('RelayClient _getEnvelopingRequestDetails96');
     const { relayData, request } = envelopingRequest;
 
     const { from, tokenContract } = request;
@@ -101,14 +99,12 @@ class RelayClient extends EnvelopingEventEmitter {
     if (!from) {
       throw new Error(MISSING_REQUEST_FIELD('from'));
     }
-    console.log('RelayClient _getEnvelopingRequestDetails104');
 
     if (!tokenContract) {
       throw new Error(MISSING_REQUEST_FIELD('tokenContract'));
     }
 
     if (!isDeployment) {
-      console.log('RelayClient _getEnvelopingRequestDetails111');
       if (!relayData?.callForwarder) {
         throw new Error(MISSING_CALL_FORWARDER);
       }
@@ -122,7 +118,6 @@ class RelayClient extends EnvelopingEventEmitter {
       }
     }
 
-    console.log('RelayClient _getEnvelopingRequestDetails125');
     const callForwarder =
       relayData?.callForwarder ??
       this._envelopingConfig.smartWalletFactoryAddress;
@@ -130,21 +125,18 @@ class RelayClient extends EnvelopingEventEmitter {
     const to = request.to ?? constants.AddressZero;
     const value = envelopingRequest.request.value ?? constants.Zero;
     const tokenAmount = envelopingRequest.request.tokenAmount ?? constants.Zero;
-    console.log('RelayClient _getEnvelopingRequestDetails133');
 
     const { index } = request as UserDefinedDeployRequestBody;
 
     if (isDeployment && isNullOrUndefined(index)) {
       throw new Error('Field `index` is not defined in deploy body.');
     }
-    console.log('RelayClient _getEnvelopingRequestDetails140');
 
     const callVerifier: PromiseOrValue<string> =
       envelopingRequest.relayData?.callVerifier ||
       this._envelopingConfig[
         isDeployment ? 'deployVerifierAddress' : 'relayVerifierAddress'
       ];
-    console.log('RelayClient _getEnvelopingRequestDetails147');
 
     if (!callVerifier) {
       throw new Error('No call verifier present. Check your configuration.');
@@ -157,7 +149,6 @@ class RelayClient extends EnvelopingEventEmitter {
         'Check that your configuration contains at least one preferred relay with url.'
       );
     }
-    console.log('RelayClient _getEnvelopingRequestDetails160');
 
     const gasPrice: PromiseOrValue<BigNumberish> =
       envelopingRequest.relayData?.gasPrice ||
@@ -167,17 +158,8 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('Could not get gas price for request');
     }
 
-    console.log('RelayClient _getEnvelopingRequestDetails170');
     const provider = getProvider();
 
-    console.log(
-      'RelayClient _getEnvelopingRequestDetails173 isDeployment, ',
-      isDeployment
-    );
-    console.log(
-      'RelayClient _getEnvelopingRequestDetails173 callForwarder, ',
-      callForwarder
-    );
     const nonce =
       (envelopingRequest.request.nonce ||
         (isDeployment
@@ -191,7 +173,6 @@ class RelayClient extends EnvelopingEventEmitter {
             ).nonce())) ??
       constants.Zero;
 
-    console.log('RelayClient _getEnvelopingRequestDetails187');
     const relayHub =
       envelopingRequest.request.relayHub?.toString() ||
       this._envelopingConfig.relayHubAddress;
@@ -199,7 +180,6 @@ class RelayClient extends EnvelopingEventEmitter {
     if (!relayHub) {
       throw new Error('No relay hub address has been given or configured');
     }
-    console.log('RelayClient _getEnvelopingRequestDetails195');
 
     const gasLimit = await ((
       envelopingRequest.request as UserDefinedRelayRequestBody
@@ -216,12 +196,10 @@ class RelayClient extends EnvelopingEventEmitter {
         'Gas limit value (`gas`) is required in a relay request.'
       );
     }
-    console.log('RelayClient _getEnvelopingRequestDetails212');
 
     const recoverer =
       (envelopingRequest.request as DeployRequestBody).recoverer ??
       constants.AddressZero;
-    console.log('RelayClient _getEnvelopingRequestDetails217');
 
     const updateRelayData: EnvelopingRequestData = {
       callForwarder,
@@ -229,7 +207,6 @@ class RelayClient extends EnvelopingEventEmitter {
       feesReceiver: constants.AddressZero, // returns zero address and is to be completed when attempting to relay the transaction
       gasPrice,
     };
-    console.log('RelayClient _getEnvelopingRequestDetails225');
 
     const secondsNow = Math.round(Date.now() / 1000);
     const validUntilTime =
@@ -237,7 +214,6 @@ class RelayClient extends EnvelopingEventEmitter {
       secondsNow + this._envelopingConfig.requestValidSeconds;
 
     const tokenGas = request.tokenGas ?? constants.Zero;
-    console.log('RelayClient _getEnvelopingRequestDetails223');
 
     const commonRequestBody: CommonEnvelopingRequestBody = {
       data,
@@ -251,7 +227,6 @@ class RelayClient extends EnvelopingEventEmitter {
       value,
       validUntilTime,
     };
-    console.log('RelayClient _getEnvelopingRequestDetails247');
 
     const completeRequest: EnvelopingRequest = isDeployment
       ? {
@@ -273,7 +248,6 @@ class RelayClient extends EnvelopingEventEmitter {
           },
           relayData: updateRelayData,
         };
-    console.log('RelayClient _getEnvelopingRequestDetails269');
 
     return completeRequest;
   };
@@ -283,7 +257,6 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: EnvelopingRequest,
     signerWallet?: Wallet
   ): Promise<EnvelopingTxRequest> {
-    console.log('RelayClient _prepareHttpRequest');
     const {
       request: { relayHub, tokenGas },
     } = envelopingRequest;
@@ -400,19 +373,12 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<Transaction> {
-    console.log(
-      'RelayClient relayTransaction() envelopingRequest: ',
-      envelopingRequest
-    );
-    console.log('RelayClient relayTransaction() options: ', options);
     const signerWallet = options?.signerWallet;
-    console.log('RelayClient relayTransaction() signerWallet: ', signerWallet);
 
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
       envelopingRequest,
       signerWallet
     );
-    console.log('RelayClient relayTransaction() after _getHubEnvelopingTx');
 
     log.debug('Relay Client - Relaying transaction');
     log.debug(
@@ -463,7 +429,6 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     signerWallet?: Wallet
   ): Promise<HubEnvelopingTx> {
-    console.log('RelayClient _getHubEnvelopingTx');
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
       envelopingRequest
     );
