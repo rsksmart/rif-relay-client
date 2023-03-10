@@ -160,6 +160,19 @@ describe('HttpClient', function () {
           httpClient.relayTransaction(fakeURL, request)
         ).to.be.rejectedWith(expectedError);
       });
+
+      it('should throw error if response object contains property `error`', async function () {
+        const serverError = 'error message from server';
+
+        const expectedError = `Got error response from relay: ${serverError}`;
+        sandbox
+          .stub(HttpWrapper.prototype, 'sendPromise')
+          .resolves({ error: serverError });
+
+        await expect(
+          httpClient.relayTransaction(fakeURL, request)
+        ).to.be.rejectedWith(expectedError);
+      });
     });
 
     describe('estimateMaxPossibleGas', function () {

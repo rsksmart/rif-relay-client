@@ -16,6 +16,8 @@ type RelayPath = (typeof PATHS)[keyof typeof PATHS];
 type SignedTransactionDetails = {
   transactionHash: string;
   signedTx: string;
+  error?: string;
+  message?: string;
 };
 
 export function buildUrl(base: string, path: string, verifier = ''): string {
@@ -86,12 +88,16 @@ class HttpClient {
   ): Promise<string> {
     const url = buildUrl(relayUrl, PATHS.POST_RELAY_REQUEST);
 
-    const { signedTx } =
+    const { signedTx, error } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
         url,
         this._stringifyEnvelopingTx(envelopingTx)
       );
     log.info('relayTransaction response:', signedTx);
+
+    if (error) {
+      throw new Error(`Got error response from relay: ${error}`);
+    }
 
     if (!signedTx) {
       throw new Error(
