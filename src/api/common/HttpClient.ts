@@ -17,6 +17,7 @@ type SignedTransactionDetails = {
   transactionHash: string;
   signedTx: string;
   error?: string;
+  message?: string;
 };
 
 export function buildUrl(base: string, path: string, verifier = ''): string {
@@ -87,15 +88,17 @@ class HttpClient {
   ): Promise<string> {
     const url = buildUrl(relayUrl, PATHS.POST_RELAY_REQUEST);
 
-    const { signedTx, error } =
+    const { signedTx, error, message } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
         url,
         this._stringifyEnvelopingTx(envelopingTx)
       );
     log.info('relayTransaction response:', signedTx);
 
-    if (error) {
-      throw new Error(`Got error response from relay: ${error}`);
+    const errMsg = error ?? message;
+
+    if (errMsg) {
+      throw new Error(`Got error response from relay: ${errMsg}`);
     }
 
     if (!signedTx) {
