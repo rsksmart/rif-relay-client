@@ -48,7 +48,7 @@ export default class AccountManager {
     if (indexToRemove !== -1) {
       this._accounts.splice(indexToRemove, 1);
     } else {
-      throw new Error('Account not founded');
+      throw new Error('Account not found');
     }
   }
 

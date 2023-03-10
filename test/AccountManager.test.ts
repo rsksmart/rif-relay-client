@@ -99,38 +99,37 @@ describe('AccountManager', function () {
     });
 
     describe('removeAccount()', function () {
-      let fakeAccounts: Array<Wallet>;
+      let randomAccounts: Array<Wallet>;
+      let initialLength: number;
 
       beforeEach(function () {
-        fakeAccounts = new Array<Wallet>(3).fill(Wallet.createRandom());
+        initialLength = 3;
+
+        randomAccounts = new Array<Wallet>(initialLength).fill(
+          Wallet.createRandom()
+        );
 
         (accountManager as unknown as { _accounts: Wallet[] })._accounts =
-          fakeAccounts;
+          randomAccounts;
       });
 
       it('Should remove only account sent as parameter', function () {
-        accountManager.removeAccount(fakeAccounts[1]?.address as string);
+        const expectedAccounts = [
+          randomAccounts[0]?.address,
+          randomAccounts[2]?.address,
+        ];
 
-        expect(
-          accountManager.getAccounts().length === fakeAccounts.length - 1,
-          'Incorrect length'
-        );
-        expect(
-          accountManager.getAccounts()[0] === fakeAccounts[0]?.address,
-          'First element missing'
-        );
-        expect(
-          accountManager.getAccounts()[1] === fakeAccounts[2]?.address,
-          'Second element missing'
-        );
+        accountManager.removeAccount(randomAccounts[1]?.address as string);
+
+        expect(accountManager.getAccounts()).to.be.deep.equal(expectedAccounts);
       });
 
       it('Should throw an error if the account sent as parameter does not exists', function () {
-        const inexistentWallet = Wallet.createRandom();
+        const nonexistentWallet = Wallet.createRandom();
 
         expect(() =>
-          accountManager.removeAccount(inexistentWallet.address)
-        ).to.throw('Account not founded');
+          accountManager.removeAccount(nonexistentWallet.address)
+        ).to.throw('Account not found');
       });
     });
 

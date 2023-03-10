@@ -373,11 +373,9 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<Transaction> {
-    const signerWallet = options?.signerWallet;
-
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
       envelopingRequest,
-      signerWallet
+      options?.signerWallet
     );
 
     log.debug('Relay Client - Relaying transaction');
@@ -405,14 +403,15 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<RelayEstimation> {
-    const signerWallet = options?.signerWallet;
-
     const {
       envelopingTx,
       activeRelay: {
         managerData: { url },
       },
-    } = await this._getHubEnvelopingTx(envelopingRequest, signerWallet);
+    } = await this._getHubEnvelopingTx(
+      envelopingRequest,
+      options?.signerWallet
+    );
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
