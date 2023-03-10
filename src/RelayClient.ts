@@ -629,4 +629,4 @@ class RelayClient extends EnvelopingEventEmitter {
 
 export default RelayClient;
 
-export { RelayTxOptions as relayTxOptions };
+export { RelayTxOptions };

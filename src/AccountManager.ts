@@ -33,7 +33,7 @@ export default class AccountManager {
 
   addAccount(account: Wallet): void {
     const provider = getProvider();
-    const wallet = new Wallet(account.privateKey, provider); //***************?????????? */
+    const wallet = new Wallet(account.privateKey, provider);
     if (wallet.address !== account.address) {
       throw new Error('invalid keypair');
     }
