@@ -162,11 +162,9 @@ describe('HttpClient', function () {
       });
 
       it('should throw error if response object contains error message', async function () {
-
         const serverError = 'error message from server';
 
-        const expectedError =
-          `Got error response from relay: ${serverError}`;
+        const expectedError = `Got error response from relay: ${serverError}`;
         sandbox
           .stub(HttpWrapper.prototype, 'sendPromise')
           .resolves({ error: serverError });

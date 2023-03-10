@@ -94,7 +94,7 @@ class HttpClient {
       );
     log.info('relayTransaction response:', signedTx);
 
-    if(error){
+    if (error) {
       throw new Error(`Got error response from relay: ${error}`);
     }
 
