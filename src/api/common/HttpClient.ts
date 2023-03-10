@@ -93,7 +93,7 @@ class HttpClient {
         url,
         this._stringifyEnvelopingTx(envelopingTx)
       );
-    log.info('relayTransaction response:', signedTx);;
+    log.info('relayTransaction response:', signedTx);
 
     if (error) {
       throw new Error(`Got error response from relay: ${error}`);
