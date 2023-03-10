@@ -88,17 +88,15 @@ class HttpClient {
   ): Promise<string> {
     const url = buildUrl(relayUrl, PATHS.POST_RELAY_REQUEST);
 
-    const { signedTx, error, message } =
+    const { signedTx, error } =
       await this._httpWrapper.sendPromise<SignedTransactionDetails>(
         url,
         this._stringifyEnvelopingTx(envelopingTx)
       );
-    log.info('relayTransaction response:', signedTx);
+    log.info('relayTransaction response:', signedTx);;
 
-    const errMsg = error ?? message;
-
-    if (errMsg) {
-      throw new Error(`Got error response from relay: ${errMsg}`);
+    if (error) {
+      throw new Error(`Got error response from relay: ${error}`);
     }
 
     if (!signedTx) {
