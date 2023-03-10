@@ -40,15 +40,32 @@ export default class AccountManager {
     this._accounts.push(wallet);
   }
 
-  async sign(envelopingRequest: EnvelopingRequest): Promise<string> {
+  removeAccount(addressToRemove: string) {
+    const indexToRemove = this._accounts.findIndex(function (wallet) {
+      return wallet.address === addressToRemove;
+    });
+
+    if (indexToRemove !== -1) {
+      this._accounts.splice(indexToRemove, 1);
+    } else {
+      throw new Error('Account not found');
+    }
+  }
+
+  async sign(
+    envelopingRequest: EnvelopingRequest,
+    signerWalletOnTheFly?: Wallet
+  ): Promise<string> {
     const callForwarder = envelopingRequest.relayData.callForwarder.toString();
-    const fromAddress: string = getAddress(
-      envelopingRequest.request.from.toString()
-    );
-
     const provider = getProvider();
-
     const { chainId } = await provider.getNetwork();
+    const fromAddress = getAddress(envelopingRequest.request.from.toString());
+
+    const signerWallet =
+      signerWalletOnTheFly ||
+      this._accounts.find(
+        (account) => getAddress(account.address) === fromAddress
+      );
 
     const data = getEnvelopingRequestDataV4Field({
       chainId,
@@ -59,13 +76,10 @@ export default class AccountManager {
         : relayRequestType,
     });
 
-    const wallet = this._accounts.find(
-      (account) => getAddress(account.address) === fromAddress
-    );
     const { signature, recoveredAddr } = await this._getSignatureFromTypedData(
       data,
       fromAddress,
-      wallet
+      signerWallet
     ).catch((error) => {
       throw new Error(
         `Failed to sign relayed transaction for ${fromAddress}: ${
