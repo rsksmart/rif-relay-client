@@ -45,6 +45,11 @@ const relayRequest = {
   },
 };
 
+const ACCOUNTS_INITIAL_LENGTH = 3;
+const randomAccounts = Array(ACCOUNTS_INITIAL_LENGTH)
+  .fill(0)
+  .map(() => Wallet.createRandom());
+
 describe('AccountManager', function () {
   describe('methods', function () {
     let accountManager: AccountManager;
@@ -99,16 +104,7 @@ describe('AccountManager', function () {
     });
 
     describe('removeAccount()', function () {
-      let randomAccounts: Array<Wallet>;
-      let initialLength: number;
-
       beforeEach(function () {
-        initialLength = 3;
-
-        randomAccounts = new Array<Wallet>(initialLength).fill(
-          Wallet.createRandom()
-        );
-
         (accountManager as unknown as { _accounts: Wallet[] })._accounts =
           randomAccounts;
       });
