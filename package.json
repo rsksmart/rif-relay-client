@@ -47,7 +47,7 @@
     "prepare": "scripts/prepare",
     "prepublishOnly": "scripts/prepublishOnly",
     "tdd": "npm run test -- --watch --watch-files src,test",
-    "test": "ALLOW_CONFIG_MUTATIONS=true npx mocha -r ts-node/register --extensions ts 'test/**/*.{test,spec}.ts'"
+    "test": "npx mocha -r ts-node/register --extensions ts 'test/**/*.{test,spec}.ts'"
   },
   "lint-staged": {
     "*.ts": "eslint --cache --fix",

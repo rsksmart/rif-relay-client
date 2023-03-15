@@ -79,11 +79,11 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private readonly _httpClient: HttpClient;
 
-  constructor() {
+  constructor(httpClient: HttpClient = new HttpClient()) {
     super();
 
     this._envelopingConfig = getEnvelopingConfig();
-    this._httpClient = new HttpClient();
+    this._httpClient = httpClient;
   }
 
   private _getEnvelopingRequestDetails = async (
@@ -472,12 +472,13 @@ class RelayClient extends EnvelopingEventEmitter {
         transaction,
         hubInfo.relayWorkerAddress
       );
-      this.emit('relayer-response');
+      this.emit('relayer-response', true);
       await this._broadcastTx(signedTx);
 
       return transaction;
     } catch (e) {
       log.error('failed attempting to relay the transaction ', e);
+      this.emit('relayer-response', false);
 
       return undefined;
     }
