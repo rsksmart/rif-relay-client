@@ -1,5 +1,7 @@
 import EventEmitter from 'events';
 
+const EVENT_WRAPPER = 'enveloping';
+
 const events = {
   init: 'init',
   'refresh-relays': 'refresh-relays', // TODO validate if its needed, since we do not refresh relays anymore
@@ -17,17 +19,17 @@ class EnvelopingEventEmitter extends EventEmitter {
   registerEventListener(
     eventHandler: (event: Event, ...args: unknown[]) => void
   ) {
-    this.on('enveloping', eventHandler);
+    this.on(EVENT_WRAPPER, eventHandler);
   }
 
   unregisterEventListener(
     eventHandler: (event: Event, ...args: unknown[]) => void
   ) {
-    this.off('enveloping', eventHandler);
+    this.off(EVENT_WRAPPER, eventHandler);
   }
 
   override emit(eventName: Event, ...args: unknown[]): boolean {
-    return super.emit('enveloping', eventName, ...args);
+    return super.emit(EVENT_WRAPPER, eventName, ...args);
   }
 }
 

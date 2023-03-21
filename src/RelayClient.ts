@@ -378,6 +378,7 @@ class RelayClient extends EnvelopingEventEmitter {
       options?.signerWallet
     );
 
+    this.emit('init');
     log.debug('Relay Client - Relaying transaction');
     log.debug(
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
