@@ -56,7 +56,9 @@ import {
   NOT_RELAYED_TRANSACTION,
 } from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
-  envelopingEvents,
+  EVENT_SEND_TO_RELAYER,
+  EVENT_SIGN_REQUEST,
+  EVENT_VALIDATE_REQUEST,
 } from '../src/events/EnvelopingEventEmitter';
 import RelayClient from '../src/RelayClient';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
@@ -342,7 +344,7 @@ describe('RelayClient', function () {
         expect(signStub).to.have.been.calledWith(expectedRelayRequestData);
       });
 
-      it(`should emit sign request 'sign-request' `, async function () {
+      it(`should emit sign request '${EVENT_SIGN_REQUEST}'`, async function () {
         const emitStub = sandbox.stub();
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
         await relayClient._prepareHttpRequest(
@@ -351,9 +353,7 @@ describe('RelayClient', function () {
         );
 
         expect(emitStub).to.have.been.called;
-        expect(emitStub).to.have.been.calledWith(
-          envelopingEvents['sign-request']
-        );
+        expect(emitStub).to.have.been.calledWith(EVENT_SIGN_REQUEST);
       });
 
       it('should return relay metadata with signature from account manager', async function () {
@@ -1229,7 +1229,7 @@ describe('RelayClient', function () {
         expect(attempRelay).to.be.undefined;
       });
 
-      it(`should emit 'send-to-relayer' `, async function () {
+      it(`should emit '${EVENT_SEND_TO_RELAYER}'`, async function () {
         const emitStub = sandbox.stub();
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
         await relayClient._attemptRelayTransaction(
@@ -1238,9 +1238,7 @@ describe('RelayClient', function () {
         );
 
         expect(emitStub).to.have.been.called;
-        expect(emitStub).to.have.been.calledWith(
-          envelopingEvents['send-to-relayer']
-        );
+        expect(emitStub).to.have.been.calledWith(EVENT_SEND_TO_RELAYER);
       });
     });
 
@@ -1350,7 +1348,7 @@ describe('RelayClient', function () {
         await expect(verification).to.be.rejectedWith(error.message);
       });
 
-      it(`should emit 'validate-request' `, async function () {
+      it(`should emit '${EVENT_VALIDATE_REQUEST}' `, async function () {
         const emitStub = sandbox.stub();
         (relayClient as unknown as EnvelopingEventEmitter).emit = emitStub;
         await relayClient._verifyEnvelopingRequest(
@@ -1359,9 +1357,7 @@ describe('RelayClient', function () {
         );
 
         expect(emitStub).to.have.been.called;
-        expect(emitStub).to.have.been.calledWith(
-          envelopingEvents['validate-request']
-        );
+        expect(emitStub).to.have.been.calledWith(EVENT_VALIDATE_REQUEST);
       });
     });
 
