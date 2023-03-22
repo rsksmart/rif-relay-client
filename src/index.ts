@@ -8,5 +8,6 @@ export * from './gasEstimator';
 export * from './utils';
 export * from './common';
 export * from './typedRequestData.utils';
+export * from './events/EnvelopingEventEmitter';
 
 export { AccountManager, RelayPricer, RelayClient };

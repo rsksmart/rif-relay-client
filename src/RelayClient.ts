@@ -56,7 +56,11 @@ import {
   NOT_RELAYED_TRANSACTION,
 } from './constants/errorMessages';
 import EnvelopingEventEmitter, {
-  envelopingEvents,
+  EVENT_INIT,
+  EVENT_RELAYER_RESPONSE,
+  EVENT_SEND_TO_RELAYER,
+  EVENT_SIGN_REQUEST,
+  EVENT_VALIDATE_REQUEST,
 } from './events/EnvelopingEventEmitter';
 import { estimateRelayMaxPossibleGas } from './gasEstimator';
 import {
@@ -79,11 +83,11 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private readonly _httpClient: HttpClient;
 
-  constructor() {
+  constructor(httpClient: HttpClient = new HttpClient()) {
     super();
 
     this._envelopingConfig = getEnvelopingConfig();
-    this._httpClient = new HttpClient();
+    this._httpClient = httpClient;
   }
 
   private _getEnvelopingRequestDetails = async (
@@ -327,7 +331,7 @@ class RelayClient extends EnvelopingEventEmitter {
       metadata,
     };
 
-    this.emit(envelopingEvents['sign-request']);
+    this.emit(EVENT_SIGN_REQUEST);
     log.info(
       `Created HTTP ${
         isDeployment ? 'deploy' : 'relay'
@@ -378,6 +382,7 @@ class RelayClient extends EnvelopingEventEmitter {
       options?.signerWallet
     );
 
+    this.emit(EVENT_INIT);
     log.debug('Relay Client - Relaying transaction');
     log.debug(
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
@@ -456,7 +461,7 @@ class RelayClient extends EnvelopingEventEmitter {
         managerData: { url },
         hubInfo,
       } = relayInfo;
-      this.emit('send-to-relayer');
+      this.emit(EVENT_SEND_TO_RELAYER);
       log.info(
         `attempting relay: ${JSON.stringify(
           relayInfo
@@ -472,12 +477,13 @@ class RelayClient extends EnvelopingEventEmitter {
         transaction,
         hubInfo.relayWorkerAddress
       );
-      this.emit('relayer-response');
+      this.emit(EVENT_RELAYER_RESPONSE, true);
       await this._broadcastTx(signedTx);
 
       return transaction;
     } catch (e) {
       log.error('failed attempting to relay the transaction ', e);
+      this.emit(EVENT_RELAYER_RESPONSE, false);
 
       return undefined;
     }
@@ -513,7 +519,7 @@ class RelayClient extends EnvelopingEventEmitter {
     { relayWorkerAddress }: HubInfo,
     envelopingTx: EnvelopingTxRequest
   ): Promise<void> {
-    this.emit('validate-request');
+    this.emit(EVENT_VALIDATE_REQUEST);
     const {
       relayData: { gasPrice },
     } = envelopingTx.relayRequest;
