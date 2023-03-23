@@ -26,10 +26,8 @@ import * as clientConfiguration from '../../src/common/clientConfigurator';
 use(sinonChai);
 
 const FAKE_BYTECODE = `0x${crypto.pseudoRandomBytes(32).toString('hex')}`;
-console.log('FAKE_BYTECODE', FAKE_BYTECODE);
 const FAKE_BALANCE = constants.WeiPerEther.mul(7);
 const FAKE_SHA3_RESULT = `0x${crypto.pseudoRandomBytes(32).toString('hex')}`;
-console.log('FAKE_SHA3_RESULT', FAKE_SHA3_RESULT);
 const FAKE_HD_NODE: HDNode = {
   address: '0x0000000000000000000000000000000000000001',
 } as unknown as HDNode;
