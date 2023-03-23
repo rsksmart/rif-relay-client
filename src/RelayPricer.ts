@@ -1,18 +1,18 @@
 import type { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   BaseExchangeApi,
-  CoinBase,
   RdocExchange,
   TestExchange,
+  CoinGecko
 } from './api/pricer';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
-const coinbase = new CoinBase();
 const testExchange = new TestExchange();
 const rdocExchange = new RdocExchange();
-
-const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
+const coinGecko = new CoinGecko();
+// TODO: We may want to include coinbase also, as a backup source for RIF
+const EXCHANGE_APIS: BaseExchangeApi[] = [coinGecko, testExchange, rdocExchange];
 
 export default class RelayPricer {
   findAvailableApi(token: string): BaseExchangeApi {
