@@ -13,7 +13,7 @@ use(chaiAsPromised);
 
 describe('CoinGecko', function () {
   let coinGecko: CoinGecko;
-  const targetCurrency = 'usd';
+  const targetCurrency = 'USD';
   const xRateRifUsd = '0.07770028890144696';
 
   beforeEach(function () {
@@ -21,7 +21,7 @@ describe('CoinGecko', function () {
   });
 
   describe('getApiTokenName', function () {
-    describe('using RIF as token', function () {
+    describe('using RIF', function () {
       it('should return mapped token name', function () {
         expect(coinGecko.getApiTokenName('RIF')).to.be.equal(
           COINGECKO_RIF_TOKEN_ID
@@ -35,7 +35,7 @@ describe('CoinGecko', function () {
       });
     });
 
-    describe('using RBTC as token', function () {
+    describe('using RBTC', function () {
       it('should return mapped token name', function () {
         expect(coinGecko.getApiTokenName('RBTC')).to.be.equal(
           COINGECKO_RBTC_ID
@@ -120,10 +120,12 @@ describe('CoinGecko', function () {
 
     const testNoTargetCurrency = (sourceCurrency: string) =>
       async function () {
+        const targetCurrency = 'NA';
+
         await expect(
-          coinGecko.queryExchangeRate(sourceCurrency, 'NA')
+          coinGecko.queryExchangeRate(sourceCurrency, targetCurrency)
         ).to.be.rejectedWith(
-          `Exchange rate for currency pair ${sourceCurrency}/NA is not available`
+          `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency.toLowerCase()} is not available`
         );
       };
 

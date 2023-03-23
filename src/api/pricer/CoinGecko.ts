@@ -51,14 +51,14 @@ export default class CoinGecko extends BaseExchangeApi {
       throw Error(`CoinGecko API status ${response.status}`);
     }
 
-    if (!response[sourceCurrency]?.[targetCurrency]) {
+    if (!response[sourceCurrency]?.[currencyId]) {
       throw Error(
-        `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
+        `Exchange rate for currency pair ${sourceCurrency}/${currencyId} is not available`
       );
     }
 
     // It cannot be undefined due to the previous check
-    const conversionRate = response[sourceCurrency]?.[targetCurrency] as string;
+    const conversionRate = response[sourceCurrency]?.[currencyId] as string;
 
     return BigNumberJs(conversionRate);
   }
