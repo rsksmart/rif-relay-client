@@ -1,18 +1,27 @@
 import type { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   BaseExchangeApi,
-  CoinBase,
   RdocExchange,
   TestExchange,
+  CoinGecko,
+  CoinBase,
 } from './api/pricer';
+import log from 'loglevel';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
-const coinbase = new CoinBase();
 const testExchange = new TestExchange();
 const rdocExchange = new RdocExchange();
+const coinGecko = new CoinGecko();
+const coinbase = new CoinBase();
 
-const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
+// TODO: We may want to change the selection strategy
+const EXCHANGE_APIS: BaseExchangeApi[] = [
+  coinbase,
+  coinGecko,
+  testExchange,
+  rdocExchange,
+];
 
 export default class RelayPricer {
   findAvailableApi(token: string): BaseExchangeApi {
@@ -35,6 +44,7 @@ export default class RelayPricer {
   ): Promise<BigNumberJs> {
     const sourceApi = this.findAvailableApi(sourceCurrency);
     const targetApi = this.findAvailableApi(targetCurrency);
+    log.debug('RelayPricer APIs selected', sourceApi, targetApi);
 
     const sourceTokenName = sourceApi.getApiTokenName(sourceCurrency);
     const targetTokenName = targetApi.getApiTokenName(targetCurrency);
@@ -43,16 +53,22 @@ export default class RelayPricer {
       ? intermediateCurrency
       : INTERMEDIATE_CURRENCY;
 
+    log.debug('RelayPricer: intermediary Currency', intermediary);
     const [sourceExchangeRate, targetExchangeRate] = await Promise.all([
       sourceApi.queryExchangeRate(sourceTokenName, intermediary),
       targetApi.queryExchangeRate(targetTokenName, intermediary),
     ]);
 
     if (sourceExchangeRate.isEqualTo(0) || targetExchangeRate.isEqualTo(0)) {
-      throw Error(
-        `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`
-      );
+      const message = `Currency conversion for pair ${sourceCurrency}:${targetCurrency} not found in current exchange api`;
+      log.error(`RelayPricer exchange rates: ${message}`);
+      throw Error(message);
     }
+    log.debug(
+      'RelayPricer exchange rates:',
+      sourceExchangeRate.toString(),
+      targetExchangeRate.toString()
+    );
 
     return sourceExchangeRate.dividedBy(targetExchangeRate);
   }

@@ -14,7 +14,6 @@ export type CoinBaseResponse = {
 
 const CURRENCY_MAPPING: CurrencyMapping = {
   RIF: 'RIF',
-  RBTC: 'RBTC',
   TRIF: 'RIF',
 };
 
@@ -22,7 +21,7 @@ export default class CoinBase extends BaseExchangeApi {
   private readonly _httpWrapper: HttpWrapper;
 
   constructor(httpWrapper: HttpWrapper = new HttpWrapper()) {
-    super('CoinBase', CURRENCY_MAPPING, ['RIF', 'RBTC', 'tRif']);
+    super('CoinBase', CURRENCY_MAPPING, ['RIF', 'tRif']);
     this._httpWrapper = httpWrapper;
   }
 
