@@ -90,6 +90,10 @@ class RelayClient extends EnvelopingEventEmitter {
     this._httpClient = httpClient;
   }
 
+  public get httpClient(): HttpClient {
+    return this._httpClient;
+  }
+
   private _getEnvelopingRequestDetails = async (
     envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<EnvelopingRequest> => {

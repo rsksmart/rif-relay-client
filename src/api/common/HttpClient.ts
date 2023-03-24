@@ -40,6 +40,10 @@ class HttpClient {
     this._httpWrapper = httpWrapper;
   }
 
+  public get httpWrapper(): HttpWrapper {
+    return this._httpWrapper;
+  }
+
   async getChainInfo(relayUrl: string, verifier = ''): Promise<HubInfo> {
     const url = buildUrl(relayUrl, PATHS.CHAIN_INFO, verifier);
 
