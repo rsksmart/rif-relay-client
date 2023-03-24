@@ -132,11 +132,11 @@ describe('HttpWrapper', function () {
     });
   });
 
-  describe('properties', function() {
+  describe('properties', function () {
     it('should expose `httpClient`', function () {
       const httpWrapper = new HttpWrapper();
 
       expect(httpWrapper.httpClient).not.to.be.undefined;
-    })
-  })
+    });
+  });
 });

@@ -1681,11 +1681,11 @@ describe('RelayClient', function () {
     });
   });
 
-  describe('properties', function() {
+  describe('properties', function () {
     it('should expose the `httpClient` property', function () {
       const relayClient = new RelayClient();
 
       expect(relayClient.httpClient).not.to.be.undefined;
-    })
-  })
+    });
+  });
 });
