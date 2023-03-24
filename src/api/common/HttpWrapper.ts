@@ -78,6 +78,10 @@ export default class HttpWrapper {
     logger.setLevel(logLevel);
   }
 
+  public get httpClient() {
+    return this._httpClient;
+  }
+
   async sendPromise<T>(url: string, jsonRequestData?: unknown) {
     logger.info(
       'Sending request:',

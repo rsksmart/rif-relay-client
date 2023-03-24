@@ -259,4 +259,12 @@ describe('HttpClient', function () {
       expect(url).to.be.equal(expected);
     });
   });
+
+  describe('properties', function() {
+    it('should expose the `httpWrapper` property', function () {
+      const httpClient = new HttpClient();
+      
+      expect(httpClient.httpWrapper).not.to.be.undefined;
+    })
+  })
 });
