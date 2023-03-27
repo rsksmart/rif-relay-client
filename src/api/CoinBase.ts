@@ -1,9 +1,10 @@
-import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
+import { AxiosError } from 'axios';
 import BigNumber from 'bignumber.js';
 import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
-import log, { LogLevelDesc } from 'loglevel';
+import HttpWrapper from '../HttpWrapper';
 
-const URL = 'https://api.coinbase.com/v2/exchange-rates';
+const BASE_URL = 'https://api.coinbase.com/';
+const PRICE_API_PATH = '/v2/exchange-rates';
 
 export type CoinBaseResponse = {
     data: {
@@ -23,54 +24,15 @@ export type CoinBaseErrorResponse = {
 
 const CURRENCY_MAPPING: CurrencyMapping = {
     RIF: 'RIF',
-    RBTC: 'RBTC',
     TRIF: 'RIF'
 };
 
-/* TODO:
- * This part need to be reviewed to avoid the duplicated code with the
- * [HttpWrapper](https://github.com/rsksmart/rif-relay-client/blob/45337c5a7c3958dcee5610c77a0054ae43606b11/src/api/common/HttpWrapper.ts#L29)
- * available in the branch that includes the ethers.js support.
- */
-const interceptors = {
-    logRequest: {
-        onResponse: (response: AxiosResponse) => {
-            log.info(
-                `Got a response: ${response.config.url as string}`,
-                response.data
-            );
-
-            return response;
-        },
-        onError: (error: AxiosError) => {
-            const { response, request } = error;
-            if (!request) {
-                log.error('Error while setting up request', error);
-            }
-            if (request) {
-                log.error('Request sent:', request);
-            }
-            if (response) {
-                log.error('Response error:', response.data, response.status);
-            }
-
-            return Promise.reject(error);
-        }
-    }
-};
-
 export default class CoinBase extends BaseExchangeApi {
-    private readonly _httpClient: AxiosInstance;
-
-    constructor(loglLevel: LogLevelDesc = 'error') {
-        super('CoinBase', CURRENCY_MAPPING, ['RIF', 'RBTC', 'tRif']);
-        log.setLevel(loglLevel);
-
-        this._httpClient = axios.create();
-        this._httpClient.interceptors.response.use(
-            interceptors.logRequest.onResponse,
-            interceptors.logRequest.onError
-        );
+    constructor(
+        private readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
+        private readonly _baseUrl = BASE_URL
+    ) {
+        super('CoinBase', CURRENCY_MAPPING, ['RIF', 'tRif']);
     }
 
     async queryExchangeRate(
@@ -78,26 +40,28 @@ export default class CoinBase extends BaseExchangeApi {
         targetCurrency: string
     ): Promise<BigNumber> {
         const upperCaseTargetCurrency = targetCurrency.toUpperCase();
-        let response: AxiosResponse;
+        let response: CoinBaseResponse;
 
         try {
-            response = await axios.get(`${URL}?currency=${sourceCurrency}`);
+            const url = new URL(this._baseUrl);
+            url.pathname = PRICE_API_PATH;
+            url.searchParams.append('currency', sourceCurrency);
+            response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
+                url.toString()
+            );
         } catch (error: unknown) {
-            const { response, request } = error as AxiosError;
-            if (response) {
-                throw Error(
-                    `CoinBase API status ${response.status}/${response.statusText}`
-                );
+            const { response } = error as AxiosError;
+
+            if (!response) {
+                throw new Error('No response received from CoinBase API');
             }
-            if (request) {
-                throw Error('No response received from CoinBase API');
-            }
-            throw new Error('The request was not sent to the CoinBase API');
+
+            throw Error(`CoinBase API status ${response.status}`);
         }
 
         const {
             data: { rates }
-        }: CoinBaseResponse = response.data;
+        } = response;
         const conversionRate = rates[upperCaseTargetCurrency];
 
         if (!conversionRate) {
