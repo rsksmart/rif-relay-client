@@ -3,16 +3,25 @@ import BaseExchangeApi from './api/ExchangeApi';
 import CoinBase from './api/CoinBase';
 import RdocExchange from './api/RdocExchange';
 import TestExchange from './api/TestExchange';
+import CoinGecko from './api/CoinGecko';
+import HttpWrapper from './HttpWrapper';
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
-const coinbase = new CoinBase();
 const testExchange = new TestExchange();
 const rdocExchange = new RdocExchange();
 
-const EXCHANGE_APIS: BaseExchangeApi[] = [coinbase, testExchange, rdocExchange];
+const EXCHANGE_APIS: BaseExchangeApi[] = [testExchange, rdocExchange];
 
 export default class RelayPricer {
+    constructor(
+        private readonly _httpWrapper: HttpWrapper = new HttpWrapper()
+    ) {
+        const coinGecko = new CoinGecko(_httpWrapper);
+        const coinBase = new CoinBase(_httpWrapper);
+        EXCHANGE_APIS.push(...[coinGecko, coinBase]);
+    }
+
     findAvailableApi(token: string): BaseExchangeApi {
         const upperCaseToken = token?.toUpperCase();
         const availableApi = EXCHANGE_APIS.find((api) =>

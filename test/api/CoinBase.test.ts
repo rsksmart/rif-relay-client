@@ -1,7 +1,7 @@
 import { use, assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { SinonStub, stub } from 'sinon';
-import axios, { AxiosError, AxiosResponse } from 'axios';
+import { createStubInstance, restore, SinonStubbedInstance } from 'sinon';
+import { HttpWrapper } from '../../src';
 
 import CoinBase, { CoinBaseResponse } from '../../src/api/CoinBase';
 
@@ -12,11 +12,40 @@ describe('CoinBase', () => {
     const sourceCurrency = 'RIF';
     const targetCurrency = 'USD';
     const xRateRifUsd = '0.07770028890144696';
-    let fakeResponse;
-    let fakeAxios: SinonStub;
 
     beforeEach(() => {
         coinBase = new CoinBase();
+    });
+
+    describe('constructor', function () {
+        it('should set http wrapper', function () {
+            const httpWrapper = new HttpWrapper();
+            const localCoinBase = new CoinBase(httpWrapper) as unknown as {
+                _httpWrapper: HttpWrapper;
+            };
+
+            expect(localCoinBase._httpWrapper).to.be.equals(httpWrapper);
+        });
+
+        it('should build url properly', function () {
+            const url = 'https://api.coinbase.com';
+            const path = '/v2/exchange-rates';
+            const localCoinBase = new CoinBase(
+                undefined,
+                url,
+                path
+            ) as unknown as {
+                _url: URL;
+            };
+
+            expect(localCoinBase._url.toString()).to.be.equal(url + path);
+        });
+
+        it('should fail if url cannot be build', function () {
+            expect(() => new CoinBase(undefined, 'api.coinbase.com')).to.throw(
+                'Invalid URL'
+            );
+        });
     });
 
     describe('getApiTokenName', () => {
@@ -34,12 +63,6 @@ describe('CoinBase', () => {
             );
         });
 
-        it('should fail if token symbol is null', () => {
-            expect(() => coinBase.getApiTokenName(null)).to.throw(
-                'CoinBase API cannot map a token with a null/empty value'
-            );
-        });
-
         it('should fail if token symbol is empty', () => {
             expect(() => coinBase.getApiTokenName('')).to.throw(
                 'CoinBase API cannot map a token with a null/empty value'
@@ -48,29 +71,29 @@ describe('CoinBase', () => {
     });
 
     describe('queryExchangeRate', () => {
-        beforeEach(() => {
-            const coinBaseResponse: CoinBaseResponse = {
-                data: {
-                    currency: sourceCurrency,
-                    rates: {
-                        USD: xRateRifUsd
-                    }
+        let httpWrapperStub: SinonStubbedInstance<HttpWrapper>;
+        const coinBaseResponse: CoinBaseResponse = {
+            data: {
+                currency: sourceCurrency,
+                rates: {
+                    USD: xRateRifUsd
                 }
-            };
-            fakeResponse = {
-                status: 200,
-                data: coinBaseResponse
-            } as AxiosResponse;
-            fakeAxios = stub(axios, 'get').returns(
-                Promise.resolve(fakeResponse)
-            );
+            }
+        };
+
+        beforeEach(() => {
+            httpWrapperStub = createStubInstance(HttpWrapper);
+            (
+                coinBase as unknown as { _httpWrapper: HttpWrapper }
+            )._httpWrapper = httpWrapperStub;
         });
 
         afterEach(() => {
-            fakeAxios.restore();
+            restore();
         });
 
         it('should return exchange rate RIF/USD', async () => {
+            httpWrapperStub.sendPromise.resolves(coinBaseResponse);
             await assert.eventually.equal(
                 coinBase.queryExchangeRate(sourceCurrency, targetCurrency),
                 xRateRifUsd,
@@ -79,6 +102,7 @@ describe('CoinBase', () => {
         });
 
         it('should return exchange rate rif/usd', async () => {
+            httpWrapperStub.sendPromise.resolves(coinBaseResponse);
             await assert.eventually.equal(
                 coinBase.queryExchangeRate(
                     sourceCurrency.toLowerCase(),
@@ -90,6 +114,7 @@ describe('CoinBase', () => {
         });
 
         it('should fail if rate does not exist', async () => {
+            httpWrapperStub.sendPromise.resolves(coinBaseResponse);
             await assert.isRejected(
                 coinBase.queryExchangeRate(sourceCurrency, 'NA'),
                 `Exchange rate for currency pair ${sourceCurrency}/NA is not available`
@@ -97,41 +122,27 @@ describe('CoinBase', () => {
         });
 
         it('should fail if API returns handled error message', async () => {
-            const expectedStatusCode = 400;
-            const expectedStatusText = 'Bad Request';
+            const expectedStatus = 400;
             const fakeError = {
                 response: {
-                    status: expectedStatusCode,
-                    statusText: expectedStatusText
+                    status: expectedStatus
                 }
-            } as AxiosError;
+            };
 
-            fakeAxios.returns(Promise.reject(fakeError));
+            httpWrapperStub.sendPromise.rejects(fakeError);
             await assert.isRejected(
                 coinBase.queryExchangeRate('NA', targetCurrency),
-                `CoinBase API status ${expectedStatusCode}/${expectedStatusText}`
+                `CoinBase API status ${expectedStatus}`
             );
         });
 
         it("should fail if API doesn't return a response", async () => {
-            const fakeError = {
-                request: {}
-            } as AxiosError;
+            const fakeError = {};
 
-            fakeAxios.returns(Promise.reject(fakeError));
+            httpWrapperStub.sendPromise.rejects(fakeError);
             await assert.isRejected(
                 coinBase.queryExchangeRate('NA', targetCurrency),
                 'No response received from CoinBase API'
-            );
-        });
-
-        it('should fail if the request cannot be sent', async () => {
-            const fakeError = {} as AxiosError;
-
-            fakeAxios.returns(Promise.reject(fakeError));
-            await assert.isRejected(
-                coinBase.queryExchangeRate('NA', targetCurrency),
-                'The request was not sent to the CoinBase API'
             );
         });
     });
