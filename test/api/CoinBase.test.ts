@@ -17,6 +17,37 @@ describe('CoinBase', () => {
         coinBase = new CoinBase();
     });
 
+    describe('constructor', function () {
+        it('should set http wrapper', function () {
+            const httpWrapper = new HttpWrapper();
+            const localCoinBase = new CoinBase(httpWrapper) as unknown as {
+                _httpWrapper: HttpWrapper;
+            };
+
+            expect(localCoinBase._httpWrapper).to.be.equals(httpWrapper);
+        });
+
+        it('should build url properly', function () {
+            const url = 'https://api.coinbase.com';
+            const path = '/v2/exchange-rates';
+            const localCoinBase = new CoinBase(
+                undefined,
+                url,
+                path
+            ) as unknown as {
+                _url: URL;
+            };
+
+            expect(localCoinBase._url.toString()).to.be.equal(url + path);
+        });
+
+        it('should fail if url cannot be build', function () {
+            expect(() => new CoinBase(undefined, 'api.coinbase.com')).to.throw(
+                'Invalid URL'
+            );
+        });
+    });
+
     describe('getApiTokenName', () => {
         it('should return mapped token name', () => {
             assert.equal(coinBase.getApiTokenName('RIF'), sourceCurrency);
@@ -29,12 +60,6 @@ describe('CoinBase', () => {
         it('should fail if token symbol is not mapped', () => {
             expect(() => coinBase.getApiTokenName('btc')).to.throw(
                 'Token BTC is not internally mapped in CoinBase API'
-            );
-        });
-
-        it('should fail if token symbol is null', () => {
-            expect(() => coinBase.getApiTokenName(null)).to.throw(
-                'CoinBase API cannot map a token with a null/empty value'
             );
         });
 

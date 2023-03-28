@@ -18,11 +18,15 @@ const CURRENCY_MAPPING: CurrencyMapping = {
 };
 
 export default class CoinGecko extends BaseExchangeApi {
+    private _url: URL;
+
     constructor(
         private readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
-        private readonly _baseUrl = BASE_URL
+        private readonly _baseUrl = BASE_URL,
+        private readonly _priceApiPath = PRICE_API_PATH
     ) {
         super('CoinGecko', CURRENCY_MAPPING, ['RIF', 'RBTC', 'tRif']);
+        this._url = new URL(this._priceApiPath, this._baseUrl);
     }
 
     async queryExchangeRate(
@@ -34,8 +38,7 @@ export default class CoinGecko extends BaseExchangeApi {
         const currencyId = targetCurrency.toLowerCase();
 
         try {
-            const url = new URL(this._baseUrl);
-            url.pathname = PRICE_API_PATH;
+            const url = new URL(this._priceApiPath, this._url);
             url.searchParams.append('ids', sourceCurrency);
             url.searchParams.append('vs_currencies', currencyId);
             response = await this._httpWrapper.sendPromise<CoinGeckoResponse>(

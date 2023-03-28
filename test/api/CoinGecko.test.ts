@@ -20,6 +20,37 @@ describe('CoinGecko', function () {
         coinGecko = new CoinGecko();
     });
 
+    describe('constructor', function () {
+        it('should set http wrapper', function () {
+            const httpWrapper = new HttpWrapper();
+            const localCoinBase = new CoinGecko(httpWrapper) as unknown as {
+                _httpWrapper: HttpWrapper;
+            };
+
+            expect(localCoinBase._httpWrapper).to.be.equals(httpWrapper);
+        });
+
+        it('should build url properly', function () {
+            const url = 'https://api.coingecko.com';
+            const path = '/api/v3/simple/price';
+            const localCoinBase = new CoinGecko(
+                undefined,
+                url,
+                path
+            ) as unknown as {
+                _url: URL;
+            };
+
+            expect(localCoinBase._url.toString()).to.be.equal(url + path);
+        });
+
+        it('should fail if url cannot be build', function () {
+            expect(() => new CoinGecko(undefined, 'api.coinbase.com')).to.throw(
+                'Invalid URL'
+            );
+        });
+    });
+
     describe('getApiTokenName', function () {
         describe('using RIF', function () {
             it('should return mapped token name', function () {

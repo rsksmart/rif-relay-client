@@ -28,11 +28,15 @@ const CURRENCY_MAPPING: CurrencyMapping = {
 };
 
 export default class CoinBase extends BaseExchangeApi {
+    private _url: URL;
+
     constructor(
         private readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
-        private readonly _baseUrl = BASE_URL
+        private readonly _baseUrl = BASE_URL,
+        private readonly _priceApiPath = PRICE_API_PATH
     ) {
         super('CoinBase', CURRENCY_MAPPING, ['RIF', 'tRif']);
+        this._url = new URL(this._priceApiPath, this._baseUrl);
     }
 
     async queryExchangeRate(
@@ -43,8 +47,7 @@ export default class CoinBase extends BaseExchangeApi {
         let response: CoinBaseResponse;
 
         try {
-            const url = new URL(this._baseUrl);
-            url.pathname = PRICE_API_PATH;
+            const url = new URL(this._priceApiPath, this._url);
             url.searchParams.append('currency', sourceCurrency);
             response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
                 url.toString()
