@@ -61,7 +61,7 @@ import EnvelopingEventEmitter, {
   EVENT_SIGN_REQUEST,
   EVENT_VALIDATE_REQUEST,
 } from './events/EnvelopingEventEmitter';
-import { estimateRelayMaxPossibleGas } from './gasEstimator';
+import { standardMaxPossibleGasEstimation } from './gasEstimator';
 import {
   estimateInternalCallGas,
   estimateTokenTransferGas,
@@ -570,7 +570,7 @@ class RelayClient extends EnvelopingEventEmitter {
       relayData: { gasPrice },
     } = envelopingTx.relayRequest;
 
-    const maxPossibleGas = await estimateRelayMaxPossibleGas(
+    const maxPossibleGas = await standardMaxPossibleGasEstimation(
       envelopingTx,
       relayWorkerAddress
     );

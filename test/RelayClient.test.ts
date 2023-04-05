@@ -29,7 +29,7 @@ import type {
   TransactionReceipt,
 } from '@ethersproject/providers';
 import { solidityKeccak256 } from 'ethers/lib/utils';
-import Sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
+import { SinonStub, SinonStubbedInstance, createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
@@ -74,12 +74,12 @@ import {
 import * as etherUtils from '@ethersproject/transactions';
 import * as clientConfiguration from '../src/common/clientConfigurator';
 import * as relayUtils from '../src/utils';
-import * as gasEstimator from '../src/gasEstimator/gasEstimator';
+import * as gasEstimator from '../src/gasEstimator/utils';
 import type { RelayEstimation } from 'src';
 
 use(sinonChai);
 use(chaiAsPromised);
-const sandbox = Sinon.createSandbox();
+const sandbox = createSandbox();
 const createRandomAddress = () => Wallet.createRandom().address;
 const createRandomBigNumber = (base: number) =>
   BigNumber.from((Math.random() * base).toFixed(0));
@@ -182,8 +182,8 @@ describe('RelayClient', function () {
     };
 
     let relayClient: RelayClientExposed;
-    let forwarderStub: Sinon.SinonStubbedInstance<IForwarder>;
-    let factoryStub: Sinon.SinonStubbedInstance<ISmartWalletFactory>;
+    let forwarderStub: SinonStubbedInstance<IForwarder>;
+    let factoryStub: SinonStubbedInstance<ISmartWalletFactory>;
     let ethersLogger: utils.Logger;
     let providerStub: providers.Provider;
 
@@ -1282,7 +1282,7 @@ describe('RelayClient', function () {
     describe('_verifyEnvelopingRequest', function () {
       beforeEach(function () {
         sandbox
-          .stub(gasEstimator, 'estimateRelayMaxPossibleGas')
+          .stub(gasEstimator, 'standardMaxPossibleGasEstimation')
           .returns(Promise.resolve(constants.Two));
         relayClient._verifyWorkerBalance = sandbox.stub().returns(undefined);
         relayClient._verifyWithVerifiers = sandbox.stub().returns(undefined);
@@ -1539,7 +1539,7 @@ describe('RelayClient', function () {
     describe('_verifyWithRelayHub', function () {
       let relayWorkerAddress: string;
       let fakeMaxPossibleGas: BigNumber;
-      let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
+      let relayHubStub: SinonStubbedInstance<RelayHub>;
 
       beforeEach(function () {
         relayWorkerAddress = createRandomAddress();

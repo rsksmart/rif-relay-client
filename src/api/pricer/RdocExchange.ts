@@ -1,5 +1,5 @@
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
+import BaseExchangeApi, { CurrencyMapping } from './BaseExchangeApi';
 
 type RateRecord = Record<string, string>;
 
@@ -15,7 +15,7 @@ const CURRENCY_MAPPING: CurrencyMapping = {
 
 export default class RdocExchange extends BaseExchangeApi {
   constructor() {
-    super('RdocExchange', CURRENCY_MAPPING, ['RDOC']);
+    super('RdocExchange', CURRENCY_MAPPING);
   }
 
   queryExchangeRate(

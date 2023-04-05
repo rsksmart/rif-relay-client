@@ -3,17 +3,14 @@ import { BigNumber as BigNumberJs } from 'bignumber.js';
 import BaseExchangeApi from './BaseExchangeApi';
 import HttpWrapper from '../common/HttpWrapper';
 
-const BASE_URL = 'https://api.coinbase.com/';
-const PRICE_API_PATH = '/v2/exchange-rates';
+const BASE_URL = 'https://coincodex.com/';
+const PRICE_API_PATH = '/api/coincodex/get_coin';
 
-export type CoinBaseResponse = {
-  data: {
-    currency: string;
-    rates: Record<string, string>;
-  };
+export type CoinCodexResponse = {
+  last_price_usd: string;
 };
 
-export default class CoinBase extends BaseExchangeApi {
+export default class CoinCodex extends BaseExchangeApi {
   private _url: URL;
 
   constructor(
@@ -21,7 +18,7 @@ export default class CoinBase extends BaseExchangeApi {
     private readonly _baseUrl = BASE_URL,
     private readonly _priceApiPath = PRICE_API_PATH
   ) {
-    super('CoinBase', { RIF: 'RIF', TRIF: 'RIF' });
+    super('CoinCodex', { RIF: 'RIF', TRIF: 'RIF', RBTC: 'RBTC' });
     this._url = new URL(this._priceApiPath, this._baseUrl);
   }
 
@@ -29,38 +26,33 @@ export default class CoinBase extends BaseExchangeApi {
     sourceCurrency: string,
     targetCurrency: string
   ): Promise<BigNumberJs> {
-    let response: CoinBaseResponse;
+    let response: CoinCodexResponse;
     const sourceCurrencyName = this._getCurrencyName(sourceCurrency);
     const targetCurrencyName = targetCurrency.toUpperCase();
 
     try {
       const url = new URL(this._priceApiPath, this._url);
-      url.searchParams.append('currency', sourceCurrencyName);
-      response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
-        url.toString()
+      response = await this._httpWrapper.sendPromise<CoinCodexResponse>(
+        `${url.toString()}/${sourceCurrencyName}`
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;
 
       if (!response) {
-        throw new Error('No response received from CoinBase API');
+        throw new Error('No response received from CoinCodex API');
       }
 
-      throw Error(`CoinBase API status ${response.status}`);
+      throw Error(`CoinCodex API status ${response.status}`);
     }
 
-    const {
-      data: { rates },
-    }: CoinBaseResponse = response;
+    const { last_price_usd: lastPriceUsd }: CoinCodexResponse = response;
 
-    const conversionRate = rates[targetCurrencyName];
-
-    if (!conversionRate) {
+    if (targetCurrencyName !== 'USD') {
       throw Error(
         `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
       );
     }
 
-    return BigNumberJs(conversionRate);
+    return BigNumberJs(lastPriceUsd);
   }
 }

@@ -2,59 +2,56 @@ import { expect } from 'chai';
 import { SinonStubbedInstance, createStubInstance, restore } from 'sinon';
 import { HttpWrapper } from '../../../src/api/common';
 
-import CoinBase, { CoinBaseResponse } from '../../../src/api/pricer/CoinBase';
+import CoinCodex, {
+  CoinCodexResponse,
+} from '../../../src/api/pricer/CoinCodex';
 
-describe('CoinBase', function () {
-  type CoinBaseExposed = {
+describe('CoinCodex', function () {
+  type CoinCodexExposed = {
     _getCurrencyName(tokenSymbol: string): string;
   } & {
-    [key in keyof CoinBase]: CoinBase[key];
+    [key in keyof CoinCodex]: CoinCodex[key];
   };
-  let coinBase: CoinBaseExposed;
+  let coinCodex: CoinCodexExposed;
   const sourceCurrency = 'RIF';
   const targetCurrency = 'USD';
   const xRateRifUsd = '0.07770028890144696';
 
   beforeEach(function () {
-    coinBase = new CoinBase() as unknown as CoinBaseExposed;
+    coinCodex = new CoinCodex() as unknown as CoinCodexExposed;
   });
 
   describe('_getCurrencyName', function () {
     it('should return mapped token name', function () {
-      expect(coinBase._getCurrencyName('RIF')).to.be.equal(sourceCurrency);
+      expect(coinCodex._getCurrencyName('RIF')).to.be.equal(sourceCurrency);
     });
 
     it('should return mapped token(lowercase) name', function () {
-      expect(coinBase._getCurrencyName('rif')).to.be.equal(sourceCurrency);
+      expect(coinCodex._getCurrencyName('rif')).to.be.equal(sourceCurrency);
     });
 
     it('should return token if token is not mapped', function () {
-      expect(coinBase._getCurrencyName('btc')).to.be.equal('btc');
+      expect(coinCodex._getCurrencyName('btc')).to.be.equal('btc');
     });
 
     it('should fail if token symbol is empty', function () {
-      expect(() => coinBase._getCurrencyName('')).to.throw(
-        'CoinBase API cannot map a token with a null/empty value'
+      expect(() => coinCodex._getCurrencyName('')).to.throw(
+        'CoinCodex API cannot map a token with a null/empty value'
       );
     });
   });
 
   describe('queryExchangeRate', function () {
     let httpWrapperStub: SinonStubbedInstance<HttpWrapper>;
-    const coinBaseResponse: CoinBaseResponse = {
-      data: {
-        currency: sourceCurrency,
-        rates: {
-          USD: xRateRifUsd,
-        },
-      },
+    const coinCodexResponse: CoinCodexResponse = {
+      last_price_usd: xRateRifUsd,
     };
 
     beforeEach(function () {
       httpWrapperStub = createStubInstance(HttpWrapper, {
-        sendPromise: Promise.resolve(coinBaseResponse),
+        sendPromise: Promise.resolve(coinCodexResponse),
       });
-      (coinBase as unknown as { _httpWrapper: HttpWrapper })._httpWrapper =
+      (coinCodex as unknown as { _httpWrapper: HttpWrapper })._httpWrapper =
         httpWrapperStub;
     });
 
@@ -63,7 +60,7 @@ describe('CoinBase', function () {
     });
 
     it('should return exchange rate RIF/USD', async function () {
-      const exchangeRate = await coinBase.queryExchangeRate(
+      const exchangeRate = await coinCodex.queryExchangeRate(
         sourceCurrency,
         targetCurrency
       );
@@ -75,7 +72,7 @@ describe('CoinBase', function () {
     });
 
     it('should return exchange rate rif/usd', async function () {
-      const exchangeRate = await coinBase.queryExchangeRate(
+      const exchangeRate = await coinCodex.queryExchangeRate(
         sourceCurrency.toLowerCase(),
         targetCurrency.toLowerCase()
       );
@@ -88,7 +85,7 @@ describe('CoinBase', function () {
 
     it('should fail if rate does not exist', async function () {
       await expect(
-        coinBase.queryExchangeRate(sourceCurrency, 'NA')
+        coinCodex.queryExchangeRate(sourceCurrency, 'NA')
       ).to.be.rejectedWith(
         `Exchange rate for currency pair ${sourceCurrency}/NA is not available`
       );
@@ -104,8 +101,8 @@ describe('CoinBase', function () {
       httpWrapperStub.sendPromise.rejects(fakeError);
 
       await expect(
-        coinBase.queryExchangeRate('NA', targetCurrency)
-      ).to.be.rejectedWith(`CoinBase API status ${expectedStatus}`);
+        coinCodex.queryExchangeRate('NA', targetCurrency)
+      ).to.be.rejectedWith(`CoinCodex API status ${expectedStatus}`);
     });
 
     it("should fail if API doesn't return a response", async function () {
@@ -113,8 +110,8 @@ describe('CoinBase', function () {
       httpWrapperStub.sendPromise.rejects(fakeError);
 
       await expect(
-        coinBase.queryExchangeRate('NA', targetCurrency)
-      ).to.be.rejectedWith('No response received from CoinBase API');
+        coinCodex.queryExchangeRate('NA', targetCurrency)
+      ).to.be.rejectedWith('No response received from CoinCodex API');
     });
   });
 });
