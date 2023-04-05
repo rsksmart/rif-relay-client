@@ -67,7 +67,7 @@ import {
   estimateInternalCallGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
-  selectNextRelay,
+  // selectNextRelay,
   validateRelayResponse,
 } from './utils';
 
@@ -83,7 +83,10 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private readonly _httpClient: HttpClient;
 
-  constructor(httpClient: HttpClient = new HttpClient()) {
+  constructor(
+    httpClient: HttpClient = new HttpClient(),
+    private _relayServerUrl?: string
+  ) {
     super();
 
     this._envelopingConfig = getEnvelopingConfig();
@@ -150,12 +153,14 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('No call verifier present. Check your configuration.');
     }
 
-    const relayServerUrl = this._envelopingConfig.preferredRelays.at(0);
+    if (!this._relayServerUrl) {
+      const relayServerUrl = this._envelopingConfig.preferredRelays.at(0);
 
-    if (!relayServerUrl) {
-      throw new Error(
-        'Check that your configuration contains at least one preferred relay with url.'
-      );
+      if (!relayServerUrl) {
+        throw new Error(
+          'Check that your configuration contains at least one preferred relay with url.'
+        );
+      }
     }
 
     const gasPrice: PromiseOrValue<BigNumberish> =
@@ -442,7 +447,7 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     //FIXME we should implement the relay selection strategy
-    const activeRelay = await selectNextRelay(this._httpClient);
+    const activeRelay = await this._getRelayServer(this._httpClient);
 
     const envelopingTx = await this._prepareHttpRequest(
       activeRelay.hubInfo,
@@ -454,6 +459,55 @@ class RelayClient extends EnvelopingEventEmitter {
       activeRelay,
       envelopingTx,
     };
+  }
+
+  private async _getRelayServer(httpClient: HttpClient): Promise<RelayInfo> {
+    if (this._relayServerUrl) {
+      return await this._getRelayInfo(httpClient, this._relayServerUrl);
+    }
+
+    const { preferredRelays } = getEnvelopingConfig();
+
+    for (const preferredRelay of preferredRelays ?? []) {
+      try {
+        return await this._getRelayInfo(httpClient, preferredRelay);
+      } catch (error) {
+        log.warn('Failed to getChainInfo from hub', error);
+        continue;
+      }
+    }
+
+    log.error('No more hubs available to select');
+
+    throw new Error('No more hubs available to select');
+  }
+
+  private async _getRelayInfo(httpClient: HttpClient, relayServerUrl: string) {
+    try {
+      const hubInfo = await httpClient.getChainInfo(relayServerUrl);
+
+      if (hubInfo.ready) {
+        const relayHub = RelayHub__factory.connect(
+          hubInfo.relayHubAddress,
+          getProvider()
+        );
+
+        const managerData = await relayHub.getRelayInfo(
+          hubInfo.relayManagerAddress
+        );
+
+        return {
+          hubInfo,
+          managerData,
+        };
+      }
+
+      throw new Error(`Hub is not ready`); //TODO validate this error description
+    } catch (error: unknown) {
+      throw new Error(
+        `Failed to getChainInfo from hub ${(error as Error).message}`
+      );
+    }
   }
 
   private async _attemptRelayTransaction(

@@ -27,10 +27,29 @@ import {
   MISSING_SMART_WALLET_ADDRESS,
   MISSING_CALL_FORWARDER,
 } from './constants/errorMessages';
+import RelayClient from './RelayClient';
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x');
+
+const getRelayClient = function* () {
+  const { preferredRelays } = getEnvelopingConfig();
+  let index = 0;
+
+  while (true) {
+    const url = preferredRelays[index];
+    index++;
+    const relayClient = new RelayClient(undefined, url);
+
+    if (index < preferredRelays.length) {
+      yield { relayClient, status: `OK` };
+    } else {
+      index = 0;
+      yield { relayClient, status: `End of list of preferred relays` };
+    }
+  }
+};
 
 const selectNextRelay = async (httpClient: HttpClient): Promise<RelayInfo> => {
   const { preferredRelays } = getEnvelopingConfig();
@@ -333,4 +352,5 @@ export {
   SHA3_NULL_S,
   validateRelayResponse,
   useEnveloping,
+  getRelayClient,
 };
