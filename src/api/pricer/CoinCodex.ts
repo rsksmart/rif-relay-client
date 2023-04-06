@@ -14,7 +14,7 @@ export default class CoinCodex extends BaseExchangeApi {
   private _url: URL;
 
   constructor(
-    private readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
+    public readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
     private readonly _baseUrl = BASE_URL,
     private readonly _priceApiPath = PRICE_API_PATH
   ) {
@@ -29,6 +29,12 @@ export default class CoinCodex extends BaseExchangeApi {
     let response: CoinCodexResponse;
     const sourceCurrencyName = this._getCurrencyName(sourceCurrency);
     const targetCurrencyName = targetCurrency.toUpperCase();
+
+    if (targetCurrencyName !== 'USD') {
+      throw Error(
+        `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
+      );
+    }
 
     try {
       const url = new URL(this._priceApiPath, this._url);
@@ -46,12 +52,6 @@ export default class CoinCodex extends BaseExchangeApi {
     }
 
     const { last_price_usd: lastPriceUsd }: CoinCodexResponse = response;
-
-    if (targetCurrencyName !== 'USD') {
-      throw Error(
-        `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
-      );
-    }
 
     return BigNumberJs(lastPriceUsd);
   }

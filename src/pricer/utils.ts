@@ -1,3 +1,12 @@
+import type { BaseExchangeApi } from 'src/api';
+import {
+  CoinBase,
+  CoinCodex,
+  CoinGecko,
+  RdocExchange,
+  TestExchange,
+} from '../api';
+
 type ExchangeApiName =
   | 'coinBase'
   | 'coinGecko'
@@ -15,6 +24,43 @@ const tokenToApi: Record<string, ExchangeApiName[]> = {
 
 const INTERMEDIATE_CURRENCY = 'USD';
 
-export { tokenToApi, INTERMEDIATE_CURRENCY };
+type CoinBaseConstructorArgs = ConstructorParameters<typeof CoinBase>;
+type CoinCodexConstructorArgs = ConstructorParameters<typeof CoinCodex>;
+type CoinGeckoConstructorArgs = ConstructorParameters<typeof CoinGecko>;
+type ConstructorArgs =
+  | CoinBaseConstructorArgs
+  | CoinCodexConstructorArgs
+  | CoinGeckoConstructorArgs;
+
+const builders = new Map<
+  ExchangeApiName,
+  (args?: ConstructorArgs) => BaseExchangeApi
+>();
+builders.set(
+  'coinBase',
+  (args?: CoinBaseConstructorArgs) => new CoinBase(...(args || []))
+);
+builders.set(
+  'coinGecko',
+  (args?: CoinCodexConstructorArgs) => new CoinCodex(...(args || []))
+);
+builders.set(
+  'coinCodex',
+  (args?: CoinGeckoConstructorArgs) => new CoinGecko(...(args || []))
+);
+builders.set('rdocExchange', () => new RdocExchange());
+builders.set('testExchange', () => new TestExchange());
+
+function createExchangeApi(
+  exchangeApiType: ExchangeApiName,
+  args?: ConstructorArgs
+): BaseExchangeApi {
+  const fn = builders.get(exchangeApiType);
+  if (fn) return fn(args);
+
+  throw new Error(`${exchangeApiType} is not mapped`);
+}
+
+export { tokenToApi, INTERMEDIATE_CURRENCY, createExchangeApi };
 
 export type { ExchangeApiName };

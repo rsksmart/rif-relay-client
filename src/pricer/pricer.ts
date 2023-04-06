@@ -1,8 +1,11 @@
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import log from 'loglevel';
-import { ExchangeApiName, INTERMEDIATE_CURRENCY, tokenToApi } from './utils';
-import { ExchangeApiFactory } from './ExchangeApiFactory';
-import type { BaseExchangeApi } from '../api';
+import {
+  ExchangeApiName,
+  INTERMEDIATE_CURRENCY,
+  tokenToApi,
+  createExchangeApi,
+} from './utils';
 
 const getExchangeRate = async (
   sourceCurrency: string,
@@ -57,38 +60,27 @@ const queryExchangeApis = async (
   targetCurrency: string
 ): Promise<BigNumberJs> => {
   for (const api of exchangesApi) {
-    const exchangeApi = ExchangeApiFactory.getExchangeApi(api);
+    const exchangeApi = createExchangeApi(api);
 
-    const exchangeRate = await queryExchangeApi(
-      exchangeApi,
-      sourceCurrency,
-      targetCurrency
-    );
+    try {
+      const exchangeRate = await exchangeApi.queryExchangeRate(
+        sourceCurrency,
+        targetCurrency
+      );
 
-    if (exchangeRate) {
-      tokenToApi[sourceCurrency.toUpperCase()] = [
-        ...new Set([api, ...exchangesApi]),
-      ];
+      if (exchangeRate) {
+        tokenToApi[sourceCurrency.toUpperCase()] = [
+          ...new Set([api, ...exchangesApi]),
+        ];
 
-      return exchangeRate;
+        return exchangeRate;
+      }
+    } catch (e: unknown) {
+      log.error(e);
     }
   }
 
   return BigNumberJs(0);
-};
-
-const queryExchangeApi = async (
-  exchangeApi: BaseExchangeApi,
-  sourceCurrency: string,
-  targetCurrency: string
-): Promise<BigNumberJs | undefined> => {
-  try {
-    return await exchangeApi.queryExchangeRate(sourceCurrency, targetCurrency);
-  } catch (e: unknown) {
-    log.error(e);
-
-    return undefined;
-  }
 };
 
 export { getExchangeRate };

@@ -8,10 +8,14 @@ import {
 } from 'sinon';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { getExchangeRate } from '../../src/pricer/pricer';
-import { tokenToApi } from '../../src/pricer/utils';
-import { ExchangeApiFactory } from '../../src/pricer/ExchangeApiFactory';
-import { BaseExchangeApi, CoinCodex, CoinGecko } from '../../src/api';
-import { INTERMEDIATE_CURRENCY } from '../../src/pricer/utils';
+import {
+  BaseExchangeApi,
+  CoinCodex,
+  CoinGecko,
+  RdocExchange,
+  TestExchange,
+} from '../../src/api';
+import * as pricerUtils from '../../src/pricer/utils';
 
 describe('pricer', function () {
   describe('getExchangeRate', function () {
@@ -22,7 +26,7 @@ describe('pricer', function () {
     let fakeRifRbtc: BigNumberJs;
     const RIF_SYMBOL = 'RIF';
     const RBTC_SYMBOL = 'RBTC';
-    let exchangeApiFactoryStub: SinonStub;
+    let createExchangeApiStub: SinonStub;
 
     beforeEach(function () {
       coinGeckoStub = createStubInstance(CoinGecko);
@@ -30,19 +34,18 @@ describe('pricer', function () {
       fakeRbtcUsd = randomBigNumberJs(25000);
       fakeRbtcRif = fakeRbtcUsd.dividedBy(fakeRifUsd);
       fakeRifRbtc = fakeRifUsd.dividedBy(fakeRbtcUsd);
-      exchangeApiFactoryStub = stub(ExchangeApiFactory, 'getExchangeApi')
-        .withArgs('coinGecko')
-        .returns(coinGeckoStub);
+      createExchangeApiStub = stub(pricerUtils, 'createExchangeApi');
+      createExchangeApiStub.withArgs('coinGecko').returns(coinGeckoStub);
       stubExchangeRate(
         coinGeckoStub,
         RIF_SYMBOL,
-        INTERMEDIATE_CURRENCY,
+        pricerUtils.INTERMEDIATE_CURRENCY,
         fakeRifUsd
       );
       stubExchangeRate(
         coinGeckoStub,
         RBTC_SYMBOL,
-        INTERMEDIATE_CURRENCY,
+        pricerUtils.INTERMEDIATE_CURRENCY,
         fakeRbtcUsd
       );
     });
@@ -78,13 +81,13 @@ describe('pricer', function () {
       stubExchangeRate(
         coinGeckoStub,
         rifSymbol,
-        INTERMEDIATE_CURRENCY,
+        pricerUtils.INTERMEDIATE_CURRENCY,
         fakeRifUsd
       );
       stubExchangeRate(
         coinGeckoStub,
         rbtcSymbol,
-        INTERMEDIATE_CURRENCY,
+        pricerUtils.INTERMEDIATE_CURRENCY,
         fakeRbtcUsd
       );
       const exchangeRate = await getExchangeRate(rifSymbol, rbtcSymbol);
@@ -103,21 +106,27 @@ describe('pricer', function () {
       stubExchangeRate(
         coinCodexStub,
         RBTC_SYMBOL,
-        INTERMEDIATE_CURRENCY,
+        pricerUtils.INTERMEDIATE_CURRENCY,
         fakeRbtcUsd
       );
-      exchangeApiFactoryStub.withArgs('coinCodex').returns(coinCodexStub);
+      createExchangeApiStub.withArgs('coinCodex').returns(coinCodexStub);
       coinGeckoStub.queryExchangeRate
-        .withArgs(RBTC_SYMBOL, INTERMEDIATE_CURRENCY)
+        .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
 
-      const beforeTokenToApi = tokenToApi[RBTC_SYMBOL];
+      const beforePriorityApi = pricerUtils.tokenToApi[RBTC_SYMBOL]?.at(0);
       const exchangeRate = await getExchangeRate(RIF_SYMBOL, RBTC_SYMBOL);
-      const afterTokenToApi = tokenToApi[RBTC_SYMBOL];
+      const afterPriorityApi = pricerUtils.tokenToApi[RBTC_SYMBOL]?.at(0);
 
+      expect(createExchangeApiStub.firstCall.calledWith(beforePriorityApi)).to
+        .be.true;
+      expect(createExchangeApiStub.firstCall.calledWith(afterPriorityApi)).to.be
+        .false;
       expect(exchangeRate.toString()).to.be.equal(fakeRifRbtc.toString());
-      expect(beforeTokenToApi?.at(0)).to.be.equal('coinGecko');
-      expect(afterTokenToApi?.at(0)).to.be.equal('coinCodex');
+      expect(createExchangeApiStub.lastCall.calledWith(beforePriorityApi)).to.be
+        .false;
+      expect(createExchangeApiStub.lastCall.calledWith(afterPriorityApi)).to.be
+        .true;
     });
 
     it('should fail if token does not have an API mapped', async function () {
@@ -128,12 +137,12 @@ describe('pricer', function () {
 
     it("should fail if all the mapped API's fail", async function () {
       const coinCodexStub = createStubInstance(CoinCodex);
-      exchangeApiFactoryStub.withArgs('coinCodex').returns(coinCodexStub);
+      createExchangeApiStub.withArgs('coinCodex').returns(coinCodexStub);
       coinGeckoStub.queryExchangeRate
-        .withArgs(RBTC_SYMBOL, INTERMEDIATE_CURRENCY)
+        .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
       coinCodexStub.queryExchangeRate
-        .withArgs(RBTC_SYMBOL, INTERMEDIATE_CURRENCY)
+        .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
 
       await expect(getExchangeRate(RIF_SYMBOL, RBTC_SYMBOL)).to.be.rejectedWith(
@@ -142,10 +151,13 @@ describe('pricer', function () {
     });
 
     it('should fail if intermediate currency is not valid', async function () {
-      await expect(
-        getExchangeRate(RIF_SYMBOL, RBTC_SYMBOL, 'NA')
-      ).to.be.rejectedWith(
-        `Currency conversion for pair ${RIF_SYMBOL}:${RBTC_SYMBOL} not found in current exchange api`
+      const rDocExchangeStub = createStubInstance(RdocExchange);
+      const testExchangeStub = createStubInstance(TestExchange);
+      createExchangeApiStub.withArgs('rdocExchange').returns(rDocExchangeStub);
+      createExchangeApiStub.withArgs('testExchange').returns(testExchangeStub);
+
+      await expect(getExchangeRate('RDOC', 'TKN', 'NA')).to.be.rejectedWith(
+        `Currency conversion for pair RDOC:TKN not found in current exchange api`
       );
     });
   });

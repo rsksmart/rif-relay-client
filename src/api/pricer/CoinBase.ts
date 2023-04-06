@@ -17,7 +17,7 @@ export default class CoinBase extends BaseExchangeApi {
   private _url: URL;
 
   constructor(
-    private readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
+    public readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
     private readonly _baseUrl = BASE_URL,
     private readonly _priceApiPath = PRICE_API_PATH
   ) {
