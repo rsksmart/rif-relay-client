@@ -1,4 +1,3 @@
-import type { HttpClient } from './api/common';
 import { BigNumberish, BigNumber, Transaction, constants, utils } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
@@ -21,26 +20,27 @@ import type {
   EnvelopingTxRequest,
   DeployRequest,
   RelayRequest,
-  RelayInfo,
 } from './common';
 import {
   MISSING_SMART_WALLET_ADDRESS,
   MISSING_CALL_FORWARDER,
 } from './constants/errorMessages';
 import RelayClient from './RelayClient';
+import type { HttpClient } from './api/common';
 
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x');
 
-const getRelayClient = function* () {
+const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
+
   let index = 0;
 
   while (true) {
     const url = preferredRelays[index];
     index++;
-    const relayClient = new RelayClient(undefined, url);
+    const relayClient = new RelayClient(httpClient, url);
 
     if (index < preferredRelays.length) {
       yield { relayClient, status: `OK` };
@@ -49,39 +49,6 @@ const getRelayClient = function* () {
       yield { relayClient, status: `End of list of preferred relays` };
     }
   }
-};
-
-const selectNextRelay = async (httpClient: HttpClient): Promise<RelayInfo> => {
-  const { preferredRelays } = getEnvelopingConfig();
-
-  for (const preferredRelay of preferredRelays ?? []) {
-    let hubInfo;
-    let managerData;
-
-    try {
-      hubInfo = await httpClient.getChainInfo(preferredRelay);
-
-      if (hubInfo.ready) {
-        const relayHub = RelayHub__factory.connect(
-          hubInfo.relayHubAddress,
-          getProvider()
-        );
-        managerData = await relayHub.getRelayInfo(hubInfo.relayManagerAddress);
-
-        return {
-          hubInfo,
-          managerData,
-        };
-      }
-    } catch (error) {
-      log.warn('Failed to getChainInfo from hub', error);
-      continue;
-    }
-  }
-
-  log.error('No more hubs available to select');
-
-  throw new Error('No more hubs available to select');
 };
 
 const estimateInternalCallGas = async ({
@@ -341,7 +308,6 @@ const useEnveloping = (
 };
 
 export {
-  selectNextRelay,
   estimateInternalCallGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
@@ -352,5 +318,5 @@ export {
   SHA3_NULL_S,
   validateRelayResponse,
   useEnveloping,
-  getRelayClient,
+  getRelayClientGenerator,
 };

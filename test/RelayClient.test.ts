@@ -53,7 +53,6 @@ import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
   MISSING_REQUEST_FIELD,
-  NOT_RELAYED_TRANSACTION,
 } from '../src/constants/errorMessages';
 import EnvelopingEventEmitter, {
   EVENT_SEND_TO_RELAYER,
@@ -89,14 +88,19 @@ const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;
 const FAKE_GAS_PRICE = BigNumber.from(123);
 const FAKE_SIGNATURE = 'FAKE_SIGNATURE';
+const FAKE_RELAY_URL = 'http://fake.relay.url';
+
+const preferredRelays: EnvelopingConfig['preferredRelays'] = [
+  'https://first.relay.co',
+  'http://second.relay.co',
+  'http://third.relay.co',
+];
 
 describe('RelayClient', function () {
   beforeEach(function () {
-    sandbox.replace(
-      clientConfiguration,
-      'getEnvelopingConfig',
-      () => FAKE_ENVELOPING_CONFIG
-    );
+    sandbox.replace(clientConfiguration, 'getEnvelopingConfig', () => {
+      return { ...FAKE_ENVELOPING_CONFIG, preferredRelays };
+    });
   });
 
   afterEach(function () {
@@ -118,12 +122,25 @@ describe('RelayClient', function () {
         'Provider'
       ).to.equal(expectedHttpClient);
     });
+
+    it('Should not set relay client URL when not sent as parameter', function () {
+      const relayClient = new RelayClient();
+
+      expect(relayClient.getRelayServerUrl()).equal(undefined);
+    });
+
+    it('Should set relay client URL when sent as parameter', function () {
+      const relayClient = new RelayClient(undefined, FAKE_RELAY_URL);
+
+      expect(relayClient.getRelayServerUrl()).equal(FAKE_RELAY_URL);
+    });
   });
 
   describe('methods', function () {
     type RelayClientExposed = {
       _envelopingConfig: EnvelopingConfig;
       _httpClient: HttpClient;
+      _relayServerUrl: string;
       _prepareHttpRequest: (
         hubInfo: HubInfo,
         envelopingRequest: EnvelopingRequest,
@@ -159,6 +176,7 @@ describe('RelayClient', function () {
         envelopingTx: EnvelopingTxRequest,
         maxPossibleGas: BigNumber
       ) => Promise<void>;
+      _getRelayServer: () => Promise<RelayInfo>;
     } & {
       [key in keyof RelayClient]: RelayClient[key];
     };
@@ -872,10 +890,6 @@ describe('RelayClient', function () {
         forwarderStub.getOwner.resolves(ownerSolidityHash);
       });
 
-      afterEach(function () {
-        sandbox.restore();
-      });
-
       it('should return true if its the owner of the smart wallet', async function () {
         const verify = await relayClient.isSmartWalletOwner(
           smartWalletAddress,
@@ -931,10 +945,6 @@ describe('RelayClient', function () {
         });
       });
 
-      afterEach(function () {
-        sandbox.restore();
-      });
-
       it('should relay the transaction in the first attempt', async function () {
         const transaction = await relayClient.relayTransaction(
           envelopingRequest
@@ -951,11 +961,14 @@ describe('RelayClient', function () {
         await expect(transaction).to.be.rejectedWith(error);
       });
 
-      it('should throw if the attempt to relay fail', async function () {
-        attemptRelayTransactionStub.onFirstCall().resolves(undefined);
-        const transaction = relayClient.relayTransaction(envelopingRequest);
+      it('Should throw the relay error if the attempt to relay fails', async function () {
+        const fakeError = 'Some fake error message';
 
-        await expect(transaction).to.be.rejectedWith(NOT_RELAYED_TRANSACTION);
+        attemptRelayTransactionStub.throws(new Error(fakeError));
+
+        await expect(
+          relayClient.relayTransaction(envelopingRequest)
+        ).to.be.rejectedWith(fakeError);
       });
 
       it.skip('should relay the transaction after the first attempt', async function () {
@@ -1011,10 +1024,6 @@ describe('RelayClient', function () {
           activeRelay: relayInfo,
           envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST,
         });
-      });
-
-      afterEach(function () {
-        sandbox.restore();
       });
 
       it('should estimate a relay transaction', async function () {
@@ -1100,12 +1109,8 @@ describe('RelayClient', function () {
         envelopingTx: FAKE_RELAY_TRANSACTION_REQUEST,
       };
 
-      afterEach(function () {
-        sandbox.restore();
-      });
-
       it('should build a transaction using a hub', async function () {
-        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+        sandbox.stub(relayClient, '_getRelayServer').resolves(relayInfo);
         relayClient._prepareHttpRequest = sandbox
           .stub()
           .returns(FAKE_RELAY_TRANSACTION_REQUEST);
@@ -1118,7 +1123,7 @@ describe('RelayClient', function () {
 
       it('should throw if there is no hub available', async function () {
         const error = new Error('No more hubs available to select');
-        sandbox.stub(relayUtils, 'selectNextRelay').throws(error);
+        sandbox.stub(relayClient, '_getRelayServer').throws(error);
         const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
 
         await expect(enveloping).to.be.rejectedWith(error);
@@ -1128,7 +1133,7 @@ describe('RelayClient', function () {
         const error = new Error(
           'FeesReceiver has to be a valid non-zero address'
         );
-        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+        sandbox.stub(relayClient, '_getRelayServer').resolves(relayInfo);
         relayClient._prepareHttpRequest = sandbox.stub().throws(error);
         const enveloping = relayClient._getHubEnvelopingTx(envelopingRequest);
 
@@ -1137,7 +1142,7 @@ describe('RelayClient', function () {
 
       it('Should build a transaction using a wallet sent as parameter', async function () {
         const signerWallet = Wallet.createRandom();
-        sandbox.stub(relayUtils, 'selectNextRelay').resolves(relayInfo);
+        sandbox.stub(relayClient, '_getRelayServer').resolves(relayInfo);
 
         relayClient._prepareHttpRequest = sandbox
           .stub()
@@ -1158,6 +1163,7 @@ describe('RelayClient', function () {
       const transaction = {} as Transaction;
       let parseTransactionStub: SinonStub;
       let validateResponseStub: SinonStub;
+      const fakeErrorMessage = 'Fake error message';
 
       const relayInfo: RelayInfo = {
         hubInfo: FAKE_HUB_INFO,
@@ -1178,10 +1184,6 @@ describe('RelayClient', function () {
         relayClient._broadcastTx = sandbox.stub().resolves(undefined);
       });
 
-      afterEach(function () {
-        sandbox.restore();
-      });
-
       it('should return transaction if server relayed it properly', async function () {
         const expectedTransaction = await relayClient._attemptRelayTransaction(
           relayInfo,
@@ -1191,42 +1193,37 @@ describe('RelayClient', function () {
         expect(expectedTransaction).to.be.equals(transaction);
       });
 
-      it('should throw if server cannot relay transaction', async function () {
-        httpClient.relayTransaction.throws(
-          'Got invalid response from relay: signedTx field missing.'
-        );
-        const attempRelay = await relayClient._attemptRelayTransaction(
-          relayInfo,
-          FAKE_RELAY_TRANSACTION_REQUEST
-        );
+      it('Should throw if server cannot relay transaction', async function () {
+        httpClient.relayTransaction.throws(new Error(fakeErrorMessage));
 
-        expect(attempRelay).to.be.undefined;
+        await expect(
+          relayClient._attemptRelayTransaction(
+            relayInfo,
+            FAKE_RELAY_TRANSACTION_REQUEST
+          )
+        ).to.be.rejectedWith(fakeErrorMessage);
       });
 
-      it('should throw if transaction cannot be parsed', async function () {
-        const error = ethersLogger.makeError(
-          'invalid arrayify value',
-          errors.INVALID_ARGUMENT
-        );
-        parseTransactionStub.throws(error);
-        const attempRelay = await relayClient._attemptRelayTransaction(
-          relayInfo,
-          FAKE_RELAY_TRANSACTION_REQUEST
-        );
+      it('Should throw if transaction cannot be parsed', async function () {
+        parseTransactionStub.throws(new Error(fakeErrorMessage));
 
-        expect(attempRelay).to.be.undefined;
+        await expect(
+          relayClient._attemptRelayTransaction(
+            relayInfo,
+            FAKE_RELAY_TRANSACTION_REQUEST
+          )
+        ).to.be.rejectedWith(fakeErrorMessage);
       });
 
       it('should throw if transaction cannot be validated due to transaction has no recipient address', async function () {
-        validateResponseStub.throws(
-          new Error('Transaction has no recipient address')
-        );
-        const attempRelay = await relayClient._attemptRelayTransaction(
-          relayInfo,
-          FAKE_RELAY_TRANSACTION_REQUEST
-        );
+        validateResponseStub.throws(new Error(fakeErrorMessage));
 
-        expect(attempRelay).to.be.undefined;
+        await expect(
+          relayClient._attemptRelayTransaction(
+            relayInfo,
+            FAKE_RELAY_TRANSACTION_REQUEST
+          )
+        ).to.be.rejectedWith(fakeErrorMessage);
       });
 
       it(`should emit '${EVENT_SEND_TO_RELAYER}'`, async function () {
@@ -1249,10 +1246,6 @@ describe('RelayClient', function () {
       beforeEach(function () {
         sendTransactionStub = sandbox.stub();
         providerStub.sendTransaction = sendTransactionStub;
-      });
-
-      afterEach(function () {
-        sandbox.restore();
       });
 
       it('should send transaction if cannot find it in pool or receipt', async function () {
@@ -1294,10 +1287,6 @@ describe('RelayClient', function () {
         relayClient._verifyWorkerBalance = sandbox.stub().returns(undefined);
         relayClient._verifyWithVerifiers = sandbox.stub().returns(undefined);
         relayClient._verifyWithRelayHub = sandbox.stub().returns(undefined);
-      });
-
-      afterEach(function () {
-        sandbox.restore();
       });
 
       it('should allow if enveloping transaction pass all verifiers', async function () {
@@ -1677,6 +1666,125 @@ describe('RelayClient', function () {
         await expect(verifyWithRelayHub).to.be.rejectedWith(
           'Destination contract reverted'
         );
+      });
+    });
+
+    describe('_getRelayServer', function () {
+      const unavailableRelayHub: HubInfo = {
+        ...FAKE_HUB_INFO,
+        ready: false,
+      };
+
+      const availableRelayHub: HubInfo = {
+        ...FAKE_HUB_INFO,
+        ready: true,
+      };
+
+      let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
+      let httpClientStub: Sinon.SinonStubbedInstance<HttpClient>;
+
+      beforeEach(function () {
+        httpClientStub = sandbox.createStubInstance(HttpClient);
+      });
+
+      describe('When _relayServerUrl is set', function () {
+        const expectedUrl = 'http://expected.relay.url.net';
+
+        beforeEach(function () {
+          relayClient._relayServerUrl = FAKE_RELAY_URL;
+        });
+
+        it('Should return the relay info when it is available', async function () {
+          httpClientStub.getChainInfo.resolves(availableRelayHub);
+
+          relayClient._httpClient = httpClientStub;
+
+          relayHubStub = {
+            getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
+          } as unknown as typeof relayHubStub;
+
+          sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+
+          const {
+            managerData: { url: actualUrl },
+          } = await relayClient._getRelayServer();
+
+          expect(actualUrl).to.equal(expectedUrl);
+        });
+
+        it('Should throw an error if the relay is not available', async function () {
+          httpClientStub.getChainInfo.resolves(unavailableRelayHub);
+          relayClient._httpClient = httpClientStub;
+
+          const nextRelay = relayClient._getRelayServer();
+
+          await expect(nextRelay).to.be.rejectedWith(
+            'Failed to get relay information: Hub is not ready'
+          );
+        });
+      });
+
+      describe('When _relayServerUrl is not set', function () {
+        it('Should iterate the array of relays and select an available one', async function () {
+          const expectedUrl = preferredRelays[2];
+
+          httpClientStub.getChainInfo
+            .onFirstCall()
+            .resolves(unavailableRelayHub)
+            .onSecondCall()
+            .resolves(unavailableRelayHub)
+            .onThirdCall()
+            .resolves(availableRelayHub);
+
+          relayClient._httpClient = httpClientStub;
+
+          relayHubStub = {
+            getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
+          } as unknown as typeof relayHubStub;
+
+          sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+
+          const {
+            managerData: { url: actualUrl },
+          } = await relayClient._getRelayServer();
+
+          expect(actualUrl).to.equal(expectedUrl);
+        });
+
+        it('Should throw an error if not relay is available', async function () {
+          httpClientStub.getChainInfo.resolves(unavailableRelayHub);
+          relayClient._httpClient = httpClientStub;
+
+          const nextRelay = relayClient._getRelayServer();
+
+          await expect(nextRelay).to.be.rejectedWith(
+            'No more hubs available to select'
+          );
+        });
+
+        it('Should keep iterating if a ping call throws an error', async function () {
+          const expectedUrl = preferredRelays[1];
+
+          httpClientStub.getChainInfo
+            .onFirstCall()
+            .throws(new Error('Some fake error'))
+            .onSecondCall()
+            .resolves(availableRelayHub);
+
+          relayClient._httpClient = httpClientStub;
+
+          relayHubStub = {
+            getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
+          } as unknown as typeof relayHubStub;
+
+          sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+
+          const {
+            managerData: { url: actualUrl },
+          } = await relayClient._getRelayServer();
+
+          expect(actualUrl).to.equal(expectedUrl);
+        });
       });
     });
   });
