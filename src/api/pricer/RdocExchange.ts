@@ -21,7 +21,7 @@ export default class RdocExchange extends BaseExchangeApi {
   queryExchangeRate(
     sourceCurrency: string,
     targetCurrency: string
-  ): BigNumberJs {
+  ): Promise<BigNumberJs> {
     const conversionRate =
       rates[sourceCurrency.toUpperCase()]?.[targetCurrency.toUpperCase()];
 
@@ -31,6 +31,6 @@ export default class RdocExchange extends BaseExchangeApi {
       );
     }
 
-    return BigNumberJs(conversionRate);
+    return Promise.resolve(BigNumberJs(conversionRate));
   }
 }

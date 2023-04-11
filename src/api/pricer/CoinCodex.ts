@@ -37,9 +37,8 @@ export default class CoinCodex extends BaseExchangeApi {
     }
 
     try {
-      const url = new URL(this._priceApiPath, this._url);
       response = await this._httpWrapper.sendPromise<CoinCodexResponse>(
-        `${url.toString()}/${sourceCurrencyName}`
+        `${this._url.toString()}/${sourceCurrencyName}`
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;

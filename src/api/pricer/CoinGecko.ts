@@ -39,11 +39,8 @@ export default class CoinGecko extends BaseExchangeApi {
     const targetCurrencyName = targetCurrency.toLowerCase();
 
     try {
-      const url = new URL(this._priceApiPath, this._url);
-      url.searchParams.append('ids', sourceCurrencyName);
-      url.searchParams.append('vs_currencies', targetCurrencyName);
       response = await this._httpWrapper.sendPromise<CoinGeckoResponse>(
-        url.toString()
+        `${this._url.toString()}?ids=${sourceCurrencyName}&vs_currencies=${targetCurrencyName}`
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;

@@ -25,5 +25,5 @@ export default abstract class BaseExchangeApi {
   abstract queryExchangeRate(
     sourceCurrency: string,
     targetCurrency: string
-  ): Promise<BigNumberJs> | BigNumberJs;
+  ): Promise<BigNumberJs>;
 }

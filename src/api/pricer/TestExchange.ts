@@ -22,7 +22,7 @@ export default class TestExchange extends BaseExchangeApi {
   queryExchangeRate(
     sourceCurrency: string,
     targetCurrency: string
-  ): BigNumberJs {
+  ): Promise<BigNumberJs> {
     const conversionRate = rates[sourceCurrency]?.[targetCurrency];
 
     if (!conversionRate) {
@@ -31,6 +31,6 @@ export default class TestExchange extends BaseExchangeApi {
       );
     }
 
-    return BigNumberJs(conversionRate);
+    return Promise.resolve(BigNumberJs(conversionRate));
   }
 }

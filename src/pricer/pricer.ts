@@ -62,22 +62,25 @@ const queryExchangeApis = async (
   for (const api of exchangesApi) {
     const exchangeApi = createExchangeApi(api);
 
-    try {
-      const exchangeRate = await exchangeApi.queryExchangeRate(
-        sourceCurrency,
-        targetCurrency
-      );
+    const exchangeRate = await exchangeApi
+      .queryExchangeRate(sourceCurrency, targetCurrency)
+      .catch((e: unknown) => {
+        log.error(e);
 
-      if (exchangeRate) {
-        tokenToApi[sourceCurrency.toUpperCase()] = [
-          ...new Set([api, ...exchangesApi]),
-        ];
+        return undefined;
+      });
 
-        return exchangeRate;
-      }
-    } catch (e: unknown) {
-      log.error(e);
+    if (exchangeRate) {
+      tokenToApi[sourceCurrency.toUpperCase()] = [
+        ...new Set([api, ...exchangesApi]),
+      ];
+
+      return exchangeRate;
     }
+
+    log.warn(
+      `No exchange rate found for ${sourceCurrency}/${targetCurrency} using API ${api}`
+    );
   }
 
   return BigNumberJs(0);

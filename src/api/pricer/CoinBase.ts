@@ -34,10 +34,8 @@ export default class CoinBase extends BaseExchangeApi {
     const targetCurrencyName = targetCurrency.toUpperCase();
 
     try {
-      const url = new URL(this._priceApiPath, this._url);
-      url.searchParams.append('currency', sourceCurrencyName);
       response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
-        url.toString()
+        `${this._url.toString()}?currency=${sourceCurrencyName}`
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;

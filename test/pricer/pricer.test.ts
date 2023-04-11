@@ -66,7 +66,7 @@ describe('pricer', function () {
     ) {
       exchangeApi.queryExchangeRate
         .withArgs(sourceCurrency, targetCurrency)
-        .returns(Promise.resolve(exchangeRate));
+        .resolves(exchangeRate);
     }
 
     it('should return exchange rate', async function () {
@@ -151,8 +151,12 @@ describe('pricer', function () {
     });
 
     it('should fail if intermediate currency is not valid', async function () {
-      const rDocExchangeStub = createStubInstance(RdocExchange);
-      const testExchangeStub = createStubInstance(TestExchange);
+      const rDocExchangeStub = createStubInstance(RdocExchange, {
+        queryExchangeRate: Promise.reject(),
+      });
+      const testExchangeStub = createStubInstance(TestExchange, {
+        queryExchangeRate: Promise.reject(),
+      });
       createExchangeApiStub.withArgs('rdocExchange').returns(rDocExchangeStub);
       createExchangeApiStub.withArgs('testExchange').returns(testExchangeStub);
 

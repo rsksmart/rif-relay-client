@@ -41,23 +41,22 @@ describe('RdocExchange', function () {
   });
 
   describe('queryExchangeRate', function () {
-    it('Should return exchange rate RDOC/USD', function () {
-      expect(
-        rdocExchange
-          .queryExchangeRate(SOURCE_CURRENCY, TARGET_CURRENCY)
-          .toString()
-      ).to.be.equal(X_RATE_RDOC_USD);
+    it('should return exchange rate RDOC/USD', async function () {
+      const exchangeRate = await rdocExchange.queryExchangeRate(
+        SOURCE_CURRENCY,
+        TARGET_CURRENCY
+      );
+
+      expect(exchangeRate.toString()).to.be.equal(X_RATE_RDOC_USD);
     });
 
-    it('Should return exchange rate rdoc/usd', function () {
-      expect(
-        rdocExchange
-          .queryExchangeRate(
-            SOURCE_CURRENCY.toLowerCase(),
-            TARGET_CURRENCY.toLowerCase()
-          )
-          .toString()
-      ).to.be.equal(X_RATE_RDOC_USD);
+    it('should return exchange rate rdoc/usd', async function () {
+      const exchangeRate = await rdocExchange.queryExchangeRate(
+        SOURCE_CURRENCY.toLowerCase(),
+        TARGET_CURRENCY.toLowerCase()
+      );
+
+      expect(exchangeRate.toString()).to.be.equal(X_RATE_RDOC_USD);
     });
 
     it('should fail if rate does not exist', function () {
