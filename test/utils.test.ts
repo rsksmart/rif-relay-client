@@ -608,15 +608,13 @@ describe('utils', function () {
     });
 
     it('Should return done = true if the list of relays has reached the end', function () {
-      let next: IteratorResult<RelayClient, void>;
-
       for (let i = 0; i < preferredRelays.length; i++) {
-        next = relayGenerator.next();
+        relayGenerator.next();
       }
 
-      next = relayGenerator.next();
+      const next = relayGenerator.next();
 
-      expect(next!.done).equal(true);
+      expect(next.done).equal(true);
     });
   });
 });
