@@ -43,6 +43,10 @@ const queryExchangeRate = async (
   sourceCurrency: string,
   targetCurrency: string
 ): Promise<BigNumberJs> => {
+  if (sourceCurrency === targetCurrency) {
+    return BigNumberJs(1);
+  }
+
   const exchangeApis = tokenToApi[sourceCurrency.toUpperCase()];
 
   if (!exchangeApis) {
@@ -86,4 +90,4 @@ const queryExchangeApis = async (
   return BigNumberJs(0);
 };
 
-export { getExchangeRate };
+export { getExchangeRate, queryExchangeRate };

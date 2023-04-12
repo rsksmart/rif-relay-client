@@ -38,15 +38,15 @@ const builders = new Map<
 >();
 builders.set(
   'coinBase',
-  (args?: CoinBaseConstructorArgs) => new CoinBase(...(args || []))
-);
-builders.set(
-  'coinGecko',
-  (args?: CoinCodexConstructorArgs) => new CoinCodex(...(args || []))
+  (args: CoinBaseConstructorArgs = []) => new CoinBase(...args)
 );
 builders.set(
   'coinCodex',
-  (args?: CoinGeckoConstructorArgs) => new CoinGecko(...(args || []))
+  (args: CoinCodexConstructorArgs = []) => new CoinCodex(...args)
+);
+builders.set(
+  'coinGecko',
+  (args: CoinGeckoConstructorArgs = []) => new CoinGecko(...args)
 );
 builders.set('rdocExchange', () => new RdocExchange());
 builders.set('testExchange', () => new TestExchange());
@@ -56,9 +56,9 @@ function createExchangeApi(
   args?: ConstructorArgs
 ): BaseExchangeApi {
   const fn = builders.get(exchangeApiType);
-  if (fn) return fn(args);
+  if (!fn) throw new Error(`${exchangeApiType} is not mapped`);
 
-  throw new Error(`${exchangeApiType} is not mapped`);
+  return fn(args);
 }
 
 export { tokenToApi, INTERMEDIATE_CURRENCY, createExchangeApi };

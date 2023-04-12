@@ -75,6 +75,12 @@ describe('pricer', function () {
       expect(exchangeRate.toString()).to.be.equal(fakeRifRbtc.toString());
     });
 
+    it('should return exchange rate if currency is fiat', async function () {
+      const exchangeRate = await getExchangeRate(RIF_SYMBOL, 'USD');
+
+      expect(exchangeRate.toString()).to.be.equal(fakeRifUsd.toString());
+    });
+
     it('should return exchange rate if currencies are in lower case', async function () {
       const rifSymbol = RIF_SYMBOL.toLowerCase();
       const rbtcSymbol = RBTC_SYMBOL.toLowerCase();
