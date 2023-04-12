@@ -1718,9 +1718,7 @@ describe('RelayClient', function () {
 
           const nextRelay = relayClient._getRelayServer();
 
-          await expect(nextRelay).to.be.rejectedWith(
-            'Failed to get relay information: Hub is not ready'
-          );
+          await expect(nextRelay).to.be.rejectedWith('Hub is not ready');
         });
       });
 

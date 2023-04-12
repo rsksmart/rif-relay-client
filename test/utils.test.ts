@@ -585,14 +585,7 @@ describe('utils', function () {
   });
 
   describe('getRelayClientGenerator', function () {
-    let relayGenerator: Generator<
-      {
-        relayClient: RelayClient;
-        status: string;
-      },
-      never,
-      unknown
-    >;
+    let relayGenerator: Generator<RelayClient, void, unknown>;
 
     beforeEach(function () {
       relayGenerator = getRelayClientGenerator();
@@ -600,46 +593,30 @@ describe('utils', function () {
 
     it('Should iterate the list of preferred relays and return a preconfigured RelayClient instance each time', function () {
       for (let i = 0; i < preferredRelays.length; i++) {
-        const nextRelayClient = relayGenerator.next().value.relayClient;
+        const nextRelayClient = relayGenerator.next().value as RelayClient;
 
         expect(nextRelayClient.getRelayServerUrl()).equal(preferredRelays[i]);
       }
     });
 
-    it('Should return status OK if there are more relays in the list', function () {
+    it('Should return done = false if there are more relays in the list', function () {
       for (let i = 0; i < preferredRelays.length - 1; i++) {
-        const next = relayGenerator.next().value;
+        const next = relayGenerator.next();
 
-        expect(next.status).equal('OK');
+        expect(next.done).equal(false);
       }
     });
 
-    it('Should return a message indicating that the list of relays has reached the end', function () {
-      let next: IteratorResult<
-        {
-          relayClient: RelayClient;
-          status: string;
-        },
-        never
-      >;
+    it('Should return done = true if the list of relays has reached the end', function () {
+      let next: IteratorResult<RelayClient, void>;
 
       for (let i = 0; i < preferredRelays.length; i++) {
         next = relayGenerator.next();
       }
 
-      expect(next!.value.status).equal('End of list of preferred relays');
-    });
+      next = relayGenerator.next();
 
-    it('Should restar from the first element, once the list of relays has reached the end, ', function () {
-      for (let i = 0; i < preferredRelays.length; i++) {
-        relayGenerator.next();
-      }
-
-      const next = relayGenerator.next();
-
-      expect(next.value.relayClient.getRelayServerUrl()).equal(
-        preferredRelays[0]
-      );
+      expect(next!.done).equal(true);
     });
   });
 });

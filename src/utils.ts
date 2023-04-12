@@ -35,19 +35,8 @@ const SHA3_NULL_S = utils.keccak256('0x');
 const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
 
-  let index = 0;
-
-  while (true) {
-    const url = preferredRelays[index];
-    index++;
-    const relayClient = new RelayClient(httpClient, url);
-
-    if (index < preferredRelays.length) {
-      yield { relayClient, status: `OK` };
-    } else {
-      index = 0;
-      yield { relayClient, status: `End of list of preferred relays` };
-    }
+  for (const relay of preferredRelays) {
+    yield new RelayClient(httpClient, relay);
   }
 };
 

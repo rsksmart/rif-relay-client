@@ -155,14 +155,13 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('No call verifier present. Check your configuration.');
     }
 
-    if (!this._relayServerUrl) {
-      const relayServerUrl = this._envelopingConfig.preferredRelays.at(0);
-
-      if (!relayServerUrl) {
-        throw new Error(
-          'Check that your configuration contains at least one preferred relay with url.'
-        );
-      }
+    if (
+      !this._relayServerUrl &&
+      !this._envelopingConfig.preferredRelays.at(0)
+    ) {
+      throw new Error(
+        'Check that your configuration contains at least one preferred relay with url.'
+      );
     }
 
     const gasPrice: PromiseOrValue<BigNumberish> =
@@ -454,7 +453,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _getRelayServer(): Promise<RelayInfo> {
     if (this._relayServerUrl) {
-      return await this._getRelayInfo();
+      return await this._getRelayInfo(this._relayServerUrl);
     }
 
     const { preferredRelays } = getEnvelopingConfig();
@@ -473,34 +472,26 @@ class RelayClient extends EnvelopingEventEmitter {
     throw new Error('No more hubs available to select');
   }
 
-  private async _getRelayInfo(relayServerUrl = this._relayServerUrl) {
-    try {
-      const hubInfo = await this._httpClient.getChainInfo(
-        relayServerUrl as string
-      );
+  private async _getRelayInfo(relayServerUrl: string) {
+    const hubInfo = await this._httpClient.getChainInfo(relayServerUrl);
 
-      if (!hubInfo.ready) {
-        throw new Error(`Hub is not ready`);
-      }
-
-      const relayHub = RelayHub__factory.connect(
-        hubInfo.relayHubAddress,
-        getProvider()
-      );
-
-      const managerData = await relayHub.getRelayInfo(
-        hubInfo.relayManagerAddress
-      );
-
-      return {
-        hubInfo,
-        managerData,
-      };
-    } catch (error: unknown) {
-      throw new Error(
-        `Failed to get relay information: ${(error as Error).message}`
-      );
+    if (!hubInfo.ready) {
+      throw new Error(`Hub is not ready`);
     }
+
+    const relayHub = RelayHub__factory.connect(
+      hubInfo.relayHubAddress,
+      getProvider()
+    );
+
+    const managerData = await relayHub.getRelayInfo(
+      hubInfo.relayManagerAddress
+    );
+
+    return {
+      hubInfo,
+      managerData,
+    };
   }
 
   private async _attemptRelayTransaction(
