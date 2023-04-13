@@ -157,7 +157,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     if (
       !this._relayServerUrl &&
-      !this._envelopingConfig.preferredRelays.at(0)
+      !this._envelopingConfig.preferredRelays.length
     ) {
       throw new Error(
         'Check that your configuration contains at least one preferred relay with url.'
