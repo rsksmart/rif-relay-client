@@ -44,7 +44,9 @@ export default class CoinCodex extends BaseExchangeApi {
       const { response } = error as ResponseError;
 
       if (!response) {
-        throw new Error('No response received from CoinCodex API');
+        throw new Error(
+          `No response received from CoinCodex API: ${(error as Error).message}`
+        );
       }
 
       throw Error(`CoinCodex API status ${response.status}`);

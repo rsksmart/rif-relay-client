@@ -9,7 +9,6 @@ import {
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { getExchangeRate } from '../../src/pricer/pricer';
 import {
-  BaseExchangeApi,
   CoinCodex,
   CoinGecko,
   RdocExchange,
@@ -36,18 +35,12 @@ describe('pricer', function () {
       fakeRifRbtc = fakeRifUsd.dividedBy(fakeRbtcUsd);
       createExchangeApiStub = stub(pricerUtils, 'createExchangeApi');
       createExchangeApiStub.withArgs('coinGecko').returns(coinGeckoStub);
-      stubExchangeRate(
-        coinGeckoStub,
-        RIF_SYMBOL,
-        pricerUtils.INTERMEDIATE_CURRENCY,
-        fakeRifUsd
-      );
-      stubExchangeRate(
-        coinGeckoStub,
-        RBTC_SYMBOL,
-        pricerUtils.INTERMEDIATE_CURRENCY,
-        fakeRbtcUsd
-      );
+      coinGeckoStub.queryExchangeRate
+        .withArgs(RIF_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
+        .resolves(fakeRifUsd);
+      coinGeckoStub.queryExchangeRate
+        .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
+        .resolves(fakeRbtcUsd);
     });
 
     afterEach(function () {
@@ -56,17 +49,6 @@ describe('pricer', function () {
 
     function randomBigNumberJs(max: number) {
       return BigNumberJs(Math.random() * max);
-    }
-
-    function stubExchangeRate(
-      exchangeApi: SinonStubbedInstance<BaseExchangeApi>,
-      sourceCurrency: string,
-      targetCurrency: string,
-      exchangeRate: BigNumberJs
-    ) {
-      exchangeApi.queryExchangeRate
-        .withArgs(sourceCurrency, targetCurrency)
-        .resolves(exchangeRate);
     }
 
     it('should return exchange rate', async function () {
@@ -84,18 +66,12 @@ describe('pricer', function () {
     it('should return exchange rate if currencies are in lower case', async function () {
       const rifSymbol = RIF_SYMBOL.toLowerCase();
       const rbtcSymbol = RBTC_SYMBOL.toLowerCase();
-      stubExchangeRate(
-        coinGeckoStub,
-        rifSymbol,
-        pricerUtils.INTERMEDIATE_CURRENCY,
-        fakeRifUsd
-      );
-      stubExchangeRate(
-        coinGeckoStub,
-        rbtcSymbol,
-        pricerUtils.INTERMEDIATE_CURRENCY,
-        fakeRbtcUsd
-      );
+      coinGeckoStub.queryExchangeRate
+        .withArgs(rifSymbol, pricerUtils.INTERMEDIATE_CURRENCY)
+        .resolves(fakeRifUsd);
+      coinGeckoStub.queryExchangeRate
+        .withArgs(rbtcSymbol, pricerUtils.INTERMEDIATE_CURRENCY)
+        .resolves(fakeRbtcUsd);
       const exchangeRate = await getExchangeRate(rifSymbol, rbtcSymbol);
 
       expect(exchangeRate.toString()).to.be.equal(fakeRifRbtc.toString());
@@ -109,12 +85,9 @@ describe('pricer', function () {
 
     it('should return exchange rate and update prioritization', async function () {
       const coinCodexStub = createStubInstance(CoinCodex);
-      stubExchangeRate(
-        coinCodexStub,
-        RBTC_SYMBOL,
-        pricerUtils.INTERMEDIATE_CURRENCY,
-        fakeRbtcUsd
-      );
+      coinCodexStub.queryExchangeRate
+        .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
+        .resolves(fakeRbtcUsd);
       createExchangeApiStub.withArgs('coinCodex').returns(coinCodexStub);
       coinGeckoStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)

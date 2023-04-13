@@ -39,14 +39,23 @@ export default class CoinGecko extends BaseExchangeApi {
     const targetCurrencyName = targetCurrency.toLowerCase();
 
     try {
+      const urlWithSearchParams = new URL(this._url.toString());
+      urlWithSearchParams.searchParams.append('ids', sourceCurrencyName);
+      urlWithSearchParams.searchParams.append(
+        'vs_currencies',
+        targetCurrencyName
+      );
+
       response = await this._httpWrapper.sendPromise<CoinGeckoResponse>(
-        `${this._url.toString()}?ids=${sourceCurrencyName}&vs_currencies=${targetCurrencyName}`
+        urlWithSearchParams.toString()
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;
 
       if (!response) {
-        throw new Error('No response received from CoinGecko API');
+        throw new Error(
+          `No response received from CoinGecko API: ${(error as Error).message}`
+        );
       }
 
       throw Error(`CoinGecko API status ${response.status}`);

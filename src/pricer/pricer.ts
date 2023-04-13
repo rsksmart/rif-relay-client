@@ -59,24 +59,24 @@ const queryExchangeRate = async (
 };
 
 const queryExchangeApis = async (
-  exchangesApi: ExchangeApiName[],
+  exchangeApis: ExchangeApiName[],
   sourceCurrency: string,
   targetCurrency: string
 ): Promise<BigNumberJs> => {
-  for (const api of exchangesApi) {
+  for (const api of exchangeApis) {
     const exchangeApi = createExchangeApi(api);
 
     const exchangeRate = await exchangeApi
       .queryExchangeRate(sourceCurrency, targetCurrency)
       .catch((e: unknown) => {
-        log.error(e);
+        log.debug(e);
 
         return undefined;
       });
 
     if (exchangeRate) {
       tokenToApi[sourceCurrency.toUpperCase()] = [
-        ...new Set([api, ...exchangesApi]),
+        ...new Set([api, ...exchangeApis]),
       ];
 
       return exchangeRate;

@@ -34,14 +34,19 @@ export default class CoinBase extends BaseExchangeApi {
     const targetCurrencyName = targetCurrency.toUpperCase();
 
     try {
+      const urlWithSearchParams = new URL(this._url.toString());
+      urlWithSearchParams.searchParams.append('currency', sourceCurrencyName);
+
       response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
-        `${this._url.toString()}?currency=${sourceCurrencyName}`
+        urlWithSearchParams.toString()
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;
 
       if (!response) {
-        throw new Error('No response received from CoinBase API');
+        throw new Error(
+          `No response received from CoinBase API: ${(error as Error).message}`
+        );
       }
 
       throw Error(`CoinBase API status ${response.status}`);
