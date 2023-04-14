@@ -616,5 +616,17 @@ describe('utils', function () {
 
       expect(next.done).equal(true);
     });
+
+    it('Should be able to iterate without explicitly calling next', function () {
+      let index = 0;
+
+      for (const nextRelayClient of getRelayClientGenerator()) {
+        expect(nextRelayClient.getRelayServerUrl()).equal(
+          preferredRelays[index]
+        );
+
+        index++;
+      }
+    });
   });
 });
