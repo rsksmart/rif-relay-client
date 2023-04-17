@@ -51,16 +51,6 @@ builders.set(
 builders.set('rdocExchange', () => new RdocExchange());
 builders.set('testExchange', () => new TestExchange());
 
-function createExchangeApi(
-  exchangeApiType: ExchangeApiName,
-  args?: ConstructorArgs
-): BaseExchangeApi {
-  const fn = builders.get(exchangeApiType);
-  if (!fn) throw new Error(`${exchangeApiType} is not mapped`);
+export { tokenToApi, INTERMEDIATE_CURRENCY, builders as apiBuilder };
 
-  return fn(args);
-}
-
-export { tokenToApi, INTERMEDIATE_CURRENCY, createExchangeApi };
-
-export type { ExchangeApiName };
+export type { ExchangeApiName, ConstructorArgs };

@@ -1680,8 +1680,8 @@ describe('RelayClient', function () {
         ready: true,
       };
 
-      let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
-      let httpClientStub: Sinon.SinonStubbedInstance<HttpClient>;
+      let relayHubStub: SinonStubbedInstance<RelayHub>;
+      let httpClientStub: SinonStubbedInstance<HttpClient>;
 
       beforeEach(function () {
         httpClientStub = sandbox.createStubInstance(HttpClient);

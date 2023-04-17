@@ -4,7 +4,7 @@ import {
   ExchangeApiName,
   INTERMEDIATE_CURRENCY,
   tokenToApi,
-  createExchangeApi,
+  apiBuilder,
 } from './utils';
 
 const getExchangeRate = async (
@@ -64,22 +64,23 @@ const queryExchangeApis = async (
   targetCurrency: string
 ): Promise<BigNumberJs> => {
   for (const api of exchangeApis) {
-    const exchangeApi = createExchangeApi(api);
+    try {
+      const exchangeApi = apiBuilder.get(api)?.();
 
-    const exchangeRate = await exchangeApi
-      .queryExchangeRate(sourceCurrency, targetCurrency)
-      .catch((e: unknown) => {
-        log.debug(e);
+      const exchangeRate = await exchangeApi?.queryExchangeRate(
+        sourceCurrency,
+        targetCurrency
+      );
 
-        return undefined;
-      });
+      if (exchangeRate) {
+        tokenToApi[sourceCurrency.toUpperCase()] = [
+          ...new Set([api, ...exchangeApis]),
+        ];
 
-    if (exchangeRate) {
-      tokenToApi[sourceCurrency.toUpperCase()] = [
-        ...new Set([api, ...exchangeApis]),
-      ];
-
-      return exchangeRate;
+        return exchangeRate;
+      }
+    } catch (e: unknown) {
+      log.debug(e);
     }
 
     log.warn(
