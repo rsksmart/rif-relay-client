@@ -53,7 +53,6 @@ import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
   MISSING_REQUEST_FIELD,
-  NOT_RELAYED_TRANSACTION,
 } from './constants/errorMessages';
 import EnvelopingEventEmitter, {
   EVENT_INIT,
@@ -67,7 +66,6 @@ import {
   estimateInternalCallGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
-  selectNextRelay,
   validateRelayResponse,
 } from './utils';
 
@@ -83,11 +81,18 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private readonly _httpClient: HttpClient;
 
-  constructor(httpClient: HttpClient = new HttpClient()) {
+  constructor(
+    httpClient: HttpClient = new HttpClient(),
+    private _relayServerUrl?: string
+  ) {
     super();
 
     this._envelopingConfig = getEnvelopingConfig();
     this._httpClient = httpClient;
+  }
+
+  public getRelayServerUrl() {
+    return this._relayServerUrl;
   }
 
   public get httpClient(): HttpClient {
@@ -150,9 +155,10 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('No call verifier present. Check your configuration.');
     }
 
-    const relayServerUrl = this._envelopingConfig.preferredRelays.at(0);
-
-    if (!relayServerUrl) {
+    if (
+      !this._relayServerUrl &&
+      !this._envelopingConfig.preferredRelays.length
+    ) {
       throw new Error(
         'Check that your configuration contains at least one preferred relay with url.'
       );
@@ -394,18 +400,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx);
 
-    const transaction = await this._attemptRelayTransaction(
-      activeRelay,
-      envelopingTx
-    );
-
-    if (transaction) {
-      log.debug('Relay Client - Relayed done');
-
-      return transaction;
-    }
-
-    throw Error(NOT_RELAYED_TRANSACTION);
+    return await this._attemptRelayTransaction(activeRelay, envelopingTx);
   }
 
   public async estimateRelayTransaction(
@@ -442,7 +437,7 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     //FIXME we should implement the relay selection strategy
-    const activeRelay = await selectNextRelay(this._httpClient);
+    const activeRelay = await this._getRelayServer();
 
     const envelopingTx = await this._prepareHttpRequest(
       activeRelay.hubInfo,
@@ -456,40 +451,87 @@ class RelayClient extends EnvelopingEventEmitter {
     };
   }
 
+  private async _getRelayServer(): Promise<RelayInfo> {
+    if (this._relayServerUrl) {
+      return await this._getRelayInfo(this._relayServerUrl);
+    }
+
+    const { preferredRelays } = getEnvelopingConfig();
+
+    for (const preferredRelay of preferredRelays ?? []) {
+      try {
+        return await this._getRelayInfo(preferredRelay);
+      } catch (error) {
+        log.warn('Failed to getChainInfo from hub', error);
+        continue;
+      }
+    }
+
+    log.error('No more hubs available to select');
+
+    throw new Error('No more hubs available to select');
+  }
+
+  private async _getRelayInfo(relayServerUrl: string) {
+    const hubInfo = await this._httpClient.getChainInfo(relayServerUrl);
+
+    if (!hubInfo.ready) {
+      throw new Error(`Hub is not ready`);
+    }
+
+    const relayHub = RelayHub__factory.connect(
+      hubInfo.relayHubAddress,
+      getProvider()
+    );
+
+    const managerData = await relayHub.getRelayInfo(
+      hubInfo.relayManagerAddress
+    );
+
+    return {
+      hubInfo,
+      managerData,
+    };
+  }
+
   private async _attemptRelayTransaction(
     relayInfo: RelayInfo,
     envelopingTx: EnvelopingTxRequest
-  ): Promise<Transaction | undefined> {
+  ): Promise<Transaction> {
     try {
       const {
         managerData: { url },
         hubInfo,
       } = relayInfo;
       this.emit(EVENT_SEND_TO_RELAYER);
+
       log.info(
         `attempting relay: ${JSON.stringify(
           relayInfo
         )} transaction: ${JSON.stringify(envelopingTx)}`
       );
+
       const signedTx = await this._httpClient.relayTransaction(
         url.toString(),
         envelopingTx
       );
+
       const transaction = parseTransaction(signedTx);
       validateRelayResponse(
         envelopingTx,
         transaction,
         hubInfo.relayWorkerAddress
       );
+
       this.emit(EVENT_RELAYER_RESPONSE, true);
       await this._broadcastTx(signedTx);
 
       return transaction;
-    } catch (e) {
-      log.error('failed attempting to relay the transaction ', e);
+    } catch (error) {
+      log.error('failed attempting to relay the transaction ', error);
       this.emit(EVENT_RELAYER_RESPONSE, false);
 
-      return undefined;
+      throw error;
     }
   }
 

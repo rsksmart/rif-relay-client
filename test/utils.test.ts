@@ -1,7 +1,6 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { BigNumber, constants, providers, Transaction, Wallet } from 'ethers';
-import type Sinon from 'sinon';
 import sinon, { SinonStub } from 'sinon';
 import sinonChai from 'sinon-chai';
 import {
@@ -15,20 +14,17 @@ import {
   RelayHub,
   RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { HttpClient } from '../src/api/common';
 import type { EnvelopingConfig } from '../src/common/config.types';
-import type { HubInfo } from '../src/common/relayHub.types';
 import {
   estimateInternalCallGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
-  selectNextRelay,
   useEnveloping,
   validateRelayResponse,
+  getRelayClientGenerator,
 } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
-import { FAKE_HUB_INFO } from './relayHub.fakes';
 import {
   FAKE_DEPLOY_REQUEST,
   FAKE_DEPLOY_TRANSACTION_REQUEST,
@@ -43,6 +39,7 @@ import {
   MISSING_CALL_FORWARDER,
 } from '../src/constants/errorMessages';
 import { createRandomeValue } from './utils';
+import type { RelayClient } from 'src';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -50,23 +47,11 @@ use(chaiAsPromised);
 const createRandomAddress = () => Wallet.createRandom().address;
 
 describe('utils', function () {
-  const unavailableRelayHub: HubInfo = {
-    ...FAKE_HUB_INFO,
-    ready: false,
-  };
-
-  const availableRelayHub: HubInfo = {
-    ...FAKE_HUB_INFO,
-    ready: true,
-  };
-
   const preferredRelays: EnvelopingConfig['preferredRelays'] = [
     'https://first.relay.co',
     'http://second.relay.co',
     'http://third.relay.co',
   ];
-
-  let httpClientStub: Sinon.SinonStubbedInstance<HttpClient>;
 
   beforeEach(function () {
     sinon.replace(clientConfiguration, 'getEnvelopingConfig', () => {
@@ -75,62 +60,10 @@ describe('utils', function () {
         preferredRelays,
       };
     });
-    httpClientStub = sinon.createStubInstance(HttpClient);
   });
 
   afterEach(function () {
     sinon.restore();
-  });
-
-  describe('selectNextRelay() function', function () {
-    let relayHubStub: Sinon.SinonStubbedInstance<RelayHub>;
-
-    it('Should iterate the array of relays and select an available one', async function () {
-      const expectedUrl = preferredRelays[1];
-      httpClientStub.getChainInfo
-        .onFirstCall()
-        .resolves(unavailableRelayHub)
-        .onSecondCall()
-        .resolves(availableRelayHub);
-      relayHubStub = {
-        getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
-      } as unknown as typeof relayHubStub;
-      sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
-
-      const {
-        managerData: { url: actualUrl },
-      } = await selectNextRelay(httpClientStub);
-
-      expect(actualUrl).to.equal(expectedUrl);
-    });
-
-    it('Should return undefined if not relay is available', async function () {
-      httpClientStub.getChainInfo.resolves(unavailableRelayHub);
-      const nextRelay = selectNextRelay(httpClientStub);
-
-      await expect(nextRelay).to.be.rejected;
-      await expect(nextRelay).to.be.rejectedWith(
-        'No more hubs available to select'
-      );
-    });
-
-    it('Should keep iterating if a ping call throws an error', async function () {
-      const expectedUrl = preferredRelays[1];
-      httpClientStub.getChainInfo
-        .onFirstCall()
-        .throws(new Error('Some fake error'))
-        .onSecondCall()
-        .resolves(availableRelayHub);
-      relayHubStub = {
-        getRelayInfo: () => Promise.resolve({ url: expectedUrl }),
-      } as unknown as typeof relayHubStub;
-      sinon.stub(RelayHub__factory, 'connect').returns(relayHubStub);
-      const {
-        managerData: { url: actualUrl },
-      } = await selectNextRelay(httpClientStub);
-
-      expect(actualUrl).to.equal(expectedUrl);
-    });
   });
 
   describe('estimateInternalCallGas', function () {
@@ -648,6 +581,52 @@ describe('utils', function () {
       ]);
 
       expect(result).to.be.true;
+    });
+  });
+
+  describe('getRelayClientGenerator', function () {
+    let relayGenerator: Generator<RelayClient, void, unknown>;
+
+    beforeEach(function () {
+      relayGenerator = getRelayClientGenerator();
+    });
+
+    it('Should iterate the list of preferred relays and return a preconfigured RelayClient instance each time', function () {
+      for (let i = 0; i < preferredRelays.length; i++) {
+        const nextRelayClient = relayGenerator.next().value as RelayClient;
+
+        expect(nextRelayClient.getRelayServerUrl()).equal(preferredRelays[i]);
+      }
+    });
+
+    it('Should return done = false if there are more relays in the list', function () {
+      for (let i = 0; i < preferredRelays.length - 1; i++) {
+        const next = relayGenerator.next();
+
+        expect(next.done).equal(false);
+      }
+    });
+
+    it('Should return done = true if the list of relays has reached the end', function () {
+      for (let i = 0; i < preferredRelays.length; i++) {
+        relayGenerator.next();
+      }
+
+      const next = relayGenerator.next();
+
+      expect(next.done).equal(true);
+    });
+
+    it('Should be able to iterate without explicitly calling next', function () {
+      let index = 0;
+
+      for (const nextRelayClient of getRelayClientGenerator()) {
+        expect(nextRelayClient.getRelayServerUrl()).equal(
+          preferredRelays[index]
+        );
+
+        index++;
+      }
     });
   });
 });
