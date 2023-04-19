@@ -1,6 +1,6 @@
 import type { ResponseError } from 'superagent';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
+import BaseExchangeApi, { CurrencyMapping } from './BaseExchangeApi';
 import HttpWrapper from '../common/HttpWrapper';
 
 const BASE_URL = 'https://api.coingecko.com/';
@@ -18,11 +18,15 @@ const CURRENCY_MAPPING: CurrencyMapping = {
 };
 
 export default class CoinGecko extends BaseExchangeApi {
+  private _url: URL;
+
   constructor(
-    private readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
-    private readonly _baseUrl = BASE_URL
+    public readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
+    private readonly _baseUrl = BASE_URL,
+    private readonly _priceApiPath = PRICE_API_PATH
   ) {
-    super('CoinGecko', CURRENCY_MAPPING, ['RIF', 'RBTC', 'tRif']);
+    super('CoinGecko', CURRENCY_MAPPING);
+    this._url = new URL(this._priceApiPath, this._baseUrl);
   }
 
   async queryExchangeRate(
@@ -31,34 +35,39 @@ export default class CoinGecko extends BaseExchangeApi {
   ): Promise<BigNumberJs> {
     let response: CoinGeckoResponse;
     // TODO: We could check if the target currency is supported by calling the /simple/supported_vs_currencies API
-    const currencyId = targetCurrency.toLowerCase();
+    const sourceCurrencyName = this._getCurrencyName(sourceCurrency);
+    const targetCurrencyName = targetCurrency.toLowerCase();
 
     try {
-      const url = new URL(this._baseUrl);
-      url.pathname = PRICE_API_PATH;
-      url.searchParams.append('ids', sourceCurrency);
-      url.searchParams.append('vs_currencies', currencyId);
+      const urlWithSearchParams = new URL(this._url.toString());
+      urlWithSearchParams.searchParams.append('ids', sourceCurrencyName);
+      urlWithSearchParams.searchParams.append(
+        'vs_currencies',
+        targetCurrencyName
+      );
+
       response = await this._httpWrapper.sendPromise<CoinGeckoResponse>(
-        url.toString()
+        urlWithSearchParams.toString()
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;
 
       if (!response) {
-        throw new Error('No response received from CoinGecko API');
+        throw new Error(
+          `No response received from CoinGecko API: ${(error as Error).message}`
+        );
       }
 
       throw Error(`CoinGecko API status ${response.status}`);
     }
 
-    if (!response[sourceCurrency]?.[currencyId]) {
+    const conversionRate = response[sourceCurrencyName]?.[targetCurrencyName];
+
+    if (!conversionRate) {
       throw Error(
-        `Exchange rate for currency pair ${sourceCurrency}/${currencyId} is not available`
+        `Exchange rate for currency pair ${sourceCurrency}/${targetCurrency} is not available`
       );
     }
-
-    // It cannot be undefined due to the previous check
-    const conversionRate = response[sourceCurrency]?.[currencyId] as string;
 
     return BigNumberJs(conversionRate);
   }

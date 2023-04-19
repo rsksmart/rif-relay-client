@@ -1,5 +1,5 @@
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
+import BaseExchangeApi, { CurrencyMapping } from './BaseExchangeApi';
 
 type RateRecord = Record<string, string>;
 
@@ -15,13 +15,13 @@ const CURRENCY_MAPPING: CurrencyMapping = {
 
 export default class RdocExchange extends BaseExchangeApi {
   constructor() {
-    super('RdocExchange', CURRENCY_MAPPING, ['RDOC']);
+    super('RdocExchange', CURRENCY_MAPPING);
   }
 
   queryExchangeRate(
     sourceCurrency: string,
     targetCurrency: string
-  ): BigNumberJs {
+  ): Promise<BigNumberJs> {
     const conversionRate =
       rates[sourceCurrency.toUpperCase()]?.[targetCurrency.toUpperCase()];
 
@@ -31,6 +31,6 @@ export default class RdocExchange extends BaseExchangeApi {
       );
     }
 
-    return BigNumberJs(conversionRate);
+    return Promise.resolve(BigNumberJs(conversionRate));
   }
 }

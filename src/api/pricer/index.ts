@@ -1,7 +1,17 @@
 import CoinBase from './CoinBase';
 import TestExchange from './TestExchange';
 import RdocExchange from './RdocExchange';
-import BaseExchangeApi from './ExchangeApi';
+import BaseExchangeApi from './BaseExchangeApi';
+import type { BaseCurrency } from './BaseExchangeApi';
 import CoinGecko from './CoinGecko';
+import CoinCodex from './CoinCodex';
 
-export { CoinBase, TestExchange, RdocExchange, BaseExchangeApi, CoinGecko };
+export {
+  CoinBase,
+  CoinCodex,
+  TestExchange,
+  RdocExchange,
+  BaseExchangeApi,
+  CoinGecko,
+};
+export type { BaseCurrency };

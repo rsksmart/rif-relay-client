@@ -1,9 +1,10 @@
 import type { ResponseError } from 'superagent';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
-import BaseExchangeApi, { CurrencyMapping } from './ExchangeApi';
+import BaseExchangeApi from './BaseExchangeApi';
 import HttpWrapper from '../common/HttpWrapper';
 
-const URL = 'https://api.coinbase.com/v2/exchange-rates';
+const BASE_URL = 'https://api.coinbase.com/';
+const PRICE_API_PATH = '/v2/exchange-rates';
 
 export type CoinBaseResponse = {
   data: {
@@ -12,35 +13,40 @@ export type CoinBaseResponse = {
   };
 };
 
-const CURRENCY_MAPPING: CurrencyMapping = {
-  RIF: 'RIF',
-  TRIF: 'RIF',
-};
-
 export default class CoinBase extends BaseExchangeApi {
-  private readonly _httpWrapper: HttpWrapper;
+  private _url: URL;
 
-  constructor(httpWrapper: HttpWrapper = new HttpWrapper()) {
-    super('CoinBase', CURRENCY_MAPPING, ['RIF', 'tRif']);
-    this._httpWrapper = httpWrapper;
+  constructor(
+    public readonly _httpWrapper: HttpWrapper = new HttpWrapper(),
+    private readonly _baseUrl = BASE_URL,
+    private readonly _priceApiPath = PRICE_API_PATH
+  ) {
+    super('CoinBase', { RIF: 'RIF', TRIF: 'RIF' });
+    this._url = new URL(this._priceApiPath, this._baseUrl);
   }
 
   async queryExchangeRate(
     sourceCurrency: string,
     targetCurrency: string
   ): Promise<BigNumberJs> {
-    const upperCaseTargetCurrency = targetCurrency.toUpperCase();
     let response: CoinBaseResponse;
+    const sourceCurrencyName = this._getCurrencyName(sourceCurrency);
+    const targetCurrencyName = targetCurrency.toUpperCase();
 
     try {
+      const urlWithSearchParams = new URL(this._url.toString());
+      urlWithSearchParams.searchParams.append('currency', sourceCurrencyName);
+
       response = await this._httpWrapper.sendPromise<CoinBaseResponse>(
-        `${URL}?currency=${sourceCurrency}`
+        urlWithSearchParams.toString()
       );
     } catch (error: unknown) {
       const { response } = error as ResponseError;
 
       if (!response) {
-        throw new Error('No response received from CoinBase API');
+        throw new Error(
+          `No response received from CoinBase API: ${(error as Error).message}`
+        );
       }
 
       throw Error(`CoinBase API status ${response.status}`);
@@ -49,7 +55,8 @@ export default class CoinBase extends BaseExchangeApi {
     const {
       data: { rates },
     }: CoinBaseResponse = response;
-    const conversionRate = rates[upperCaseTargetCurrency];
+
+    const conversionRate = rates[targetCurrencyName];
 
     if (!conversionRate) {
       throw Error(
