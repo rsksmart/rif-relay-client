@@ -7,6 +7,10 @@ import {
   apiBuilder,
 } from './utils';
 
+const NOTIFIER = 'Notifier |';
+// Used to trigger notifications
+const notify = (...msg: unknown[]) => log.info(NOTIFIER, ...msg);
+
 const getExchangeRate = async (
   sourceCurrency: string,
   targetCurrency: string,
@@ -81,6 +85,9 @@ const queryExchangeApis = async (
       }
     } catch (e: unknown) {
       log.debug(e);
+      notify(
+        `Not possible to get exchange rate for ${sourceCurrency}/${targetCurrency} using API ${api}`
+      );
     }
 
     log.warn(

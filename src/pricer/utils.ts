@@ -1,4 +1,4 @@
-import type { BaseExchangeApi } from 'src/api';
+import type { BaseExchangeApi } from '../api';
 import {
   CoinBase,
   CoinCodex,
