@@ -22,6 +22,7 @@ import {
   Wallet,
   utils,
   errors,
+  PopulatedTransaction,
 } from 'ethers';
 
 import type {
@@ -51,6 +52,7 @@ import type {
 import type { HubEnvelopingTx } from 'src/common/relayClient.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
+  GAS_LIMIT_EXCEEDED,
   MISSING_CALL_FORWARDER,
   MISSING_REQUEST_FIELD,
 } from '../src/constants/errorMessages';
@@ -76,13 +78,11 @@ import * as clientConfiguration from '../src/common/clientConfigurator';
 import * as relayUtils from '../src/utils';
 import * as gasEstimator from '../src/gasEstimator/utils';
 import type { RelayEstimation } from 'src';
+import { createRandomAddress, createRandomBigNumber } from './utils';
 
 use(sinonChai);
 use(chaiAsPromised);
 const sandbox = createSandbox();
-const createRandomAddress = () => Wallet.createRandom().address;
-const createRandomBigNumber = (base: number) =>
-  BigNumber.from((Math.random() * base).toFixed(0));
 
 const FAKE_TX_COUNT = 456;
 const FAKE_CHAIN_ID = 33;
@@ -1540,17 +1540,31 @@ describe('RelayClient', function () {
       let relayWorkerAddress: string;
       let fakeMaxPossibleGas: BigNumber;
       let relayHubStub: SinonStubbedInstance<RelayHub>;
+      const fakeTransactionResult = '0x01';
+      const transaction = {} as PopulatedTransaction;
+      let transactionStub: SinonStub;
+      let maxPossibleGasVerificationStub: SinonStub;
 
       beforeEach(function () {
         relayWorkerAddress = createRandomAddress();
         fakeMaxPossibleGas = createRandomBigNumber(10000);
+        maxPossibleGasVerificationStub = sandbox
+          .stub(relayUtils, 'maxPossibleGasVerification')
+          .resolves({
+            transactionResult: fakeTransactionResult,
+            maxPossibleGas: constants.One,
+          });
+        transactionStub = sandbox.stub().resolves(transaction);
       });
 
       it('should allow if enveloping relay request will succeed', async function () {
-        const callStub = sandbox.stub().resolves(true);
+        const callStub = sandbox.stub().returns([true]);
         relayHubStub = {
-          callStatic: {
-            relayCall: callStub,
+          populateTransaction: {
+            relayCall: transactionStub,
+          },
+          interface: {
+            decodeFunctionResult: callStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
@@ -1560,15 +1574,15 @@ describe('RelayClient', function () {
           fakeMaxPossibleGas
         );
 
-        expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.fulfilled;
+        expect(callStub).to.be.calledOnce;
+        expect(transactionStub).to.be.calledOnce;
       });
 
       it('should allow if enveloping deploy request will succeed', async function () {
-        const callStub = sandbox.stub().returns(undefined);
         relayHubStub = {
-          callStatic: {
-            deployCall: callStub,
+          populateTransaction: {
+            deployCall: transactionStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
@@ -1578,81 +1592,56 @@ describe('RelayClient', function () {
           fakeMaxPossibleGas
         );
 
-        expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.fulfilled;
+        expect(transactionStub).to.be.calledOnce;
       });
 
-      it('should throw if enveloping request will fail due to not enabled worker', async function () {
-        const error = ethersLogger.makeError(
-          'Not an enabled worker',
-          errors.CALL_EXCEPTION
-        );
-        const callStub = sandbox.stub().throws(error);
+      it('should throw if enveloping request will fail due to gas limite is exceeded', async function () {
+        const error = Error(GAS_LIMIT_EXCEEDED);
         relayHubStub = {
-          callStatic: {
-            relayCall: callStub,
+          populateTransaction: {
+            relayCall: transactionStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        maxPossibleGasVerificationStub.throws(error);
         const verifyWithRelayHub = relayClient._verifyWithRelayHub(
           relayWorkerAddress,
           FAKE_RELAY_TRANSACTION_REQUEST,
           fakeMaxPossibleGas
         );
 
-        expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+        expect(transactionStub).to.be.calledOnce;
       });
 
-      it('should throw if enveloping request will fail due to invalid gas price', async function () {
-        const error = ethersLogger.makeError(
-          'Invalid gas price',
-          errors.CALL_EXCEPTION
-        );
-        const callStub = sandbox.stub().throws(error);
+      it('should throw if enveloping request will fail if transaction throws exception', async function () {
+        const error = Error('Invalid gas price');
         relayHubStub = {
-          callStatic: {
-            relayCall: callStub,
+          populateTransaction: {
+            relayCall: transactionStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        maxPossibleGasVerificationStub.throws(error);
         const verifyWithRelayHub = relayClient._verifyWithRelayHub(
           relayWorkerAddress,
           FAKE_RELAY_TRANSACTION_REQUEST,
           fakeMaxPossibleGas
         );
 
-        expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
-      });
-
-      it('should throw if enveloping request will fail due to the relayWorker cannot be a contract', async function () {
-        const error = ethersLogger.makeError(
-          'RelayWorker cannot be a contract',
-          errors.CALL_EXCEPTION
-        );
-        const callStub = sandbox.stub().throws(error);
-        relayHubStub = {
-          callStatic: {
-            relayCall: callStub,
-          },
-        } as unknown as typeof relayHubStub;
-        sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
-        const verifyWithRelayHub = relayClient._verifyWithRelayHub(
-          relayWorkerAddress,
-          FAKE_RELAY_TRANSACTION_REQUEST,
-          fakeMaxPossibleGas
-        );
-
-        expect(callStub).to.be.calledOnce;
-        await expect(verifyWithRelayHub).to.be.rejectedWith(error.message);
+        expect(transactionStub).to.be.calledOnce;
       });
 
       it('should throw if enveloping request will fail due to destination contract reverted', async function () {
-        const callStub = sandbox.stub().resolves(false);
+        const callStub = sandbox.stub().returns([false]);
         relayHubStub = {
-          callStatic: {
-            relayCall: callStub,
+          populateTransaction: {
+            relayCall: transactionStub,
+          },
+          interface: {
+            decodeFunctionResult: callStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
@@ -1662,10 +1651,10 @@ describe('RelayClient', function () {
           fakeMaxPossibleGas
         );
 
-        expect(callStub).to.be.calledOnce;
         await expect(verifyWithRelayHub).to.be.rejectedWith(
           'Destination contract reverted'
         );
+        expect(transactionStub).to.be.calledOnce;
       });
     });
 

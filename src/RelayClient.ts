@@ -10,7 +10,6 @@ import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   BigNumber,
   BigNumberish,
-  CallOverrides,
   constants,
   Transaction,
   Wallet,
@@ -66,6 +65,7 @@ import {
   estimateInternalCallGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
+  maxPossibleGasVerification,
   validateRelayResponse,
 } from './utils';
 
@@ -644,7 +644,9 @@ class RelayClient extends EnvelopingEventEmitter {
     maxPossibleGas: BigNumber
   ): Promise<void> {
     const { signature, relayHubAddress } = metadata;
-    const { gasPrice } = relayRequest.relayData;
+    const {
+      relayData: { gasPrice },
+    } = relayRequest;
 
     const provider = getProvider();
 
@@ -652,27 +654,31 @@ class RelayClient extends EnvelopingEventEmitter {
       relayHubAddress.toString(),
       provider
     );
-    const commonOverrides: CallOverrides = {
-      from: relayWorkerAddress,
-      gasPrice,
-      gasLimit: maxPossibleGas,
-    };
 
-    if (isDeployRequest(relayRequest)) {
-      await relayHub.callStatic.deployCall(
-        relayRequest,
-        signature,
-        commonOverrides
-      );
-    } else {
-      const destinationCallSuccess = await relayHub.callStatic.relayCall(
-        relayRequest as RelayRequest,
-        signature,
-        commonOverrides
+    const isDeploy = isDeployRequest(relayRequest);
+
+    const method = isDeploy
+      ? await relayHub.populateTransaction.deployCall(relayRequest, signature)
+      : await relayHub.populateTransaction.relayCall(
+          relayRequest as RelayRequest,
+          signature
+        );
+
+    const { transactionResult } = await maxPossibleGasVerification(
+      method,
+      gasPrice as BigNumberish,
+      maxPossibleGas,
+      relayWorkerAddress
+    );
+
+    if (!isDeploy) {
+      const decodedResult = relayHub.interface.decodeFunctionResult(
+        'relayCall',
+        transactionResult
       );
 
-      if (!destinationCallSuccess) {
-        throw new Error('Destination contract reverted');
+      if (!decodedResult[0]) {
+        throw Error('Destination contract reverted');
       }
     }
   }

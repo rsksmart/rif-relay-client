@@ -1,4 +1,11 @@
-import { BigNumberish, BigNumber, Transaction, constants, utils } from 'ethers';
+import {
+  BigNumberish,
+  BigNumber,
+  Transaction,
+  constants,
+  utils,
+  PopulatedTransaction,
+} from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   ICustomSmartWalletFactory__factory,
@@ -24,6 +31,7 @@ import type {
 import {
   MISSING_SMART_WALLET_ADDRESS,
   MISSING_CALL_FORWARDER,
+  GAS_LIMIT_EXCEEDED,
 } from './constants/errorMessages';
 import RelayClient from './RelayClient';
 import type { HttpClient } from './api/common';
@@ -31,6 +39,8 @@ import type { HttpClient } from './api/common';
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x');
+const FACTOR = 0.25;
+const GAS_VERIFICATION_ATTEMPTS = 5;
 
 const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
@@ -296,6 +306,55 @@ const useEnveloping = (
   return false;
 };
 
+const maxPossibleGasVerification = async (
+  transaction: PopulatedTransaction,
+  gasPrice: BigNumberish,
+  gasLimit: BigNumberish,
+  workerAddress: string
+): Promise<{ maxPossibleGas: BigNumber; transactionResult: string }> => {
+  let maxPossibleGasAttempt = BigNumber.from(gasLimit.toString());
+  const provider = getProvider();
+
+  for (let i = 1; i <= GAS_VERIFICATION_ATTEMPTS; i++) {
+    try {
+      log.debug(
+        `attempting with gasLimit : ${maxPossibleGasAttempt.toString()}`
+      );
+
+      const transactionResult = await provider.call(
+        {
+          ...transaction,
+          from: workerAddress,
+          gasPrice,
+          gasLimit: maxPossibleGasAttempt,
+        },
+        'pending'
+      );
+
+      return { maxPossibleGas: maxPossibleGasAttempt, transactionResult };
+    } catch (e) {
+      const error = e as Error;
+      if (!error.message.includes('Not enough gas left')) {
+        throw error;
+      }
+      maxPossibleGasAttempt = applyFactor(gasLimit, FACTOR * i);
+    }
+  }
+
+  throw Error(GAS_LIMIT_EXCEEDED);
+};
+
+const applyFactor = (value: BigNumberish, factor: number) => {
+  const bigFactor = BigNumberJs(1).plus(factor);
+
+  return BigNumber.from(
+    bigFactor
+      .multipliedBy(value.toString())
+      .dp(0, BigNumberJs.ROUND_DOWN)
+      .toString()
+  );
+};
+
 export {
   estimateInternalCallGas,
   estimateTokenTransferGas,
@@ -308,4 +367,5 @@ export {
   validateRelayResponse,
   useEnveloping,
   getRelayClientGenerator,
+  maxPossibleGasVerification,
 };

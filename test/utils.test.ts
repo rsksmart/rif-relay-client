@@ -1,7 +1,13 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { BigNumber, constants, providers, Transaction, Wallet } from 'ethers';
-import sinon, { SinonStub } from 'sinon';
+import {
+  BigNumber,
+  constants,
+  PopulatedTransaction,
+  providers,
+  Transaction,
+} from 'ethers';
+import sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
 import {
   EnvelopingTypes,
@@ -23,6 +29,7 @@ import {
   useEnveloping,
   validateRelayResponse,
   getRelayClientGenerator,
+  maxPossibleGasVerification,
 } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import {
@@ -37,14 +44,17 @@ import type { TokenGasEstimationParams } from '../src/common';
 import {
   MISSING_SMART_WALLET_ADDRESS,
   MISSING_CALL_FORWARDER,
+  GAS_LIMIT_EXCEEDED,
 } from '../src/constants/errorMessages';
-import { createRandomeValue } from './utils';
+import {
+  createRandomValue,
+  createRandomAddress,
+  createRandomBigNumber,
+} from './utils';
 import type { RelayClient } from 'src';
 
 use(sinonChai);
 use(chaiAsPromised);
-
-const createRandomAddress = () => Wallet.createRandom().address;
 
 describe('utils', function () {
   const preferredRelays: EnvelopingConfig['preferredRelays'] = [
@@ -339,7 +349,7 @@ describe('utils', function () {
 
     beforeEach(function () {
       owner = createRandomAddress();
-      index = createRandomeValue(1000);
+      index = createRandomValue(1000);
     });
 
     afterEach(function () {
@@ -406,7 +416,7 @@ describe('utils', function () {
       sinon.restore();
     });
 
-    it('Should perform checks on relay transaction and not throw errors', function () {
+    it('should perform checks on relay transaction and not throw errors', function () {
       const transaction: Transaction = {
         nonce: BigNumber.from(
           FAKE_RELAY_TRANSACTION_REQUEST.metadata.relayMaxNonce
@@ -428,7 +438,7 @@ describe('utils', function () {
       ).to.not.throw();
     });
 
-    it('Should throw error if transaction has no recipient address', function () {
+    it('should throw error if transaction has no recipient address', function () {
       const transaction: Transaction = {
         nonce: 7,
         chainId: 33,
@@ -448,7 +458,7 @@ describe('utils', function () {
       ).to.throw(`Transaction has no recipient address`);
     });
 
-    it('Should throw error if transaction has no sender address', function () {
+    it('should throw error if transaction has no sender address', function () {
       const transaction: Transaction = {
         nonce: 7,
         chainId: 33,
@@ -468,7 +478,7 @@ describe('utils', function () {
       ).to.throw(`Transaction has no signer`);
     });
 
-    it('Should throw error if nonce is greater than relayMaxNonce', function () {
+    it('should throw error if nonce is greater than relayMaxNonce', function () {
       const transaction: Transaction = {
         nonce: 7,
         chainId: 33,
@@ -496,7 +506,7 @@ describe('utils', function () {
       );
     });
 
-    it('Should throw error if Transaction recipient is not the RelayHubAddress', function () {
+    it('should throw error if Transaction recipient is not the RelayHubAddress', function () {
       const transaction: Transaction = {
         nonce: 2,
         chainId: 33,
@@ -516,7 +526,7 @@ describe('utils', function () {
       ).to.throw(`Transaction recipient must be the RelayHubAddress`);
     });
 
-    it('Should throw error if Relay request Encoded data is not the same as Transaction data', function () {
+    it('should throw error if Relay request Encoded data is not the same as Transaction data', function () {
       const transaction: Transaction = {
         nonce: 2,
         chainId: 33,
@@ -538,7 +548,7 @@ describe('utils', function () {
       );
     });
 
-    it('Should throw error if Relay Worker is not the same as Transaction sender', function () {
+    it('should throw error if Relay Worker is not the same as Transaction sender', function () {
       const transaction: Transaction = {
         nonce: 2,
         chainId: 33,
@@ -562,15 +572,15 @@ describe('utils', function () {
   });
 
   describe('useEnveloping', function () {
-    it('Should return true if method is eth_accounts', function () {
+    it('should return true if method is eth_accounts', function () {
       expect(useEnveloping('eth_accounts', [])).to.be.true;
     });
 
-    it('Should return false if params is empty', function () {
+    it('should return false if params is empty', function () {
       expect(useEnveloping('eth_other', [])).to.be.false;
     });
 
-    it('Should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function () {
+    it('should return true if params contains envelopingTx, requestConfig and requestConfig.useEnveloping is true', function () {
       const result = useEnveloping('eth_sendTransaction', [
         {
           envelopingTx: FAKE_RELAY_REQUEST,
@@ -591,7 +601,7 @@ describe('utils', function () {
       relayGenerator = getRelayClientGenerator();
     });
 
-    it('Should iterate the list of preferred relays and return a preconfigured RelayClient instance each time', function () {
+    it('should iterate the list of preferred relays and return a preconfigured RelayClient instance each time', function () {
       for (let i = 0; i < preferredRelays.length; i++) {
         const nextRelayClient = relayGenerator.next().value as RelayClient;
 
@@ -599,7 +609,7 @@ describe('utils', function () {
       }
     });
 
-    it('Should return done = false if there are more relays in the list', function () {
+    it('should return done = false if there are more relays in the list', function () {
       for (let i = 0; i < preferredRelays.length - 1; i++) {
         const next = relayGenerator.next();
 
@@ -607,7 +617,7 @@ describe('utils', function () {
       }
     });
 
-    it('Should return done = true if the list of relays has reached the end', function () {
+    it('should return done = true if the list of relays has reached the end', function () {
       for (let i = 0; i < preferredRelays.length; i++) {
         relayGenerator.next();
       }
@@ -617,7 +627,7 @@ describe('utils', function () {
       expect(next.done).equal(true);
     });
 
-    it('Should be able to iterate without explicitly calling next', function () {
+    it('should be able to iterate without explicitly calling next', function () {
       let index = 0;
 
       for (const nextRelayClient of getRelayClientGenerator()) {
@@ -627,6 +637,88 @@ describe('utils', function () {
 
         index++;
       }
+    });
+  });
+
+  describe('maxPossibleGasVerification', function () {
+    let providerStub: SinonStubbedInstance<providers.JsonRpcProvider>;
+    const fakeTransactionResult = '0x01';
+    const transaction = {} as PopulatedTransaction;
+    let workerAddress: string;
+    let gasPrice: BigNumber;
+    let gasLimit: BigNumber;
+
+    beforeEach(function () {
+      workerAddress = createRandomAddress();
+      gasPrice = createRandomBigNumber(50_000);
+      gasLimit = createRandomBigNumber(500_000);
+
+      providerStub = sinon.createStubInstance(providers.JsonRpcProvider, {
+        call: Promise.resolve(fakeTransactionResult),
+      });
+      sinon.stub(clientConfiguration, 'getProvider').returns(providerStub);
+    });
+
+    it('should return maxPossibleGas', async function () {
+      const { maxPossibleGas } = await maxPossibleGasVerification(
+        transaction,
+        gasPrice,
+        gasLimit,
+        workerAddress
+      );
+
+      expect(maxPossibleGas).to.be.eql(gasLimit);
+    });
+
+    it('should return transactionResult', async function () {
+      const { transactionResult } = await maxPossibleGasVerification(
+        transaction,
+        gasPrice,
+        gasLimit,
+        workerAddress
+      );
+
+      expect(transactionResult).to.be.equal(fakeTransactionResult);
+    });
+
+    it('should return maxPossibleGas after the max number of attempts', async function () {
+      providerStub.call.throws(Error('Not enough gas left'));
+      providerStub.call.onCall(4).resolves(fakeTransactionResult);
+      const { maxPossibleGas } = await maxPossibleGasVerification(
+        transaction,
+        gasPrice,
+        gasLimit,
+        workerAddress
+      );
+
+      expect(maxPossibleGas).to.be.eql(gasLimit.mul(2));
+    });
+
+    it('should throw error if gas limit is exceeded', async function () {
+      providerStub.call.throws(Error('Not enough gas left'));
+
+      await expect(
+        maxPossibleGasVerification(
+          transaction,
+          gasPrice,
+          gasLimit,
+          workerAddress
+        )
+      ).to.be.rejectedWith(GAS_LIMIT_EXCEEDED);
+    });
+
+    it('should throw error if transaction throws exception', async function () {
+      const fakeError = Error('Invalid gas price');
+      providerStub.call.throws(fakeError);
+
+      await expect(
+        maxPossibleGasVerification(
+          transaction,
+          gasPrice,
+          gasLimit,
+          workerAddress
+        )
+      ).to.be.rejectedWith(fakeError.message);
     });
   });
 });
