@@ -1,4 +1,4 @@
-import type { BigNumberish } from 'ethers';
+import type { BigNumberish, Wallet } from 'ethers';
 import type { RelayInfo } from './relayHub.types';
 import type {
   RelayRequestBody,
@@ -47,9 +47,18 @@ type HubEnvelopingTx = {
   activeRelay: RelayInfo;
 };
 
+type IgnoreVerifications = 'relayHub' | 'workerBalance' | 'verifiers';
+
+type RelayTxOptions = {
+  signerWallet?: Wallet;
+  ignoreVerifications?: Array<IgnoreVerifications>;
+};
+
 export type {
   RequestConfig,
   TokenGasEstimationParams,
   EstimateInternalGasParams,
   HubEnvelopingTx,
+  RelayTxOptions,
+  IgnoreVerifications,
 };

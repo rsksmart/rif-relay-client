@@ -28,8 +28,10 @@ import {
   getEnvelopingConfig,
   getProvider,
   HubEnvelopingTx,
+  IgnoreVerifications,
   parseEthersError,
   RelayEstimation,
+  RelayTxOptions,
 } from './common';
 import type { EnvelopingConfig } from './common';
 import type {
@@ -71,10 +73,6 @@ import {
 
 const isNullOrUndefined = (value: unknown) =>
   value === null || value === undefined;
-
-type RelayTxOptions = {
-  signerWallet: Wallet;
-};
 
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _envelopingConfig: EnvelopingConfig;
@@ -398,7 +396,11 @@ class RelayClient extends EnvelopingEventEmitter {
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
 
-    await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx);
+    await this._verifyEnvelopingRequest(
+      activeRelay.hubInfo,
+      envelopingTx,
+      options?.ignoreVerifications
+    );
 
     return await this._attemptRelayTransaction(activeRelay, envelopingTx);
   }
@@ -563,7 +565,8 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _verifyEnvelopingRequest(
     { relayWorkerAddress }: HubInfo,
-    envelopingTx: EnvelopingTxRequest
+    envelopingTx: EnvelopingTxRequest,
+    ignoreVerifications?: Array<IgnoreVerifications>
   ): Promise<void> {
     this.emit(EVENT_VALIDATE_REQUEST);
     const {
@@ -576,17 +579,23 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     try {
-      await this._verifyWorkerBalance(
-        relayWorkerAddress,
-        maxPossibleGas,
-        gasPrice as BigNumberish
-      );
-      await this._verifyWithVerifiers(envelopingTx);
-      await this._verifyWithRelayHub(
-        relayWorkerAddress,
-        envelopingTx,
-        maxPossibleGas
-      );
+      if (!ignoreVerifications?.includes('workerBalance')) {
+        await this._verifyWorkerBalance(
+          relayWorkerAddress,
+          maxPossibleGas,
+          gasPrice as BigNumberish
+        );
+      }
+      if (!ignoreVerifications?.includes('verifiers')) {
+        await this._verifyWithVerifiers(envelopingTx);
+      }
+      if (!ignoreVerifications?.includes('relayHub')) {
+        await this._verifyWithRelayHub(
+          relayWorkerAddress,
+          envelopingTx,
+          maxPossibleGas
+        );
+      }
     } catch (e) {
       const message = parseEthersError(e as EthersError);
 
