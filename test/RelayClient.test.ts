@@ -1596,7 +1596,7 @@ describe('RelayClient', function () {
         expect(transactionStub).to.be.calledOnce;
       });
 
-      it('should throw if enveloping request will fail due to gas limite is exceeded', async function () {
+      it('should throw if enveloping request will fail due to gas limit exceeded', async function () {
         const error = Error(GAS_LIMIT_EXCEEDED);
         relayHubStub = {
           populateTransaction: {

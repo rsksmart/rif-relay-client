@@ -691,7 +691,7 @@ describe('utils', function () {
         workerAddress
       );
 
-      expect(maxPossibleGas).to.be.eql(gasLimit.mul(2));
+      expect(maxPossibleGas).to.be.eql(gasLimit.mul(3));
     });
 
     it('should throw error if gas limit is exceeded', async function () {
@@ -707,8 +707,36 @@ describe('utils', function () {
       ).to.be.rejectedWith(GAS_LIMIT_EXCEEDED);
     });
 
-    it('should throw error if transaction throws exception', async function () {
+    it('should throw if enveloping request will fail due to invalid gas price', async function () {
       const fakeError = Error('Invalid gas price');
+      providerStub.call.throws(fakeError);
+
+      await expect(
+        maxPossibleGasVerification(
+          transaction,
+          gasPrice,
+          gasLimit,
+          workerAddress
+        )
+      ).to.be.rejectedWith(fakeError.message);
+    });
+
+    it('should throw if enveloping request will fail due to not enabled worker', async function () {
+      const fakeError = Error('Not an enabled worker');
+      providerStub.call.throws(fakeError);
+
+      await expect(
+        maxPossibleGasVerification(
+          transaction,
+          gasPrice,
+          gasLimit,
+          workerAddress
+        )
+      ).to.be.rejectedWith(fakeError.message);
+    });
+
+    it('should throw if enveloping request will fail due to the relayWorker cannot be a contract', async function () {
+      const fakeError = Error('RelayWorker cannot be a contract');
       providerStub.call.throws(fakeError);
 
       await expect(

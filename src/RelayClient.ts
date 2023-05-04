@@ -673,6 +673,7 @@ class RelayClient extends EnvelopingEventEmitter {
           signature
         );
 
+    log.debug('RelayClient - attempting to relay transaction');
     const { transactionResult } = await maxPossibleGasVerification(
       method,
       gasPrice as BigNumberish,

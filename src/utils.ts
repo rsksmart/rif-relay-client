@@ -40,7 +40,7 @@ const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the 
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x');
 const FACTOR = 0.25;
-const GAS_VERIFICATION_ATTEMPTS = 5;
+const GAS_VERIFICATION_ATTEMPTS = 4;
 
 const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
@@ -315,7 +315,7 @@ const maxPossibleGasVerification = async (
   let maxPossibleGasAttempt = BigNumber.from(gasLimit.toString());
   const provider = getProvider();
 
-  for (let i = 1; i <= GAS_VERIFICATION_ATTEMPTS; i++) {
+  for (let i = 0; i <= GAS_VERIFICATION_ATTEMPTS; i++) {
     try {
       log.debug(
         `attempting with gasLimit : ${maxPossibleGasAttempt.toString()}`
@@ -337,7 +337,7 @@ const maxPossibleGasVerification = async (
       if (!error.message.includes('Not enough gas left')) {
         throw error;
       }
-      maxPossibleGasAttempt = applyFactor(gasLimit, FACTOR * i);
+      maxPossibleGasAttempt = applyFactor(gasLimit, FACTOR * Math.pow(2, i));
     }
   }
 
