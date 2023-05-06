@@ -10,7 +10,6 @@ import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
   BigNumber,
   BigNumberish,
-  CallOverrides,
   constants,
   Transaction,
   Wallet,
@@ -29,8 +28,10 @@ import {
   getEnvelopingConfig,
   getProvider,
   HubEnvelopingTx,
+  IgnoreVerifications,
   parseEthersError,
   RelayEstimation,
+  RelayTxOptions,
 } from './common';
 import type { EnvelopingConfig } from './common';
 import type {
@@ -66,15 +67,12 @@ import {
   estimateInternalCallGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
+  maxPossibleGasVerification,
   validateRelayResponse,
 } from './utils';
 
 const isNullOrUndefined = (value: unknown) =>
   value === null || value === undefined;
-
-type RelayTxOptions = {
-  signerWallet: Wallet;
-};
 
 class RelayClient extends EnvelopingEventEmitter {
   private readonly _envelopingConfig: EnvelopingConfig;
@@ -398,7 +396,11 @@ class RelayClient extends EnvelopingEventEmitter {
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
 
-    await this._verifyEnvelopingRequest(activeRelay.hubInfo, envelopingTx);
+    await this._verifyEnvelopingRequest(
+      activeRelay.hubInfo,
+      envelopingTx,
+      options?.ignoreVerifications
+    );
 
     return await this._attemptRelayTransaction(activeRelay, envelopingTx);
   }
@@ -563,7 +565,8 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _verifyEnvelopingRequest(
     { relayWorkerAddress }: HubInfo,
-    envelopingTx: EnvelopingTxRequest
+    envelopingTx: EnvelopingTxRequest,
+    ignoreVerifications?: Array<IgnoreVerifications>
   ): Promise<void> {
     this.emit(EVENT_VALIDATE_REQUEST);
     const {
@@ -576,17 +579,23 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     try {
-      await this._verifyWorkerBalance(
-        relayWorkerAddress,
-        maxPossibleGas,
-        gasPrice as BigNumberish
-      );
-      await this._verifyWithVerifiers(envelopingTx);
-      await this._verifyWithRelayHub(
-        relayWorkerAddress,
-        envelopingTx,
-        maxPossibleGas
-      );
+      if (!ignoreVerifications?.includes('workerBalance')) {
+        await this._verifyWorkerBalance(
+          relayWorkerAddress,
+          maxPossibleGas,
+          gasPrice as BigNumberish
+        );
+      }
+      if (!ignoreVerifications?.includes('verifiers')) {
+        await this._verifyWithVerifiers(envelopingTx);
+      }
+      if (!ignoreVerifications?.includes('relayHub')) {
+        await this._verifyWithRelayHub(
+          relayWorkerAddress,
+          envelopingTx,
+          maxPossibleGas
+        );
+      }
     } catch (e) {
       const message = parseEthersError(e as EthersError);
 
@@ -644,7 +653,9 @@ class RelayClient extends EnvelopingEventEmitter {
     maxPossibleGas: BigNumber
   ): Promise<void> {
     const { signature, relayHubAddress } = metadata;
-    const { gasPrice } = relayRequest.relayData;
+    const {
+      relayData: { gasPrice },
+    } = relayRequest;
 
     const provider = getProvider();
 
@@ -652,27 +663,32 @@ class RelayClient extends EnvelopingEventEmitter {
       relayHubAddress.toString(),
       provider
     );
-    const commonOverrides: CallOverrides = {
-      from: relayWorkerAddress,
-      gasPrice,
-      gasLimit: maxPossibleGas,
-    };
 
-    if (isDeployRequest(relayRequest)) {
-      await relayHub.callStatic.deployCall(
-        relayRequest,
-        signature,
-        commonOverrides
-      );
-    } else {
-      const destinationCallSuccess = await relayHub.callStatic.relayCall(
-        relayRequest as RelayRequest,
-        signature,
-        commonOverrides
+    const isDeploy = isDeployRequest(relayRequest);
+
+    const method = isDeploy
+      ? await relayHub.populateTransaction.deployCall(relayRequest, signature)
+      : await relayHub.populateTransaction.relayCall(
+          relayRequest as RelayRequest,
+          signature
+        );
+
+    log.debug('RelayClient - attempting to relay transaction');
+    const { transactionResult } = await maxPossibleGasVerification(
+      method,
+      gasPrice as BigNumberish,
+      maxPossibleGas,
+      relayWorkerAddress
+    );
+
+    if (!isDeploy) {
+      const decodedResult = relayHub.interface.decodeFunctionResult(
+        'relayCall',
+        transactionResult
       );
 
-      if (!destinationCallSuccess) {
-        throw new Error('Destination contract reverted');
+      if (!decodedResult[0]) {
+        throw Error('Destination contract reverted');
       }
     }
   }
