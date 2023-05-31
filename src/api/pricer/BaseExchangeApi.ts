@@ -4,7 +4,14 @@ export type BaseCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
 
 export type CurrencyMapping = Partial<Record<BaseCurrency, string>>;
 
-export default abstract class BaseExchangeApi {
+export interface ExchangeApi {
+  queryExchangeRate: (
+    sourceCurrency: string,
+    targetCurrency: string
+  ) => Promise<BigNumberJs>;
+}
+
+export default abstract class BaseExchangeApi implements ExchangeApi {
   constructor(
     protected readonly api: string,
     private currencyMapping: CurrencyMapping

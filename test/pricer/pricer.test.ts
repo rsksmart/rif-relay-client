@@ -9,14 +9,14 @@ import {
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { getExchangeRate } from '../../src/pricer/pricer';
 import {
-  BaseExchangeApi,
   CoinCodex,
   CoinGecko,
   RdocExchange,
   TestExchange,
 } from '../../src/api';
 import * as pricerUtils from '../../src/pricer/utils';
-import type { ConstructorArgs, ExchangeApiName } from '../../src/pricer/utils';
+import type { ExchangeApiName } from '../../src/pricer/utils';
+import type { ExchangeApi } from 'src/api/pricer/BaseExchangeApi';
 
 describe('pricer', function () {
   describe('getExchangeRate', function () {
@@ -27,10 +27,7 @@ describe('pricer', function () {
     let fakeRifRbtc: BigNumberJs;
     const RIF_SYMBOL = 'RIF';
     const RBTC_SYMBOL = 'RBTC';
-    let fakeBuilder: Map<
-      ExchangeApiName,
-      (args?: ConstructorArgs) => BaseExchangeApi
-    >;
+    let fakeBuilder: Map<ExchangeApiName, () => ExchangeApi>;
 
     beforeEach(function () {
       coinGeckoStub = createStubInstance(CoinGecko);
