@@ -27,7 +27,7 @@ describe('pricer', function () {
     let fakeRifRbtc: BigNumberJs;
     const RIF_SYMBOL = 'RIF';
     const RBTC_SYMBOL = 'RBTC';
-    let fakeBuilder: Map<ExchangeApiName, () => ExchangeApi>;
+    let fakeBuilder: Map<ExchangeApiName, ExchangeApi>;
 
     beforeEach(function () {
       coinGeckoStub = createStubInstance(CoinGecko);
@@ -36,7 +36,7 @@ describe('pricer', function () {
       fakeRbtcRif = fakeRbtcUsd.dividedBy(fakeRifUsd);
       fakeRifRbtc = fakeRifUsd.dividedBy(fakeRbtcUsd);
       fakeBuilder = new Map();
-      fakeBuilder.set('coinGecko', () => coinGeckoStub);
+      fakeBuilder.set('coinGecko', coinGeckoStub);
       replace(pricerUtils, 'apiBuilder', fakeBuilder);
       coinGeckoStub.queryExchangeRate
         .withArgs(RIF_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
@@ -91,7 +91,7 @@ describe('pricer', function () {
       coinCodexStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .resolves(fakeRbtcUsd);
-      fakeBuilder.set('coinCodex', () => coinCodexStub);
+      fakeBuilder.set('coinCodex', coinCodexStub);
       coinGeckoStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
@@ -117,7 +117,7 @@ describe('pricer', function () {
 
     it("should fail if all the mapped API's fail", async function () {
       const coinCodexStub = createStubInstance(CoinCodex);
-      fakeBuilder.set('coinCodex', () => coinCodexStub);
+      fakeBuilder.set('coinCodex', coinCodexStub);
       coinGeckoStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
@@ -137,8 +137,8 @@ describe('pricer', function () {
       const testExchangeStub = createStubInstance(TestExchange, {
         queryExchangeRate: Promise.reject(),
       });
-      fakeBuilder.set('rdocExchange', () => rDocExchangeStub);
-      fakeBuilder.set('testExchange', () => testExchangeStub);
+      fakeBuilder.set('rdocExchange', rDocExchangeStub);
+      fakeBuilder.set('testExchange', testExchangeStub);
 
       await expect(getExchangeRate('RDOC', 'TKN', 'NA')).to.be.rejectedWith(
         `Currency conversion for pair RDOC:TKN not found in current exchange api`

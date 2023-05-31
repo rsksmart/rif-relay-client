@@ -1,3 +1,4 @@
+import log from 'loglevel';
 import type { ExchangeApi } from './BaseExchangeApi';
 import type { BigNumber as BigNumberJs } from 'bignumber.js';
 
@@ -24,15 +25,18 @@ export class CachedExchangeApi implements ExchangeApi {
     const now = Date.now();
     const cachedValue = this.cache.get(key);
     if (!cachedValue || cachedValue.expirationTime <= now) {
+      log.debug('CachedExchangeApi: value not available or expired', cachedValue);
       const value = await this.exchangeApi.queryExchangeRate(
         sourceCurrency,
         targetCurrency
       );
       const expirationTime = now + this.expirationTimeInMillisec;
       this.cache.set(key, { expirationTime, value });
+      log.debug('CachedExchangeApi: storing a new value', key, { expirationTime, value });
 
       return value;
     }
+    log.debug('CachedExchangeApi: value available in cache, API not called', cachedValue);
 
     return cachedValue.value;
   }

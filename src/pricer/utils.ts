@@ -26,15 +26,15 @@ const tokenToApi: Record<string, ExchangeApiName[]> = {
 const CACHE_EXPIRATION_TIME = 60_000;
 const INTERMEDIATE_CURRENCY = 'USD';
 
-const builders = new Map<ExchangeApiName, () => ExchangeApi>();
-builders.set('coinBase', () => new CoinBase());
-builders.set('coinCodex', () => new CoinCodex());
+const builders = new Map<ExchangeApiName, ExchangeApi>();
+builders.set('coinBase', new CoinBase());
+builders.set('coinCodex',new CoinCodex());
 builders.set(
   'coinGecko',
-  () => new CachedExchangeApi(new CoinGecko(), CACHE_EXPIRATION_TIME)
+  new CachedExchangeApi(new CoinGecko(), CACHE_EXPIRATION_TIME)
 );
-builders.set('rdocExchange', () => new RdocExchange());
-builders.set('testExchange', () => new TestExchange());
+builders.set('rdocExchange', new RdocExchange());
+builders.set('testExchange', new TestExchange());
 
 export { tokenToApi, INTERMEDIATE_CURRENCY, builders as apiBuilder };
 
