@@ -28,7 +28,7 @@ const INTERMEDIATE_CURRENCY = 'USD';
 
 const builders = new Map<ExchangeApiName, ExchangeApi>();
 builders.set('coinBase', new CoinBase());
-builders.set('coinCodex',new CoinCodex());
+builders.set('coinCodex', new CoinCodex());
 builders.set(
   'coinGecko',
   new CachedExchangeApi(new CoinGecko(), CACHE_EXPIRATION_TIME)
