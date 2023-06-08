@@ -37,7 +37,7 @@ describe('pricer', function () {
       fakeRifRbtc = fakeRifUsd.dividedBy(fakeRbtcUsd);
       fakeBuilder = new Map();
       fakeBuilder.set('coinGecko', coinGeckoStub);
-      replace(pricerUtils, 'apiBuilder', fakeBuilder);
+      replace(pricerUtils, 'exchanges', fakeBuilder);
       coinGeckoStub.queryExchangeRate
         .withArgs(RIF_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .resolves(fakeRifUsd);
