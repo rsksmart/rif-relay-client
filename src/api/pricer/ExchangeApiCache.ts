@@ -2,18 +2,18 @@ import log from 'loglevel';
 import type { ExchangeApi } from './BaseExchangeApi';
 import type { BigNumber as BigNumberJs } from 'bignumber.js';
 
-export type CacheValue<T> = {
-  value: T;
+export type RateWithExpiration = {
+  rate: BigNumberJs;
   expirationTime: number;
 };
 
-export class CachedExchangeApi implements ExchangeApi {
+export class ExchangeApiCache implements ExchangeApi {
   constructor(
     private exchangeApi: ExchangeApi,
     private expirationTimeInMillisec: number,
-    private cache: Map<string, CacheValue<BigNumberJs>> = new Map<
+    private cache: Map<string, RateWithExpiration> = new Map<
       string,
-      CacheValue<BigNumberJs>
+      RateWithExpiration
     >()
   ) {}
 
@@ -23,31 +23,31 @@ export class CachedExchangeApi implements ExchangeApi {
   ): Promise<BigNumberJs> {
     const key = getKeyFromArgs(sourceCurrency, targetCurrency);
     const now = Date.now();
-    const cachedValue = this.cache.get(key);
-    if (!cachedValue || cachedValue.expirationTime <= now) {
+    const cachedRate = this.cache.get(key);
+    if (!cachedRate || cachedRate.expirationTime <= now) {
       log.debug(
         'CachedExchangeApi: value not available or expired',
-        cachedValue
+        cachedRate
       );
-      const value = await this.exchangeApi.queryExchangeRate(
+      const rate = await this.exchangeApi.queryExchangeRate(
         sourceCurrency,
         targetCurrency
       );
       const expirationTime = now + this.expirationTimeInMillisec;
-      this.cache.set(key, { expirationTime, value });
-      log.debug('CachedExchangeApi: storing a new value', key, {
+      this.cache.set(key, { expirationTime, rate });
+      log.debug('ExchangeApiCache: storing a new value', key, {
         expirationTime,
-        value,
+        rate,
       });
 
-      return value;
+      return rate;
     }
     log.debug(
-      'CachedExchangeApi: value available in cache, API not called',
-      cachedValue
+      'ExchangeApiCache: value available in cache, API not called',
+      cachedRate
     );
 
-    return cachedValue.value;
+    return cachedRate.rate;
   }
 }
 

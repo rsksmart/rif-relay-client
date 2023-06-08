@@ -1,4 +1,4 @@
-import { CachedExchangeApi } from '../api/pricer/CachedExchangeApi';
+import { ExchangeApiCache } from '../api/pricer/ExchangeApiCache';
 import {
   CoinBase,
   CoinCodex,
@@ -27,11 +27,17 @@ const CACHE_EXPIRATION_TIME = 60_000;
 const INTERMEDIATE_CURRENCY = 'USD';
 
 const builders = new Map<ExchangeApiName, ExchangeApi>();
-builders.set('coinBase', new CoinBase());
-builders.set('coinCodex', new CoinCodex());
+builders.set(
+  'coinBase',
+  new ExchangeApiCache(new CoinBase(), CACHE_EXPIRATION_TIME)
+);
+builders.set(
+  'coinCodex',
+  new ExchangeApiCache(new CoinCodex(), CACHE_EXPIRATION_TIME)
+);
 builders.set(
   'coinGecko',
-  new CachedExchangeApi(new CoinGecko(), CACHE_EXPIRATION_TIME)
+  new ExchangeApiCache(new CoinGecko(), CACHE_EXPIRATION_TIME)
 );
 builders.set('rdocExchange', new RdocExchange());
 builders.set('testExchange', new TestExchange());
