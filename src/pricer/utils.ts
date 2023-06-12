@@ -1,4 +1,4 @@
-import type { BaseExchangeApi } from '../api';
+import { ExchangeApiCache } from '../api/pricer/ExchangeApiCache';
 import {
   CoinBase,
   CoinCodex,
@@ -6,6 +6,7 @@ import {
   RdocExchange,
   TestExchange,
 } from '../api';
+import type { ExchangeApi } from 'src/api/pricer/BaseExchangeApi';
 
 type ExchangeApiName =
   | 'coinBase'
@@ -22,35 +23,25 @@ const tokenToApi: Record<string, ExchangeApiName[]> = {
   TKN: ['testExchange'],
 };
 
+const CACHE_EXPIRATION_TIME = 60_000;
 const INTERMEDIATE_CURRENCY = 'USD';
 
-type CoinBaseConstructorArgs = ConstructorParameters<typeof CoinBase>;
-type CoinCodexConstructorArgs = ConstructorParameters<typeof CoinCodex>;
-type CoinGeckoConstructorArgs = ConstructorParameters<typeof CoinGecko>;
-type ConstructorArgs =
-  | CoinBaseConstructorArgs
-  | CoinCodexConstructorArgs
-  | CoinGeckoConstructorArgs;
-
-const builders = new Map<
-  ExchangeApiName,
-  (args?: ConstructorArgs) => BaseExchangeApi
->();
-builders.set(
+const exchanges = new Map<ExchangeApiName, ExchangeApi>();
+exchanges.set(
   'coinBase',
-  (args: CoinBaseConstructorArgs = []) => new CoinBase(...args)
+  new ExchangeApiCache(new CoinBase(), CACHE_EXPIRATION_TIME)
 );
-builders.set(
+exchanges.set(
   'coinCodex',
-  (args: CoinCodexConstructorArgs = []) => new CoinCodex(...args)
+  new ExchangeApiCache(new CoinCodex(), CACHE_EXPIRATION_TIME)
 );
-builders.set(
+exchanges.set(
   'coinGecko',
-  (args: CoinGeckoConstructorArgs = []) => new CoinGecko(...args)
+  new ExchangeApiCache(new CoinGecko(), CACHE_EXPIRATION_TIME)
 );
-builders.set('rdocExchange', () => new RdocExchange());
-builders.set('testExchange', () => new TestExchange());
+exchanges.set('rdocExchange', new RdocExchange());
+exchanges.set('testExchange', new TestExchange());
 
-export { tokenToApi, INTERMEDIATE_CURRENCY, builders as apiBuilder };
+export { tokenToApi, INTERMEDIATE_CURRENCY, exchanges };
 
-export type { ExchangeApiName, ConstructorArgs };
+export type { ExchangeApiName };

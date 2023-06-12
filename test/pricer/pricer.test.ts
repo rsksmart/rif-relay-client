@@ -9,14 +9,14 @@ import {
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { getExchangeRate } from '../../src/pricer/pricer';
 import {
-  BaseExchangeApi,
   CoinCodex,
   CoinGecko,
   RdocExchange,
   TestExchange,
 } from '../../src/api';
 import * as pricerUtils from '../../src/pricer/utils';
-import type { ConstructorArgs, ExchangeApiName } from '../../src/pricer/utils';
+import type { ExchangeApiName } from '../../src/pricer/utils';
+import type { ExchangeApi } from 'src/api/pricer/BaseExchangeApi';
 
 describe('pricer', function () {
   describe('getExchangeRate', function () {
@@ -27,10 +27,7 @@ describe('pricer', function () {
     let fakeRifRbtc: BigNumberJs;
     const RIF_SYMBOL = 'RIF';
     const RBTC_SYMBOL = 'RBTC';
-    let fakeBuilder: Map<
-      ExchangeApiName,
-      (args?: ConstructorArgs) => BaseExchangeApi
-    >;
+    let fakeBuilder: Map<ExchangeApiName, ExchangeApi>;
 
     beforeEach(function () {
       coinGeckoStub = createStubInstance(CoinGecko);
@@ -39,8 +36,8 @@ describe('pricer', function () {
       fakeRbtcRif = fakeRbtcUsd.dividedBy(fakeRifUsd);
       fakeRifRbtc = fakeRifUsd.dividedBy(fakeRbtcUsd);
       fakeBuilder = new Map();
-      fakeBuilder.set('coinGecko', () => coinGeckoStub);
-      replace(pricerUtils, 'apiBuilder', fakeBuilder);
+      fakeBuilder.set('coinGecko', coinGeckoStub);
+      replace(pricerUtils, 'exchanges', fakeBuilder);
       coinGeckoStub.queryExchangeRate
         .withArgs(RIF_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .resolves(fakeRifUsd);
@@ -94,7 +91,7 @@ describe('pricer', function () {
       coinCodexStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .resolves(fakeRbtcUsd);
-      fakeBuilder.set('coinCodex', () => coinCodexStub);
+      fakeBuilder.set('coinCodex', coinCodexStub);
       coinGeckoStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
@@ -120,7 +117,7 @@ describe('pricer', function () {
 
     it("should fail if all the mapped API's fail", async function () {
       const coinCodexStub = createStubInstance(CoinCodex);
-      fakeBuilder.set('coinCodex', () => coinCodexStub);
+      fakeBuilder.set('coinCodex', coinCodexStub);
       coinGeckoStub.queryExchangeRate
         .withArgs(RBTC_SYMBOL, pricerUtils.INTERMEDIATE_CURRENCY)
         .rejects();
@@ -140,8 +137,8 @@ describe('pricer', function () {
       const testExchangeStub = createStubInstance(TestExchange, {
         queryExchangeRate: Promise.reject(),
       });
-      fakeBuilder.set('rdocExchange', () => rDocExchangeStub);
-      fakeBuilder.set('testExchange', () => testExchangeStub);
+      fakeBuilder.set('rdocExchange', rDocExchangeStub);
+      fakeBuilder.set('testExchange', testExchangeStub);
 
       await expect(getExchangeRate('RDOC', 'TKN', 'NA')).to.be.rejectedWith(
         `Currency conversion for pair RDOC:TKN not found in current exchange api`

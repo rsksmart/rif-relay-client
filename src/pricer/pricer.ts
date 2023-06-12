@@ -4,7 +4,7 @@ import {
   ExchangeApiName,
   INTERMEDIATE_CURRENCY,
   tokenToApi,
-  apiBuilder,
+  exchanges,
 } from './utils';
 
 const NOTIFIER = 'Notifier |';
@@ -69,7 +69,7 @@ const queryExchangeApis = async (
 ): Promise<BigNumberJs> => {
   for (const api of exchangeApis) {
     try {
-      const exchangeApi = apiBuilder.get(api)?.();
+      const exchangeApi = exchanges.get(api);
 
       const exchangeRate = await exchangeApi?.queryExchangeRate(
         sourceCurrency,
