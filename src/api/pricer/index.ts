@@ -14,6 +14,6 @@ export {
   RdocExchange,
   BaseExchangeApi,
   CoinGecko,
-  UsdRifExchange
+  UsdRifExchange,
 };
 export type { BaseCurrency };
