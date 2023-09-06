@@ -1,6 +1,6 @@
 import type { BigNumber as BigNumberJs } from 'bignumber.js';
 
-export type BaseCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN';
+export type BaseCurrency = 'TRIF' | 'RIF' | 'RDOC' | 'RBTC' | 'TKN' | 'USDRIF';
 
 export type CurrencyMapping = Partial<Record<BaseCurrency, string>>;
 

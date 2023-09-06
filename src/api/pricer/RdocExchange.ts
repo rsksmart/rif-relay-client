@@ -1,36 +1,15 @@
-import { BigNumber as BigNumberJs } from 'bignumber.js';
-import BaseExchangeApi, { CurrencyMapping } from './BaseExchangeApi';
+import type { CurrencyMapping } from './BaseExchangeApi';
+import { StableCoinExchange } from './StableCoinExchange';
 
-type RateRecord = Record<string, string>;
-
-const rates: Record<string, RateRecord> = {
-  RDOC: {
-    USD: '1',
-  },
-};
+const RDOC = 'RDOC';
+const RDOC_EXCHANGE_NAME = 'RDocExchange';
 
 const CURRENCY_MAPPING: CurrencyMapping = {
-  RDOC: 'RDOC',
+  RDOC,
 };
 
-export default class RdocExchange extends BaseExchangeApi {
+export default class RdocExchange extends StableCoinExchange {
   constructor() {
-    super('RdocExchange', CURRENCY_MAPPING);
-  }
-
-  queryExchangeRate(
-    sourceCurrency: string,
-    targetCurrency: string
-  ): Promise<BigNumberJs> {
-    const conversionRate =
-      rates[sourceCurrency.toUpperCase()]?.[targetCurrency.toUpperCase()];
-
-    if (!conversionRate) {
-      throw Error(
-        `Exchange rate for currency pair ${sourceCurrency} / ${targetCurrency} is not available`
-      );
-    }
-
-    return Promise.resolve(BigNumberJs(conversionRate));
+    super(RDOC, RDOC_EXCHANGE_NAME, CURRENCY_MAPPING);
   }
 }

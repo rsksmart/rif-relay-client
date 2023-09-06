@@ -35,7 +35,7 @@ describe('RdocExchange', function () {
 
     it('should fail if token symbol is empty', function () {
       expect(() => rdocExchange._getCurrencyName('')).to.throw(
-        'RdocExchange API cannot map a token with a null/empty value'
+        'RDocExchange API cannot map a token with a null/empty value'
       );
     });
   });
