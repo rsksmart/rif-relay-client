@@ -5,6 +5,7 @@ import BaseExchangeApi from './BaseExchangeApi';
 import type { BaseCurrency } from './BaseExchangeApi';
 import CoinGecko from './CoinGecko';
 import CoinCodex from './CoinCodex';
+import UsdRifExchange from './USDRIFExchange';
 
 export {
   CoinBase,
@@ -13,5 +14,6 @@ export {
   RdocExchange,
   BaseExchangeApi,
   CoinGecko,
+  UsdRifExchange
 };
 export type { BaseCurrency };

@@ -4,6 +4,7 @@ import {
   CoinCodex,
   CoinGecko,
   RdocExchange,
+  UsdRifExchange,
   TestExchange,
 } from '../api';
 import type { ExchangeApi } from 'src/api/pricer/BaseExchangeApi';
@@ -13,6 +14,7 @@ type ExchangeApiName =
   | 'coinGecko'
   | 'coinCodex'
   | 'rdocExchange'
+  | 'usdrifExchange'
   | 'testExchange';
 
 const tokenToApi: Record<string, ExchangeApiName[]> = {
@@ -21,6 +23,7 @@ const tokenToApi: Record<string, ExchangeApiName[]> = {
   RIF: ['coinGecko', 'coinBase', 'coinCodex'],
   TRIF: ['coinGecko', 'coinBase', 'coinCodex'],
   TKN: ['testExchange'],
+  USDRIF: ['usdrifExchange'],
 };
 
 const CACHE_EXPIRATION_TIME = 60_000;
@@ -40,6 +43,7 @@ exchanges.set(
   new ExchangeApiCache(new CoinGecko(), CACHE_EXPIRATION_TIME)
 );
 exchanges.set('rdocExchange', new RdocExchange());
+exchanges.set('usdrifExchange', new UsdRifExchange());
 exchanges.set('testExchange', new TestExchange());
 
 export { tokenToApi, INTERMEDIATE_CURRENCY, exchanges };
