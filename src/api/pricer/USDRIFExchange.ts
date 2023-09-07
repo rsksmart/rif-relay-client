@@ -5,7 +5,7 @@ const USDRIF = 'USDRIF';
 const USDRIF_EXCHANGE_NAME = 'UsdRifExchange';
 
 const CURRENCY_MAPPING: CurrencyMapping = {
-  USDRIF: USDRIF,
+  USDRIF,
 };
 
 export default class UsdRifExchange extends StableCoinExchange {
