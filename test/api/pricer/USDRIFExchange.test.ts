@@ -1,30 +1,30 @@
 import { expect } from 'chai';
-import RdocExchange from '../../../src/api/pricer/RdocExchange';
+import USDRIFExchange from '../../../src/api/pricer/USDRIFExchange';
 
-describe('RdocExchange', function () {
-  type RdocExchangeExposed = {
+describe('USDRIFExchange', function () {
+  type USDRIFExchangeExposed = {
     _getCurrencyName(tokenSymbol: string): string;
   } & {
-    [key in keyof RdocExchange]: RdocExchange[key];
+    [key in keyof USDRIFExchange]: USDRIFExchange[key];
   };
-  let rdocExchange: RdocExchangeExposed;
-  const SOURCE_CURRENCY = 'RDOC';
+  let rdocExchange: USDRIFExchangeExposed;
+  const SOURCE_CURRENCY = 'USDRIF';
   const TARGET_CURRENCY = 'USD';
-  const X_RATE_RDOC_USD = '1';
+  const X_RATE_USDRIF_USD = '1';
 
   beforeEach(function () {
-    rdocExchange = new RdocExchange() as unknown as RdocExchangeExposed;
+    rdocExchange = new USDRIFExchange() as unknown as USDRIFExchangeExposed;
   });
 
   describe('_getCurrencyName', function () {
     it('should return mapped token name', function () {
-      expect(rdocExchange._getCurrencyName('RDOC')).to.be.equal(
+      expect(rdocExchange._getCurrencyName('USDRIF')).to.be.equal(
         SOURCE_CURRENCY
       );
     });
 
     it('should return mapped token(lowercase) name', function () {
-      expect(rdocExchange._getCurrencyName('rdoc')).to.be.equal(
+      expect(rdocExchange._getCurrencyName('usdrif')).to.be.equal(
         SOURCE_CURRENCY
       );
     });
@@ -35,28 +35,28 @@ describe('RdocExchange', function () {
 
     it('should fail if token symbol is empty', function () {
       expect(() => rdocExchange._getCurrencyName('')).to.throw(
-        'RDocExchange API cannot map a token with a null/empty value'
+        'UsdRifExchange API cannot map a token with a null/empty value'
       );
     });
   });
 
   describe('queryExchangeRate', function () {
-    it('should return exchange rate RDOC/USD', async function () {
+    it('should return exchange rate USDRIF/USD', async function () {
       const exchangeRate = await rdocExchange.queryExchangeRate(
         SOURCE_CURRENCY,
         TARGET_CURRENCY
       );
 
-      expect(exchangeRate.toString()).to.be.equal(X_RATE_RDOC_USD);
+      expect(exchangeRate.toString()).to.be.equal(X_RATE_USDRIF_USD);
     });
 
-    it('should return exchange rate rdoc/usd', async function () {
+    it('should return exchange rate usdrif/usd', async function () {
       const exchangeRate = await rdocExchange.queryExchangeRate(
         SOURCE_CURRENCY.toLowerCase(),
         TARGET_CURRENCY.toLowerCase()
       );
 
-      expect(exchangeRate.toString()).to.be.equal(X_RATE_RDOC_USD);
+      expect(exchangeRate.toString()).to.be.equal(X_RATE_USDRIF_USD);
     });
 
     it('should fail if rate does not exist', function () {
