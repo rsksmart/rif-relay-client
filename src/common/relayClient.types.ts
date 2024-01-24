@@ -52,6 +52,17 @@ type IgnoreVerifications = 'relayHub' | 'workerBalance' | 'verifiers';
 type RelayTxOptions = {
   signerWallet?: Wallet;
   ignoreVerifications?: Array<IgnoreVerifications>;
+  isCustom?: boolean;
+};
+
+type SmartWalletAddressTxOptions = {
+  owner: string;
+  smartWalletIndex: number | string;
+  recoverer?: string;
+  to?: string;
+  data?: string;
+  factoryAddress?: string;
+  isCustom?: boolean;
 };
 
 export type {
@@ -61,4 +72,5 @@ export type {
   HubEnvelopingTx,
   RelayTxOptions,
   IgnoreVerifications,
+  SmartWalletAddressTxOptions,
 };

@@ -7,14 +7,9 @@ import {
   IWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
+import { BigNumber, BigNumberish, constants, Transaction } from 'ethers';
 import {
-  BigNumber,
-  BigNumberish,
-  constants,
-  Transaction,
-  Wallet,
-} from 'ethers';
-import {
+  Result,
   isAddress,
   keccak256,
   parseTransaction,
@@ -47,9 +42,8 @@ import type {
   RelayRequest,
   UserDefinedDeployRequestBody,
   UserDefinedEnvelopingRequest,
-  UserDefinedRelayRequestBody,
 } from './common/relayRequest.types';
-import { isDeployRequest } from './common/relayRequest.utils';
+import { isDeployRequest, isRelayRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
@@ -193,22 +187,6 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('No relay hub address has been given or configured');
     }
 
-    const gasLimit = await ((
-      envelopingRequest.request as UserDefinedRelayRequestBody
-    ).gas ??
-      estimateInternalCallGas({
-        data,
-        from: callForwarder,
-        to,
-        gasPrice,
-      }));
-
-    if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
-      throw new Error(
-        'Gas limit value (`gas`) is required in a relay request.'
-      );
-    }
-
     const recoverer =
       (envelopingRequest.request as DeployRequestBody).recoverer ??
       constants.AddressZero;
@@ -227,11 +205,29 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const tokenGas = request.tokenGas ?? constants.Zero;
 
+    const gasLimit =
+      envelopingRequest.request.gas ??
+      (to != constants.AddressZero
+        ? await estimateInternalCallGas({
+            data,
+            from: callForwarder,
+            to,
+            gasPrice,
+          })
+        : constants.Zero);
+
+    if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
+      throw new Error(
+        'Gas limit value (`gas`) is required in a relay request.'
+      );
+    }
+
     const commonRequestBody: CommonEnvelopingRequestBody = {
       data,
       from,
       nonce,
       relayHub,
+      gas: gasLimit,
       to,
       tokenAmount,
       tokenContract,
@@ -252,12 +248,7 @@ class RelayClient extends EnvelopingEventEmitter {
           relayData: updateRelayData,
         }
       : {
-          request: {
-            ...commonRequestBody,
-            ...{
-              gas: BigNumber.from(gasLimit),
-            },
-          },
+          request: commonRequestBody,
           relayData: updateRelayData,
         };
 
@@ -267,10 +258,11 @@ class RelayClient extends EnvelopingEventEmitter {
   private async _prepareHttpRequest(
     { feesReceiver, relayWorkerAddress }: HubInfo,
     envelopingRequest: EnvelopingRequest,
-    signerWallet?: Wallet
+    options?: RelayTxOptions
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub, tokenGas },
+      request: { relayHub, tokenGas, tokenContract },
+      relayData: { gasPrice },
     } = envelopingRequest;
 
     const provider = getProvider();
@@ -297,14 +289,29 @@ class RelayClient extends EnvelopingEventEmitter {
       data: string;
     };
 
+    const isCustom = options?.isCustom;
     const preDeploySWAddress = isDeployment
-      ? await getSmartWalletAddress(from, index, recoverer, to, data)
+      ? await getSmartWalletAddress({
+          owner: from,
+          smartWalletIndex: index,
+          recoverer,
+          to,
+          data,
+          isCustom,
+        })
       : undefined;
 
     const currentTokenGas = BigNumber.from(tokenGas);
 
     const newTokenGas = currentTokenGas.gt(constants.Zero)
       ? currentTokenGas
+      : tokenContract === constants.AddressZero
+      ? await estimateInternalCallGas({
+          from,
+          to,
+          gasPrice,
+          data,
+        })
       : await estimateTokenTransferGas({
           relayRequest: {
             ...envelopingRequest,
@@ -329,6 +336,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const accountManager = AccountManager.getInstance();
 
+    const signerWallet = options?.signerWallet;
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,
       signature: await accountManager.sign(updatedRelayRequest, signerWallet),
@@ -387,7 +395,7 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<Transaction> {
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
       envelopingRequest,
-      options?.signerWallet
+      options
     );
 
     this.emit(EVENT_INIT);
@@ -414,10 +422,7 @@ class RelayClient extends EnvelopingEventEmitter {
       activeRelay: {
         managerData: { url },
       },
-    } = await this._getHubEnvelopingTx(
-      envelopingRequest,
-      options?.signerWallet
-    );
+    } = await this._getHubEnvelopingTx(envelopingRequest, options);
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
@@ -432,7 +437,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _getHubEnvelopingTx(
     envelopingRequest: UserDefinedEnvelopingRequest,
-    signerWallet?: Wallet
+    options?: RelayTxOptions
   ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
       envelopingRequest
@@ -444,7 +449,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const envelopingTx = await this._prepareHttpRequest(
       activeRelay.hubInfo,
       envelopingRequestDetails,
-      signerWallet
+      options
     );
 
     return {
@@ -624,18 +629,22 @@ class RelayClient extends EnvelopingEventEmitter {
   }: EnvelopingTxRequest): Promise<void> {
     const { signature } = metadata;
     const {
+      request: { tokenContract },
       relayData: { callVerifier },
     } = relayRequest;
 
     const provider = getProvider();
 
-    if (isDeployRequest(relayRequest)) {
+    if (
+      isDeployRequest(relayRequest) &&
+      tokenContract != constants.AddressZero
+    ) {
       const verifier = DeployVerifier__factory.connect(
         callVerifier.toString(),
         provider
       );
       await verifier.callStatic.verifyRelayedCall(relayRequest, signature);
-    } else {
+    } else if (isRelayRequest(relayRequest)) {
       const verifier = RelayVerifier__factory.connect(
         callVerifier.toString(),
         provider
@@ -668,10 +677,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const method = isDeploy
       ? await relayHub.populateTransaction.deployCall(relayRequest, signature)
-      : await relayHub.populateTransaction.relayCall(
-          relayRequest as RelayRequest,
-          signature
-        );
+      : await relayHub.populateTransaction.relayCall(relayRequest, signature);
 
     log.debug('RelayClient - attempting to relay transaction');
     const { transactionResult } = await maxPossibleGasVerification(
@@ -681,15 +687,21 @@ class RelayClient extends EnvelopingEventEmitter {
       relayWorkerAddress
     );
 
-    if (!isDeploy) {
-      const decodedResult = relayHub.interface.decodeFunctionResult(
+    let decodedResult: Result;
+    if (isDeploy) {
+      decodedResult = relayHub.interface.decodeFunctionResult(
+        'deployCall',
+        transactionResult
+      );
+    } else {
+      decodedResult = relayHub.interface.decodeFunctionResult(
         'relayCall',
         transactionResult
       );
+    }
 
-      if (!decodedResult[0]) {
-        throw Error('Destination contract reverted');
-      }
+    if (!decodedResult[0]) {
+      throw Error('Destination contract reverted');
     }
   }
 }

@@ -49,7 +49,10 @@ import type {
   UserDefinedRelayData,
   UserDefinedRelayRequestBody,
 } from '../src/common/relayRequest.types';
-import type { HubEnvelopingTx } from 'src/common/relayClient.types';
+import type {
+  HubEnvelopingTx,
+  RelayTxOptions,
+} from 'src/common/relayClient.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
   GAS_LIMIT_EXCEEDED,
@@ -144,7 +147,7 @@ describe('RelayClient', function () {
       _prepareHttpRequest: (
         hubInfo: HubInfo,
         envelopingRequest: EnvelopingRequest,
-        signerWallet?: Wallet
+        options?: RelayTxOptions
       ) => Promise<EnvelopingTxRequest>;
       _calculateGasPrice(): Promise<BigNumber>;
       _getEnvelopingRequestDetails: (
@@ -152,7 +155,7 @@ describe('RelayClient', function () {
       ) => Promise<EnvelopingRequest>;
       _getHubEnvelopingTx: (
         envelopingRequest: UserDefinedEnvelopingRequest,
-        signerWallet?: Wallet
+        options?: RelayTxOptions
       ) => Promise<HubEnvelopingTx>;
       _attemptRelayTransaction: (
         relayInfo: RelayInfo,
@@ -403,7 +406,9 @@ describe('RelayClient', function () {
               feesReceiver: FAKE_HUB_INFO.feesReceiver,
             },
           },
-          signerWallet
+          {
+            signerWallet,
+          }
         );
 
         expect(signStub).to.have.been.calledWith(
@@ -999,7 +1004,7 @@ describe('RelayClient', function () {
 
         expect(relayClient._getHubEnvelopingTx).to.be.calledWith(
           sandbox.match.any,
-          signerWallet
+          { signerWallet }
         );
       });
     });
@@ -1084,7 +1089,9 @@ describe('RelayClient', function () {
 
         expect(relayClient._getHubEnvelopingTx).to.be.calledWith(
           sandbox.match.any,
-          signerWallet
+          {
+            signerWallet,
+          }
         );
       });
     });
@@ -1148,12 +1155,16 @@ describe('RelayClient', function () {
           .stub()
           .returns(FAKE_RELAY_TRANSACTION_REQUEST);
 
-        await relayClient._getHubEnvelopingTx(envelopingRequest, signerWallet);
+        await relayClient._getHubEnvelopingTx(envelopingRequest, {
+          signerWallet,
+        });
 
         expect(relayClient._prepareHttpRequest).to.have.been.calledWith(
           sandbox.match.any,
           sandbox.match.any,
-          signerWallet
+          {
+            signerWallet,
+          }
         );
       });
     });
@@ -1580,9 +1591,13 @@ describe('RelayClient', function () {
       });
 
       it('should allow if enveloping deploy request will succeed', async function () {
+        const callStub = sandbox.stub().returns([true]);
         relayHubStub = {
           populateTransaction: {
             deployCall: transactionStub,
+          },
+          interface: {
+            decodeFunctionResult: callStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);

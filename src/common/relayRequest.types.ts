@@ -39,6 +39,7 @@ type UserDefinedDeployRequestBody = Modify<
     | 'recoverer'
     | 'data'
     | 'to'
+    | 'gas'
   >
 >;
 

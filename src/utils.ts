@@ -20,6 +20,7 @@ import {
   getProvider,
   isDeployRequest,
   isDeployTransaction,
+  SmartWalletAddressTxOptions,
   TokenGasEstimationParams,
 } from './common';
 import type {
@@ -120,28 +121,33 @@ const estimateTokenTransferGas = async ({
   );
 };
 
-const getSmartWalletAddress = async (
-  owner: string,
-  smartWalletIndex: number | string,
-  recoverer?: string,
-  logic?: string,
-  logicParamsHash?: string,
-  factoryAddress?: string
-): Promise<string> => {
+const getSmartWalletAddress = async ({
+  owner,
+  smartWalletIndex,
+  recoverer,
+  to,
+  data,
+  factoryAddress,
+  isCustom = false,
+}: SmartWalletAddressTxOptions): Promise<string> => {
   log.debug('generateSmartWallet Params', {
     smartWalletIndex,
     recoverer,
-    logic,
-    logicParamsHash,
+    data,
+    to,
   });
-
-  const isCustom = !!logic && logic !== constants.AddressZero;
 
   log.debug('Generating computed address for smart wallet');
 
   const recovererAddress = recoverer ?? constants.AddressZero;
 
-  const initParamsHash = logicParamsHash ?? SHA3_NULL_S;
+  const logicParamsHash = data ?? SHA3_NULL_S;
+
+  const logic = to ?? constants.AddressZero;
+
+  if (isCustom && logic === constants.AddressZero) {
+    throw new Error('Logic address is necessary for Custom Smart Wallet');
+  }
 
   const smartWalletFactoryAddress =
     factoryAddress ?? getEnvelopingConfig().smartWalletFactoryAddress;
@@ -156,7 +162,7 @@ const getSmartWalletAddress = async (
         owner,
         recovererAddress,
         logic,
-        initParamsHash,
+        logicParamsHash,
         smartWalletIndex
       )
     : await ISmartWalletFactory__factory.connect(

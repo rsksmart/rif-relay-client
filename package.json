@@ -90,7 +90,7 @@
     "typescript": "4.8.2"
   },
   "peerDependencies": {
-    "@rsksmart/rif-relay-contracts": "^2.0.0-beta.1",
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#PP-885/explore-solution-b2",
     "ethers": "^5.7.0"
   },
   "publishConfig": {

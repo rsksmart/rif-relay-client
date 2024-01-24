@@ -362,7 +362,10 @@ describe('utils', function () {
         getSmartWalletAddress: () => expectedAddress,
       } as unknown as ISmartWalletFactory;
       sinon.stub(ISmartWalletFactory__factory, 'connect').returns(factoryStub);
-      const address = await getSmartWalletAddress(owner, index);
+      const address = await getSmartWalletAddress({
+        owner,
+        smartWalletIndex: index,
+      });
 
       expect(address).to.be.equals(expectedAddress);
     });
@@ -376,13 +379,13 @@ describe('utils', function () {
         .stub(ICustomSmartWalletFactory__factory, 'connect')
         .returns(factoryStub);
       const logic = createRandomAddress();
-      const address = await getSmartWalletAddress(
+      const address = await getSmartWalletAddress({
         owner,
-        index,
-        undefined,
-        logic,
-        '0x0'
-      );
+        smartWalletIndex: index,
+        to: logic,
+        data: '0x0',
+        isCustom: true,
+      });
 
       expect(address).to.be.equals(expectedAddress);
     });

@@ -6,10 +6,12 @@ import {
   standardMaxPossibleGasEstimation,
   linearFitMaxPossibleGasEstimation,
 } from './utils';
+import type { RelayTxOptions } from 'src/common';
 
 const estimateRelayMaxPossibleGas = async (
   envelopingRequest: EnvelopingTxRequest,
-  relayWorkerAddress: string
+  relayWorkerAddress: string,
+  options?: RelayTxOptions
 ): Promise<BigNumber> => {
   const {
     relayRequest,
@@ -28,15 +30,17 @@ const estimateRelayMaxPossibleGas = async (
 
   const callForwarder = relayRequest.relayData.callForwarder.toString();
 
+  const isCustom = options?.isCustom;
   const preDeploySWAddress = isSmartWalletDeploy
-    ? await getSmartWalletAddress(
-        from,
-        index,
+    ? await getSmartWalletAddress({
+        owner: from,
+        smartWalletIndex: index,
         recoverer,
         to,
         data,
-        callForwarder
-      )
+        factoryAddress: callForwarder,
+        isCustom,
+      })
     : undefined;
 
   const tokenEstimation = await estimateTokenTransferGas({
