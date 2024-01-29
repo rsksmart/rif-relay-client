@@ -370,7 +370,7 @@ describe('utils', function () {
       expect(address).to.be.equals(expectedAddress);
     });
 
-    it('should custom return SW address', async function () {
+    it('should return custom return SW address', async function () {
       const expectedAddress = createRandomAddress();
       const factoryStub = {
         getSmartWalletAddress: () => expectedAddress,

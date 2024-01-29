@@ -149,6 +149,11 @@ describe('RelayClient', function () {
         envelopingRequest: EnvelopingRequest,
         options?: RelayTxOptions
       ) => Promise<EnvelopingTxRequest>;
+      _prepareTokenGas: (
+        feesReceiver: string,
+        envelopingRequest: EnvelopingRequest,
+        isCustom?: boolean
+      ) => Promise<BigNumber>;
       _calculateGasPrice(): Promise<BigNumber>;
       _getEnvelopingRequestDetails: (
         envelopingRequest: UserDefinedEnvelopingRequest
@@ -418,6 +423,112 @@ describe('RelayClient', function () {
       });
     });
 
+    describe('_prepareTokenGas', function () {
+      it('should return zero if token amount is zero', async function () {
+        const tokenGas = await relayClient._prepareTokenGas(
+          FAKE_HUB_INFO.feesReceiver,
+          {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
+              tokenAmount: constants.Zero,
+            },
+          }
+        );
+
+        expect(tokenGas).to.be.eql(constants.Zero);
+      });
+
+      it('should return given tokenGas if its request', async function () {
+        const request = { ...FAKE_RELAY_REQUEST };
+        const tokenGas = await relayClient._prepareTokenGas(
+          FAKE_HUB_INFO.feesReceiver,
+          request
+        );
+
+        const {
+          request: { tokenAmount: givenTokenGas },
+        } = request;
+
+        expect(tokenGas).to.be.eql(givenTokenGas);
+      });
+
+      it('should throw when native payment in a relay request', async function () {
+        const call = relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
+          ...FAKE_RELAY_REQUEST,
+          request: {
+            ...FAKE_RELAY_REQUEST.request,
+            tokenContract: constants.AddressZero,
+            tokenGas: constants.Zero,
+          },
+        });
+
+        await expect(call).to.be.eventually.rejectedWith(
+          'tokenGas cannot be estimated in a relay request if its a native payment.'
+        );
+      });
+
+      it('should call getSmartWalletAddress in deploy request', async function () {
+        const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
+        const estimationStub = sandbox.stub(
+          relayUtils,
+          'estimateTokenTransferGas'
+        );
+
+        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
+          ...FAKE_DEPLOY_REQUEST,
+          request: {
+            ...FAKE_DEPLOY_REQUEST.request,
+            tokenGas: constants.Zero,
+          },
+        });
+
+        expect(addressStub).to.be.calledOnce;
+        expect(estimationStub).to.be.calledOnce;
+      });
+
+      it('should call estimateInternalCallGas in deploy request with native token', async function () {
+        const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
+        const estimationStub = sandbox.stub(
+          relayUtils,
+          'estimateInternalCallGas'
+        );
+
+        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
+          ...FAKE_DEPLOY_REQUEST,
+          request: {
+            ...FAKE_DEPLOY_REQUEST.request,
+            tokenGas: constants.Zero,
+            tokenContract: constants.AddressZero,
+          },
+        });
+
+        expect(addressStub).to.be.calledOnce;
+        expect(estimationStub).to.be.calledOnce;
+      });
+
+      it('should return expected value', async function () {
+        sandbox.stub(relayUtils, 'getSmartWalletAddress');
+        const expectedValue = constants.Two;
+        sandbox
+          .stub(relayUtils, 'estimateTokenTransferGas')
+          .resolves(expectedValue);
+
+        const tokenGas = await relayClient._prepareTokenGas(
+          FAKE_HUB_INFO.feesReceiver,
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              tokenGas: constants.Zero,
+            },
+          }
+        );
+
+        expect(tokenGas).to.be.equal(expectedValue);
+      });
+    });
+
     describe('_getEnvelopingRequestDetails', function () {
       it('should throw when callForwarder is not present in relay data', async function () {
         const call = relayClient._getEnvelopingRequestDetails({
@@ -576,7 +687,7 @@ describe('RelayClient', function () {
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `index` is not defined in deploy body.'
+          'Field index is not defined in request body.'
         );
       });
 

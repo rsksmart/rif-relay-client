@@ -124,17 +124,26 @@ class RelayClient extends EnvelopingEventEmitter {
     }
 
     const callForwarder =
-      relayData?.callForwarder ??
+      (await relayData?.callForwarder) ??
       this._envelopingConfig.smartWalletFactoryAddress;
-    const data = request.data ?? '0x00';
-    const to = request.to ?? constants.AddressZero;
-    const value = envelopingRequest.request.value ?? constants.Zero;
-    const tokenAmount = envelopingRequest.request.tokenAmount ?? constants.Zero;
+    const data = (await request.data) ?? '0x00';
+    const to = (await request.to) ?? constants.AddressZero;
+    const value = (await envelopingRequest.request.value) ?? constants.Zero;
+    const tokenAmount =
+      (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
+
+    if (
+      to != constants.AddressZero &&
+      data === '0x00' &&
+      BigNumber.from(value).isZero()
+    ) {
+      throw new Error('Contract execution needs data or value to be sent.');
+    }
 
     const { index } = request as UserDefinedDeployRequestBody;
 
-    if (isDeployment && isNullOrUndefined(index)) {
-      throw new Error('Field `index` is not defined in deploy body.');
+    if (isDeployment && isNullOrUndefined(await index)) {
+      throw new Error(MISSING_REQUEST_FIELD('index'));
     }
 
     const callVerifier: PromiseOrValue<string> =
@@ -156,8 +165,8 @@ class RelayClient extends EnvelopingEventEmitter {
       );
     }
 
-    const gasPrice: PromiseOrValue<BigNumberish> =
-      envelopingRequest.relayData?.gasPrice ||
+    const gasPrice: BigNumberish =
+      (await envelopingRequest.relayData?.gasPrice) ||
       (await this._calculateGasPrice());
 
     if (!gasPrice || BigNumber.from(gasPrice).isZero()) {
@@ -167,20 +176,20 @@ class RelayClient extends EnvelopingEventEmitter {
     const provider = getProvider();
 
     const nonce =
-      (envelopingRequest.request.nonce ||
+      ((await envelopingRequest.request.nonce) ||
         (isDeployment
           ? await IWalletFactory__factory.connect(
-              callForwarder.toString(),
+              callForwarder,
               provider
             ).nonce(from)
           : await IForwarder__factory.connect(
-              callForwarder.toString(),
+              callForwarder,
               provider
             ).nonce())) ??
       constants.Zero;
 
     const relayHub =
-      envelopingRequest.request.relayHub?.toString() ||
+      envelopingRequest.request.relayHub ||
       this._envelopingConfig.relayHubAddress;
 
     if (!relayHub) {
@@ -200,13 +209,13 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const secondsNow = Math.round(Date.now() / 1000);
     const validUntilTime =
-      request.validUntilTime ??
+      (await request.validUntilTime) ??
       secondsNow + this._envelopingConfig.requestValidSeconds;
 
-    const tokenGas = request.tokenGas ?? constants.Zero;
+    const tokenGas = (await request.tokenGas) ?? constants.Zero; /// tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
 
     const gasLimit =
-      envelopingRequest.request.gas ??
+      (await envelopingRequest.request.gas) ??
       (to != constants.AddressZero
         ? await estimateInternalCallGas({
             data,
@@ -255,14 +264,14 @@ class RelayClient extends EnvelopingEventEmitter {
     return completeRequest;
   };
 
+  // At this point all the properties from the envelopingRequest were validated and awaited.
   private async _prepareHttpRequest(
     { feesReceiver, relayWorkerAddress }: HubInfo,
     envelopingRequest: EnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub, tokenGas, tokenContract },
-      relayData: { gasPrice },
+      request: { relayHub },
     } = envelopingRequest;
 
     const provider = getProvider();
@@ -279,54 +288,16 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('FeesReceiver has to be a valid non-zero address');
     }
 
-    const isDeployment: boolean = isDeployRequest(envelopingRequest);
-
-    const { from, index, recoverer, to, data } = envelopingRequest.request as {
-      from: string;
-      index: number;
-      recoverer: string;
-      to: string;
-      data: string;
-    };
-
-    const isCustom = options?.isCustom;
-    const preDeploySWAddress = isDeployment
-      ? await getSmartWalletAddress({
-          owner: from,
-          smartWalletIndex: index,
-          recoverer,
-          to,
-          data,
-          isCustom,
-        })
-      : undefined;
-
-    const currentTokenGas = BigNumber.from(tokenGas);
-
-    const newTokenGas = currentTokenGas.gt(constants.Zero)
-      ? currentTokenGas
-      : tokenContract === constants.AddressZero
-      ? await estimateInternalCallGas({
-          from,
-          to,
-          gasPrice,
-          data,
-        })
-      : await estimateTokenTransferGas({
-          relayRequest: {
-            ...envelopingRequest,
-            relayData: {
-              ...envelopingRequest.relayData,
-              feesReceiver,
-            },
-          },
-          preDeploySWAddress,
-        });
+    const tokenGas = await this._prepareTokenGas(
+      feesReceiver,
+      envelopingRequest,
+      options?.isCustom
+    );
 
     const updatedRelayRequest: EnvelopingRequest = {
       request: {
         ...envelopingRequest.request,
-        tokenGas: newTokenGas,
+        tokenGas,
       },
       relayData: {
         ...envelopingRequest.relayData,
@@ -348,6 +319,9 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     this.emit(EVENT_SIGN_REQUEST);
+
+    const isDeployment: boolean = isDeployRequest(envelopingRequest);
+
     log.info(
       `Created HTTP ${
         isDeployment ? 'deploy' : 'relay'
@@ -355,6 +329,77 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     return httpRequest;
+  }
+
+  // At this point all the properties from the envelopingRequest were validated and awaited.
+  private async _prepareTokenGas(
+    feesReceiver: string,
+    envelopingRequest: EnvelopingRequest,
+    isCustom?: boolean
+  ): Promise<BigNumber> {
+    const {
+      request: { tokenGas, tokenAmount, tokenContract },
+      relayData: { gasPrice },
+    } = envelopingRequest;
+
+    const currentTokenAmount = BigNumber.from(tokenAmount);
+
+    if (currentTokenAmount.isZero()) {
+      return constants.Zero;
+    }
+
+    const currentTokenGas = BigNumber.from(tokenGas);
+
+    if (currentTokenGas.gt(constants.Zero)) {
+      return currentTokenGas;
+    }
+
+    const isDeployment: boolean = isDeployRequest(envelopingRequest);
+
+    const { from, index, recoverer, to, data } = envelopingRequest.request as {
+      from: string;
+      index: string;
+      recoverer: string;
+      to: string;
+      data: string;
+    };
+
+    const preDeploySWAddress = isDeployment
+      ? await getSmartWalletAddress({
+          owner: from,
+          smartWalletIndex: index,
+          recoverer,
+          to,
+          data,
+          isCustom,
+        })
+      : undefined;
+
+    const isNativePayment = (await tokenContract) === constants.AddressZero;
+
+    if (isNativePayment && !isDeployment) {
+      throw new Error(
+        'tokenGas cannot be estimated in a relay request if its a native payment.'
+      );
+    }
+
+    return isNativePayment
+      ? await estimateInternalCallGas({
+          from,
+          to,
+          gasPrice,
+          data,
+        })
+      : await estimateTokenTransferGas({
+          relayRequest: {
+            ...envelopingRequest,
+            relayData: {
+              ...envelopingRequest.relayData,
+              feesReceiver,
+            },
+          },
+          preDeploySWAddress,
+        });
   }
 
   private async _calculateGasPrice(): Promise<BigNumber> {

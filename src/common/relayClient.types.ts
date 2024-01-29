@@ -1,4 +1,4 @@
-import type { BigNumberish, Wallet } from 'ethers';
+import type { BigNumberish, BytesLike, Wallet } from 'ethers';
 import type { RelayInfo } from './relayHub.types';
 import type {
   RelayRequestBody,
@@ -57,10 +57,10 @@ type RelayTxOptions = {
 
 type SmartWalletAddressTxOptions = {
   owner: string;
-  smartWalletIndex: number | string;
+  smartWalletIndex: BigNumberish;
   recoverer?: string;
   to?: string;
-  data?: string;
+  data?: string | BytesLike;
   factoryAddress?: string;
   isCustom?: boolean;
 };

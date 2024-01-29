@@ -40,7 +40,7 @@ describe('GasEstimator', function () {
     sandbox.restore();
   });
 
-  describe('estimateMaxPossibleGas', function () {
+  describe('estimateRelayMaxPossibleGas', function () {
     let fakeTokenGas: BigNumber;
     let fakeDeployEstimation: BigNumber;
     let fakeRelayEstimation: BigNumber;
