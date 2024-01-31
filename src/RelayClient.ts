@@ -9,6 +9,7 @@ import {
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { BigNumber, BigNumberish, constants, Transaction } from 'ethers';
 import {
+  BytesLike,
   Result,
   isAddress,
   keccak256,
@@ -43,7 +44,7 @@ import type {
   UserDefinedDeployRequestBody,
   UserDefinedEnvelopingRequest,
 } from './common/relayRequest.types';
-import { isDeployRequest, isRelayRequest } from './common/relayRequest.utils';
+import { isDeployRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
 import {
   MISSING_CALL_FORWARDER,
@@ -132,11 +133,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const tokenAmount =
       (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
 
-    if (
-      to != constants.AddressZero &&
-      data === '0x00' &&
-      BigNumber.from(value).isZero()
-    ) {
+    if (!this._isValidContractCall(to, data, value)) {
       throw new Error('Contract execution needs data or value to be sent.');
     }
 
@@ -212,7 +209,8 @@ class RelayClient extends EnvelopingEventEmitter {
       (await request.validUntilTime) ??
       secondsNow + this._envelopingConfig.requestValidSeconds;
 
-    const tokenGas = (await request.tokenGas) ?? constants.Zero; /// tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
+    /// tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
+    const tokenGas = (await request.tokenGas) ?? constants.Zero;
 
     const gasLimit =
       (await envelopingRequest.request.gas) ??
@@ -263,6 +261,22 @@ class RelayClient extends EnvelopingEventEmitter {
 
     return completeRequest;
   };
+
+  private _isValidContractCall(
+    to: string,
+    data: BytesLike,
+    value: BigNumberish
+  ): boolean {
+    if (
+      to != constants.AddressZero &&
+      data === '0x00' &&
+      BigNumber.from(value).isZero()
+    ) {
+      return false;
+    }
+
+    return true;
+  }
 
   // At this point all the properties from the envelopingRequest were validated and awaited.
   private async _prepareHttpRequest(
@@ -674,22 +688,18 @@ class RelayClient extends EnvelopingEventEmitter {
   }: EnvelopingTxRequest): Promise<void> {
     const { signature } = metadata;
     const {
-      request: { tokenContract },
       relayData: { callVerifier },
     } = relayRequest;
 
     const provider = getProvider();
 
-    if (
-      isDeployRequest(relayRequest) &&
-      tokenContract != constants.AddressZero
-    ) {
+    if (isDeployRequest(relayRequest)) {
       const verifier = DeployVerifier__factory.connect(
         callVerifier.toString(),
         provider
       );
       await verifier.callStatic.verifyRelayedCall(relayRequest, signature);
-    } else if (isRelayRequest(relayRequest)) {
+    } else {
       const verifier = RelayVerifier__factory.connect(
         callVerifier.toString(),
         provider
