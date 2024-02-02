@@ -10,7 +10,6 @@ import { BigNumber as BigNumberJs } from 'bignumber.js';
 import { BigNumber, BigNumberish, constants, Transaction } from 'ethers';
 import {
   BytesLike,
-  Result,
   isAddress,
   keccak256,
   parseTransaction,
@@ -742,21 +741,15 @@ class RelayClient extends EnvelopingEventEmitter {
       relayWorkerAddress
     );
 
-    let decodedResult: Result;
-    if (isDeploy) {
-      decodedResult = relayHub.interface.decodeFunctionResult(
-        'deployCall',
-        transactionResult
-      );
-    } else {
-      decodedResult = relayHub.interface.decodeFunctionResult(
+    if (!isDeploy) {
+      const decodedResult = relayHub.interface.decodeFunctionResult(
         'relayCall',
         transactionResult
       );
-    }
 
-    if (!decodedResult[0]) {
-      throw Error('Destination contract reverted');
+      if (!decodedResult[0]) {
+        throw Error('Destination contract reverted');
+      }
     }
   }
 }
