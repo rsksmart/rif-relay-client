@@ -132,7 +132,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const tokenAmount =
       (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
 
-    if (!this._isValidContractCall(to, data, value)) {
+    if (this._isContractCallInvalid(to, data, value)) {
       throw new Error('Contract execution needs data or value to be sent.');
     }
 
@@ -261,20 +261,16 @@ class RelayClient extends EnvelopingEventEmitter {
     return completeRequest;
   };
 
-  private _isValidContractCall(
+  private _isContractCallInvalid(
     to: string,
     data: BytesLike,
     value: BigNumberish
   ): boolean {
-    if (
+    return (
       to != constants.AddressZero &&
       data === '0x00' &&
       BigNumber.from(value).isZero()
-    ) {
-      return false;
-    }
-
-    return true;
+    );
   }
 
   // At this point all the properties from the envelopingRequest were validated and awaited.
