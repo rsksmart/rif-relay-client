@@ -208,7 +208,7 @@ class RelayClient extends EnvelopingEventEmitter {
       (await request.validUntilTime) ??
       secondsNow + this._envelopingConfig.requestValidSeconds;
 
-    /// tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
+    // tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
     const tokenGas = (await request.tokenGas) ?? constants.Zero;
 
     const gasLimit =
