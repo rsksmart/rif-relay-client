@@ -2,6 +2,7 @@ import type {
   DeployOnlyRequestKey,
   DeployRequest,
   EnvelopingRequest,
+  RelayOnlyRequestKey,
   RelayRequest,
 } from './relayRequest.types';
 import type {
@@ -9,12 +10,16 @@ import type {
   EnvelopingTxRequest,
 } from './relayTransaction.types';
 
+const relayOnlyRequestKeys: RelayOnlyRequestKey[] = ['gas'];
+
 const deployOnlyRequestKeys: DeployOnlyRequestKey[] = ['index'];
 
 const isRelayRequest = (
   request: EnvelopingRequest
 ): request is RelayRequest => {
-  return !isDeployRequest(request);
+  return relayOnlyRequestKeys.every((key: RelayOnlyRequestKey) => {
+    return key in request.request;
+  });
 };
 
 const isDeployRequest = (

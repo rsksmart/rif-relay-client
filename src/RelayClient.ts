@@ -36,12 +36,12 @@ import type {
 } from './common/relayHub.types';
 import type {
   CommonEnvelopingRequestBody,
-  DeployRequestBody,
   EnvelopingRequest,
   EnvelopingRequestData,
   RelayRequest,
   UserDefinedDeployRequestBody,
   UserDefinedEnvelopingRequest,
+  UserDefinedRelayRequestBody,
 } from './common/relayRequest.types';
 import { isDeployRequest } from './common/relayRequest.utils';
 import type { EnvelopingTxRequest } from './common/relayTransaction.types';
@@ -193,7 +193,7 @@ class RelayClient extends EnvelopingEventEmitter {
     }
 
     const recoverer =
-      (envelopingRequest.request as DeployRequestBody).recoverer ??
+      (envelopingRequest.request as UserDefinedDeployRequestBody).recoverer ??
       constants.AddressZero;
 
     const updateRelayData: EnvelopingRequestData = {
@@ -211,16 +211,15 @@ class RelayClient extends EnvelopingEventEmitter {
     // tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
     const tokenGas = (await request.tokenGas) ?? constants.Zero;
 
-    const gasLimit =
-      (await envelopingRequest.request.gas) ??
-      (to != constants.AddressZero
-        ? await estimateInternalCallGas({
-            data,
-            from: callForwarder,
-            to,
-            gasPrice,
-          })
-        : constants.Zero);
+    const gasLimit = await ((
+      envelopingRequest.request as UserDefinedRelayRequestBody
+    ).gas ??
+      estimateInternalCallGas({
+        data,
+        from: callForwarder,
+        to,
+        gasPrice,
+      }));
 
     if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
       throw new Error(
@@ -233,7 +232,6 @@ class RelayClient extends EnvelopingEventEmitter {
       from,
       nonce,
       relayHub,
-      gas: gasLimit,
       to,
       tokenAmount,
       tokenContract,
@@ -254,7 +252,12 @@ class RelayClient extends EnvelopingEventEmitter {
           relayData: updateRelayData,
         }
       : {
-          request: commonRequestBody,
+          request: {
+            ...commonRequestBody,
+            ...{
+              gas: gasLimit,
+            },
+          },
           relayData: updateRelayData,
         };
 
@@ -727,7 +730,10 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const method = isDeploy
       ? await relayHub.populateTransaction.deployCall(relayRequest, signature)
-      : await relayHub.populateTransaction.relayCall(relayRequest, signature);
+      : await relayHub.populateTransaction.relayCall(
+          relayRequest as RelayRequest,
+          signature
+        );
 
     log.debug('RelayClient - attempting to relay transaction');
     const { transactionResult } = await maxPossibleGasVerification(
