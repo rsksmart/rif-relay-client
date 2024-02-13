@@ -453,21 +453,6 @@ describe('RelayClient', function () {
         expect(tokenGas).to.be.eql(givenTokenGas);
       });
 
-      it('should throw when native payment in a relay request', async function () {
-        const call = relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
-          ...FAKE_RELAY_REQUEST,
-          request: {
-            ...FAKE_RELAY_REQUEST.request,
-            tokenContract: constants.AddressZero,
-            tokenGas: constants.Zero,
-          },
-        });
-
-        await expect(call).to.be.eventually.rejectedWith(
-          'tokenGas cannot be estimated in a relay request if its a native payment.'
-        );
-      });
-
       it('should call getSmartWalletAddress in deploy request', async function () {
         const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
         const estimationStub = sandbox.stub(

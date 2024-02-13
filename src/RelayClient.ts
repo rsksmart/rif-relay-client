@@ -351,7 +351,7 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<BigNumber> {
     const {
       request: { tokenGas, tokenAmount, tokenContract },
-      relayData: { gasPrice },
+      relayData: { gasPrice, callForwarder },
     } = envelopingRequest;
 
     const currentTokenAmount = BigNumber.from(tokenAmount);
@@ -376,7 +376,7 @@ class RelayClient extends EnvelopingEventEmitter {
       data: string;
     };
 
-    const preDeploySWAddress = isDeployment
+    const origin = isDeployment
       ? await getSmartWalletAddress({
           owner: from,
           smartWalletIndex: index,
@@ -385,19 +385,13 @@ class RelayClient extends EnvelopingEventEmitter {
           data,
           isCustom,
         })
-      : undefined;
+      : await callForwarder;
 
     const isNativePayment = (await tokenContract) === constants.AddressZero;
 
-    if (isNativePayment && !isDeployment) {
-      throw new Error(
-        'tokenGas cannot be estimated in a relay request if its a native payment.'
-      );
-    }
-
     return isNativePayment
       ? await estimateInternalCallGas({
-          from,
+          from: origin,
           to,
           gasPrice,
           data,
@@ -410,7 +404,7 @@ class RelayClient extends EnvelopingEventEmitter {
               feesReceiver,
             },
           },
-          preDeploySWAddress,
+          preDeploySWAddress: origin,
         });
   }
 

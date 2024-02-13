@@ -11,6 +11,7 @@ import {
   ICustomSmartWalletFactory__factory,
   IERC20__factory,
   ISmartWalletFactory__factory,
+  PromiseOrValue,
   RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
 import log from 'loglevel';
@@ -83,7 +84,7 @@ const estimateTokenTransferGas = async ({
     return constants.Zero;
   }
 
-  let tokenOrigin: string | undefined;
+  let tokenOrigin: PromiseOrValue<string> | undefined;
 
   if (isDeployRequest(relayRequest)) {
     tokenOrigin = preDeploySWAddress;
@@ -95,7 +96,7 @@ const estimateTokenTransferGas = async ({
       throw Error(MISSING_SMART_WALLET_ADDRESS);
     }
   } else {
-    tokenOrigin = callForwarder.toString();
+    tokenOrigin = callForwarder;
 
     if (tokenOrigin === constants.AddressZero) {
       throw Error(MISSING_CALL_FORWARDER);
@@ -104,7 +105,7 @@ const estimateTokenTransferGas = async ({
 
   const provider = getProvider();
 
-  const erc20 = IERC20__factory.connect(tokenContract.toString(), provider);
+  const erc20 = IERC20__factory.connect(await tokenContract, provider);
   const gasCost = await erc20.estimateGas.transfer(feesReceiver, tokenAmount, {
     from: tokenOrigin,
     gasPrice,
