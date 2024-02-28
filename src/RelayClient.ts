@@ -7,14 +7,9 @@ import {
   IWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
+import { BigNumber, BigNumberish, constants, Transaction } from 'ethers';
 import {
-  BigNumber,
-  BigNumberish,
-  constants,
-  Transaction,
-  Wallet,
-} from 'ethers';
-import {
+  BytesLike,
   isAddress,
   keccak256,
   parseTransaction,
@@ -41,7 +36,6 @@ import type {
 } from './common/relayHub.types';
 import type {
   CommonEnvelopingRequestBody,
-  DeployRequestBody,
   EnvelopingRequest,
   EnvelopingRequestData,
   RelayRequest,
@@ -130,17 +124,22 @@ class RelayClient extends EnvelopingEventEmitter {
     }
 
     const callForwarder =
-      relayData?.callForwarder ??
+      (await relayData?.callForwarder) ??
       this._envelopingConfig.smartWalletFactoryAddress;
-    const data = request.data ?? '0x00';
-    const to = request.to ?? constants.AddressZero;
-    const value = envelopingRequest.request.value ?? constants.Zero;
-    const tokenAmount = envelopingRequest.request.tokenAmount ?? constants.Zero;
+    const data = (await request.data) ?? '0x00';
+    const to = (await request.to) ?? constants.AddressZero;
+    const value = (await envelopingRequest.request.value) ?? constants.Zero;
+    const tokenAmount =
+      (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
+
+    if (this._isContractCallInvalid(to, data, value)) {
+      throw new Error('Contract execution needs data or value to be sent.');
+    }
 
     const { index } = request as UserDefinedDeployRequestBody;
 
-    if (isDeployment && isNullOrUndefined(index)) {
-      throw new Error('Field `index` is not defined in deploy body.');
+    if (isDeployment && isNullOrUndefined(await index)) {
+      throw new Error(MISSING_REQUEST_FIELD('index'));
     }
 
     const callVerifier: PromiseOrValue<string> =
@@ -162,8 +161,8 @@ class RelayClient extends EnvelopingEventEmitter {
       );
     }
 
-    const gasPrice: PromiseOrValue<BigNumberish> =
-      envelopingRequest.relayData?.gasPrice ||
+    const gasPrice: BigNumberish =
+      (await envelopingRequest.relayData?.gasPrice) ||
       (await this._calculateGasPrice());
 
     if (!gasPrice || BigNumber.from(gasPrice).isZero()) {
@@ -173,25 +172,44 @@ class RelayClient extends EnvelopingEventEmitter {
     const provider = getProvider();
 
     const nonce =
-      (envelopingRequest.request.nonce ||
+      ((await envelopingRequest.request.nonce) ||
         (isDeployment
           ? await IWalletFactory__factory.connect(
-              callForwarder.toString(),
+              callForwarder,
               provider
             ).nonce(from)
           : await IForwarder__factory.connect(
-              callForwarder.toString(),
+              callForwarder,
               provider
             ).nonce())) ??
       constants.Zero;
 
     const relayHub =
-      envelopingRequest.request.relayHub?.toString() ||
+      envelopingRequest.request.relayHub ||
       this._envelopingConfig.relayHubAddress;
 
     if (!relayHub) {
       throw new Error('No relay hub address has been given or configured');
     }
+
+    const recoverer =
+      (envelopingRequest.request as UserDefinedDeployRequestBody).recoverer ??
+      constants.AddressZero;
+
+    const updateRelayData: EnvelopingRequestData = {
+      callForwarder,
+      callVerifier,
+      feesReceiver: constants.AddressZero, // returns zero address and is to be completed when attempting to relay the transaction
+      gasPrice,
+    };
+
+    const secondsNow = Math.round(Date.now() / 1000);
+    const validUntilTime =
+      (await request.validUntilTime) ??
+      secondsNow + this._envelopingConfig.requestValidSeconds;
+
+    // tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
+    const tokenGas = (await request.tokenGas) ?? constants.Zero;
 
     const gasLimit = await ((
       envelopingRequest.request as UserDefinedRelayRequestBody
@@ -208,24 +226,6 @@ class RelayClient extends EnvelopingEventEmitter {
         'Gas limit value (`gas`) is required in a relay request.'
       );
     }
-
-    const recoverer =
-      (envelopingRequest.request as DeployRequestBody).recoverer ??
-      constants.AddressZero;
-
-    const updateRelayData: EnvelopingRequestData = {
-      callForwarder,
-      callVerifier,
-      feesReceiver: constants.AddressZero, // returns zero address and is to be completed when attempting to relay the transaction
-      gasPrice,
-    };
-
-    const secondsNow = Math.round(Date.now() / 1000);
-    const validUntilTime =
-      request.validUntilTime ??
-      secondsNow + this._envelopingConfig.requestValidSeconds;
-
-    const tokenGas = request.tokenGas ?? constants.Zero;
 
     const commonRequestBody: CommonEnvelopingRequestBody = {
       data,
@@ -255,7 +255,7 @@ class RelayClient extends EnvelopingEventEmitter {
           request: {
             ...commonRequestBody,
             ...{
-              gas: BigNumber.from(gasLimit),
+              gas: gasLimit,
             },
           },
           relayData: updateRelayData,
@@ -264,13 +264,26 @@ class RelayClient extends EnvelopingEventEmitter {
     return completeRequest;
   };
 
+  private _isContractCallInvalid(
+    to: string,
+    data: BytesLike,
+    value: BigNumberish
+  ): boolean {
+    return (
+      to != constants.AddressZero &&
+      data === '0x00' &&
+      BigNumber.from(value).isZero()
+    );
+  }
+
+  // At this point all the properties from the envelopingRequest were validated and awaited.
   private async _prepareHttpRequest(
     { feesReceiver, relayWorkerAddress }: HubInfo,
     envelopingRequest: EnvelopingRequest,
-    signerWallet?: Wallet
+    options?: RelayTxOptions
   ): Promise<EnvelopingTxRequest> {
     const {
-      request: { relayHub, tokenGas },
+      request: { relayHub },
     } = envelopingRequest;
 
     const provider = getProvider();
@@ -287,39 +300,16 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('FeesReceiver has to be a valid non-zero address');
     }
 
-    const isDeployment: boolean = isDeployRequest(envelopingRequest);
-
-    const { from, index, recoverer, to, data } = envelopingRequest.request as {
-      from: string;
-      index: number;
-      recoverer: string;
-      to: string;
-      data: string;
-    };
-
-    const preDeploySWAddress = isDeployment
-      ? await getSmartWalletAddress(from, index, recoverer, to, data)
-      : undefined;
-
-    const currentTokenGas = BigNumber.from(tokenGas);
-
-    const newTokenGas = currentTokenGas.gt(constants.Zero)
-      ? currentTokenGas
-      : await estimateTokenTransferGas({
-          relayRequest: {
-            ...envelopingRequest,
-            relayData: {
-              ...envelopingRequest.relayData,
-              feesReceiver,
-            },
-          },
-          preDeploySWAddress,
-        });
+    const tokenGas = await this._prepareTokenGas(
+      feesReceiver,
+      envelopingRequest,
+      options?.isCustom
+    );
 
     const updatedRelayRequest: EnvelopingRequest = {
       request: {
         ...envelopingRequest.request,
-        tokenGas: newTokenGas,
+        tokenGas,
       },
       relayData: {
         ...envelopingRequest.relayData,
@@ -329,6 +319,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const accountManager = AccountManager.getInstance();
 
+    const signerWallet = options?.signerWallet;
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,
       signature: await accountManager.sign(updatedRelayRequest, signerWallet),
@@ -340,6 +331,9 @@ class RelayClient extends EnvelopingEventEmitter {
     };
 
     this.emit(EVENT_SIGN_REQUEST);
+
+    const isDeployment: boolean = isDeployRequest(envelopingRequest);
+
     log.info(
       `Created HTTP ${
         isDeployment ? 'deploy' : 'relay'
@@ -347,6 +341,71 @@ class RelayClient extends EnvelopingEventEmitter {
     );
 
     return httpRequest;
+  }
+
+  // At this point all the properties from the envelopingRequest were validated and awaited.
+  private async _prepareTokenGas(
+    feesReceiver: string,
+    envelopingRequest: EnvelopingRequest,
+    isCustom?: boolean
+  ): Promise<BigNumber> {
+    const {
+      request: { tokenGas, tokenAmount, tokenContract },
+      relayData: { gasPrice, callForwarder },
+    } = envelopingRequest;
+
+    const currentTokenAmount = BigNumber.from(tokenAmount);
+
+    if (currentTokenAmount.isZero()) {
+      return constants.Zero;
+    }
+
+    const currentTokenGas = BigNumber.from(tokenGas);
+
+    if (currentTokenGas.gt(constants.Zero)) {
+      return currentTokenGas;
+    }
+
+    const isDeployment: boolean = isDeployRequest(envelopingRequest);
+
+    const { from, index, recoverer, to, data } = envelopingRequest.request as {
+      from: string;
+      index: string;
+      recoverer: string;
+      to: string;
+      data: string;
+    };
+
+    const origin = isDeployment
+      ? await getSmartWalletAddress({
+          owner: from,
+          smartWalletIndex: index,
+          recoverer,
+          to,
+          data,
+          isCustom,
+        })
+      : await callForwarder;
+
+    const isNativePayment = (await tokenContract) === constants.AddressZero;
+
+    return isNativePayment
+      ? await estimateInternalCallGas({
+          from: origin,
+          to,
+          gasPrice,
+          data,
+        })
+      : await estimateTokenTransferGas({
+          relayRequest: {
+            ...envelopingRequest,
+            relayData: {
+              ...envelopingRequest.relayData,
+              feesReceiver,
+            },
+          },
+          preDeploySWAddress: origin,
+        });
   }
 
   private async _calculateGasPrice(): Promise<BigNumber> {
@@ -387,7 +446,7 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<Transaction> {
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
       envelopingRequest,
-      options?.signerWallet
+      options
     );
 
     this.emit(EVENT_INIT);
@@ -414,10 +473,7 @@ class RelayClient extends EnvelopingEventEmitter {
       activeRelay: {
         managerData: { url },
       },
-    } = await this._getHubEnvelopingTx(
-      envelopingRequest,
-      options?.signerWallet
-    );
+    } = await this._getHubEnvelopingTx(envelopingRequest, options);
 
     log.debug('Relay Client - Estimating transaction');
     log.debug(
@@ -432,7 +488,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
   private async _getHubEnvelopingTx(
     envelopingRequest: UserDefinedEnvelopingRequest,
-    signerWallet?: Wallet
+    options?: RelayTxOptions
   ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
       envelopingRequest
@@ -444,7 +500,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const envelopingTx = await this._prepareHttpRequest(
       activeRelay.hubInfo,
       envelopingRequestDetails,
-      signerWallet
+      options
     );
 
     return {

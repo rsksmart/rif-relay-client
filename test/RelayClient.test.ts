@@ -49,7 +49,10 @@ import type {
   UserDefinedRelayData,
   UserDefinedRelayRequestBody,
 } from '../src/common/relayRequest.types';
-import type { HubEnvelopingTx } from 'src/common/relayClient.types';
+import type {
+  HubEnvelopingTx,
+  RelayTxOptions,
+} from 'src/common/relayClient.types';
 import type { EnvelopingTxRequest } from '../src/common/relayTransaction.types';
 import {
   GAS_LIMIT_EXCEEDED,
@@ -144,15 +147,20 @@ describe('RelayClient', function () {
       _prepareHttpRequest: (
         hubInfo: HubInfo,
         envelopingRequest: EnvelopingRequest,
-        signerWallet?: Wallet
+        options?: RelayTxOptions
       ) => Promise<EnvelopingTxRequest>;
+      _prepareTokenGas: (
+        feesReceiver: string,
+        envelopingRequest: EnvelopingRequest,
+        isCustom?: boolean
+      ) => Promise<BigNumber>;
       _calculateGasPrice(): Promise<BigNumber>;
       _getEnvelopingRequestDetails: (
         envelopingRequest: UserDefinedEnvelopingRequest
       ) => Promise<EnvelopingRequest>;
       _getHubEnvelopingTx: (
         envelopingRequest: UserDefinedEnvelopingRequest,
-        signerWallet?: Wallet
+        options?: RelayTxOptions
       ) => Promise<HubEnvelopingTx>;
       _attemptRelayTransaction: (
         relayInfo: RelayInfo,
@@ -403,13 +411,106 @@ describe('RelayClient', function () {
               feesReceiver: FAKE_HUB_INFO.feesReceiver,
             },
           },
-          signerWallet
+          {
+            signerWallet,
+          }
         );
 
         expect(signStub).to.have.been.calledWith(
           sandbox.match.any,
           signerWallet
         );
+      });
+    });
+
+    describe('_prepareTokenGas', function () {
+      it('should return zero if token amount is zero', async function () {
+        const tokenGas = await relayClient._prepareTokenGas(
+          FAKE_HUB_INFO.feesReceiver,
+          {
+            ...FAKE_RELAY_REQUEST,
+            request: {
+              ...FAKE_RELAY_REQUEST.request,
+              tokenAmount: constants.Zero,
+            },
+          }
+        );
+
+        expect(tokenGas).to.be.eql(constants.Zero);
+      });
+
+      it('should return given tokenGas if its request', async function () {
+        const request = { ...FAKE_RELAY_REQUEST };
+        const tokenGas = await relayClient._prepareTokenGas(
+          FAKE_HUB_INFO.feesReceiver,
+          request
+        );
+
+        const {
+          request: { tokenAmount: givenTokenGas },
+        } = request;
+
+        expect(tokenGas).to.be.eql(givenTokenGas);
+      });
+
+      it('should call getSmartWalletAddress in deploy request', async function () {
+        const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
+        const estimationStub = sandbox.stub(
+          relayUtils,
+          'estimateTokenTransferGas'
+        );
+
+        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
+          ...FAKE_DEPLOY_REQUEST,
+          request: {
+            ...FAKE_DEPLOY_REQUEST.request,
+            tokenGas: constants.Zero,
+          },
+        });
+
+        expect(addressStub).to.be.calledOnce;
+        expect(estimationStub).to.be.calledOnce;
+      });
+
+      it('should call estimateInternalCallGas in deploy request with native token', async function () {
+        const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
+        const estimationStub = sandbox.stub(
+          relayUtils,
+          'estimateInternalCallGas'
+        );
+
+        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
+          ...FAKE_DEPLOY_REQUEST,
+          request: {
+            ...FAKE_DEPLOY_REQUEST.request,
+            tokenGas: constants.Zero,
+            tokenContract: constants.AddressZero,
+          },
+        });
+
+        expect(addressStub).to.be.calledOnce;
+        expect(estimationStub).to.be.calledOnce;
+      });
+
+      it('should return expected value', async function () {
+        sandbox.stub(relayUtils, 'getSmartWalletAddress');
+        const expectedValue = constants.Two;
+        sandbox
+          .stub(relayUtils, 'estimateTokenTransferGas')
+          .resolves(expectedValue);
+
+        const tokenGas = await relayClient._prepareTokenGas(
+          FAKE_HUB_INFO.feesReceiver,
+          {
+            ...FAKE_DEPLOY_REQUEST,
+            request: {
+              ...FAKE_DEPLOY_REQUEST.request,
+              tokenGas: constants.Zero,
+            },
+          }
+        );
+
+        expect(tokenGas).to.be.equal(expectedValue);
       });
     });
 
@@ -571,7 +672,7 @@ describe('RelayClient', function () {
 
         await expect(call).to.be.eventually.rejected;
         await expect(call).to.be.eventually.rejectedWith(
-          'Field `index` is not defined in deploy body.'
+          'Field index is not defined in request body.'
         );
       });
 
@@ -999,7 +1100,7 @@ describe('RelayClient', function () {
 
         expect(relayClient._getHubEnvelopingTx).to.be.calledWith(
           sandbox.match.any,
-          signerWallet
+          { signerWallet }
         );
       });
     });
@@ -1084,7 +1185,9 @@ describe('RelayClient', function () {
 
         expect(relayClient._getHubEnvelopingTx).to.be.calledWith(
           sandbox.match.any,
-          signerWallet
+          {
+            signerWallet,
+          }
         );
       });
     });
@@ -1148,12 +1251,16 @@ describe('RelayClient', function () {
           .stub()
           .returns(FAKE_RELAY_TRANSACTION_REQUEST);
 
-        await relayClient._getHubEnvelopingTx(envelopingRequest, signerWallet);
+        await relayClient._getHubEnvelopingTx(envelopingRequest, {
+          signerWallet,
+        });
 
         expect(relayClient._prepareHttpRequest).to.have.been.calledWith(
           sandbox.match.any,
           sandbox.match.any,
-          signerWallet
+          {
+            signerWallet,
+          }
         );
       });
     });
@@ -1580,9 +1687,13 @@ describe('RelayClient', function () {
       });
 
       it('should allow if enveloping deploy request will succeed', async function () {
+        const callStub = sandbox.stub().returns([true]);
         relayHubStub = {
           populateTransaction: {
             deployCall: transactionStub,
+          },
+          interface: {
+            decodeFunctionResult: callStub,
           },
         } as unknown as typeof relayHubStub;
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);

@@ -1,4 +1,4 @@
-import type { BigNumberish, Wallet } from 'ethers';
+import type { BigNumberish, BytesLike, Wallet } from 'ethers';
 import type { RelayInfo } from './relayHub.types';
 import type {
   RelayRequestBody,
@@ -52,6 +52,17 @@ type IgnoreVerifications = 'relayHub' | 'workerBalance' | 'verifiers';
 type RelayTxOptions = {
   signerWallet?: Wallet;
   ignoreVerifications?: Array<IgnoreVerifications>;
+  isCustom?: boolean;
+};
+
+type SmartWalletAddressTxOptions = {
+  owner: string;
+  smartWalletIndex: BigNumberish;
+  recoverer?: string;
+  to?: string;
+  data?: string | BytesLike;
+  factoryAddress?: string;
+  isCustom?: boolean;
 };
 
 export type {
@@ -61,4 +72,5 @@ export type {
   HubEnvelopingTx,
   RelayTxOptions,
   IgnoreVerifications,
+  SmartWalletAddressTxOptions,
 };
