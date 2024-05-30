@@ -229,7 +229,7 @@ describe('RelayClient', function () {
       beforeEach(function () {
         fakeTokenGasEstimation = constants.Two;
         sandbox
-          .stub(relayUtils, 'estimateTokenTransferGas')
+          .stub(relayUtils, 'estimatePaymentGas')
           .returns(Promise.resolve(fakeTokenGasEstimation));
         accountManagerStub = {
           sign: sandbox
@@ -439,7 +439,7 @@ describe('RelayClient', function () {
         expect(tokenGas).to.be.eql(constants.Zero);
       });
 
-      it('should return given tokenGas if its request', async function () {
+      it('should return given tokenGas if it is in the request', async function () {
         const request = { ...FAKE_RELAY_REQUEST };
         const tokenGas = await relayClient._prepareTokenGas(
           FAKE_HUB_INFO.feesReceiver,
@@ -455,36 +455,13 @@ describe('RelayClient', function () {
 
       it('should call getSmartWalletAddress in deploy request', async function () {
         const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
-        const estimationStub = sandbox.stub(
-          relayUtils,
-          'estimateTokenTransferGas'
-        );
+        const estimationStub = sandbox.stub(relayUtils, 'estimatePaymentGas');
 
         await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
           ...FAKE_DEPLOY_REQUEST,
           request: {
             ...FAKE_DEPLOY_REQUEST.request,
             tokenGas: constants.Zero,
-          },
-        });
-
-        expect(addressStub).to.be.calledOnce;
-        expect(estimationStub).to.be.calledOnce;
-      });
-
-      it('should call estimateInternalCallGas in deploy request with native token', async function () {
-        const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
-        const estimationStub = sandbox.stub(
-          relayUtils,
-          'estimateInternalCallGas'
-        );
-
-        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
-          ...FAKE_DEPLOY_REQUEST,
-          request: {
-            ...FAKE_DEPLOY_REQUEST.request,
-            tokenGas: constants.Zero,
-            tokenContract: constants.AddressZero,
           },
         });
 
@@ -495,9 +472,7 @@ describe('RelayClient', function () {
       it('should return expected value', async function () {
         sandbox.stub(relayUtils, 'getSmartWalletAddress');
         const expectedValue = constants.Two;
-        sandbox
-          .stub(relayUtils, 'estimateTokenTransferGas')
-          .resolves(expectedValue);
+        sandbox.stub(relayUtils, 'estimatePaymentGas').resolves(expectedValue);
 
         const tokenGas = await relayClient._prepareTokenGas(
           FAKE_HUB_INFO.feesReceiver,

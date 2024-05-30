@@ -54,7 +54,7 @@ describe('GasEstimator', function () {
       fakeFitRelayEstimation = randomBigNumber(10000);
       relayWorker = Wallet.createRandom().address;
       sandbox
-        .stub(relayUtils, 'estimateTokenTransferGas')
+        .stub(relayUtils, 'estimatePaymentGas')
         .returns(Promise.resolve(fakeTokenGas));
       sandbox
         .stub(relayUtils, 'getSmartWalletAddress')

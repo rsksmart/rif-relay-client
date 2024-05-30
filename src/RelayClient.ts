@@ -59,7 +59,7 @@ import EnvelopingEventEmitter, {
 import { standardMaxPossibleGasEstimation } from './gasEstimator';
 import {
   estimateInternalCallGas,
-  estimateTokenTransferGas,
+  estimatePaymentGas,
   getSmartWalletAddress,
   maxPossibleGasVerification,
   validateRelayResponse,
@@ -350,8 +350,8 @@ class RelayClient extends EnvelopingEventEmitter {
     isCustom?: boolean
   ): Promise<BigNumber> {
     const {
-      request: { tokenGas, tokenAmount, tokenContract },
-      relayData: { gasPrice, callForwarder },
+      request: { tokenGas, tokenAmount },
+      relayData: { callForwarder },
     } = envelopingRequest;
 
     const currentTokenAmount = BigNumber.from(tokenAmount);
@@ -387,25 +387,16 @@ class RelayClient extends EnvelopingEventEmitter {
         })
       : await callForwarder;
 
-    const isNativePayment = (await tokenContract) === constants.AddressZero;
-
-    return isNativePayment
-      ? await estimateInternalCallGas({
-          from: origin,
-          to,
-          gasPrice,
-          data,
-        })
-      : await estimateTokenTransferGas({
-          relayRequest: {
-            ...envelopingRequest,
-            relayData: {
-              ...envelopingRequest.relayData,
-              feesReceiver,
-            },
-          },
-          preDeploySWAddress: origin,
-        });
+    return await estimatePaymentGas({
+      relayRequest: {
+        ...envelopingRequest,
+        relayData: {
+          ...envelopingRequest.relayData,
+          feesReceiver,
+        },
+      },
+      preDeploySWAddress: origin,
+    });
   }
 
   private async _calculateGasPrice(): Promise<BigNumber> {
