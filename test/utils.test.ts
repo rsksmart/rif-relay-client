@@ -31,6 +31,7 @@ import {
   getRelayClientGenerator,
   maxPossibleGasVerification,
   estimatePaymentGas,
+  INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION,
 } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import {
@@ -182,8 +183,8 @@ describe('utils', function () {
 
     it('should return native token estimation if token contract is zero address', async function () {
       const FAKE_GAS_COST = 30000;
-      const INTERNAL_CORRECTION = 20000;
-      const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
+      const EXPECTED_ESTIMATION =
+        FAKE_GAS_COST - INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION;
 
       const providerStub: providers.Provider = sinon.createStubInstance(
         providers.Provider
@@ -209,8 +210,8 @@ describe('utils', function () {
 
     it('should return token estimation if token contract is not zero address', async function () {
       const FAKE_GAS_COST = 30000;
-      const INTERNAL_CORRECTION = 20000;
-      const EXPECTED_ESTIMATION = FAKE_GAS_COST - INTERNAL_CORRECTION;
+      const EXPECTED_ESTIMATION =
+        FAKE_GAS_COST - INTERNAL_TRANSACTION_ESTIMATED_CORRECTION;
 
       ierc20TransferStub.resolves(BigNumber.from(FAKE_GAS_COST));
 

@@ -39,7 +39,8 @@ import {
 import RelayClient from './RelayClient';
 import type { HttpClient } from './api/common';
 
-const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
+const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 18500; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
+const INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION = 10500;
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x');
 const FACTOR = 0.25;
@@ -61,6 +62,13 @@ const estimateInternalCallGas = async ({
   const provider = getProvider();
 
   let estimation: BigNumber = await provider.estimateGas(estimateGasParams);
+
+  const data = await estimateGasParams.data;
+
+  if (['', '0x', '0x00'].includes(data.toString())) {
+    internalEstimationCorrection =
+      INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION;
+  }
 
   estimation = applyInternalEstimationCorrection(
     estimation,
@@ -111,7 +119,7 @@ const estimatePaymentGas = async ({
       to,
       gasPrice,
       value: tokenAmount,
-      data: '0x00',
+      data: '0x',
     });
   }
 
@@ -437,6 +445,7 @@ export {
   applyGasCorrectionFactor,
   applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+  INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   SHA3_NULL_S,
   validateRelayResponse,
