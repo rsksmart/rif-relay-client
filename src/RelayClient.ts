@@ -61,6 +61,7 @@ import {
   estimateInternalCallGas,
   estimatePaymentGas,
   getSmartWalletAddress,
+  isDataEmpty,
   maxPossibleGasVerification,
   validateRelayResponse,
 } from './utils';
@@ -92,7 +93,8 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   private _getEnvelopingRequestDetails = async (
-    envelopingRequest: UserDefinedEnvelopingRequest
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    isCustom = false
   ): Promise<EnvelopingRequest> => {
     const isDeployment: boolean = isDeployRequest(
       envelopingRequest as EnvelopingRequest
@@ -132,7 +134,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const tokenAmount =
       (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
 
-    if (this._isContractCallInvalid(to, data, value)) {
+    if (!isCustom && this._isContractCallInvalid(to, data, value)) {
       throw new Error('Contract execution needs data or value to be sent.');
     }
 
@@ -271,7 +273,7 @@ class RelayClient extends EnvelopingEventEmitter {
   ): boolean {
     return (
       to != constants.AddressZero &&
-      data === '0x00' &&
+      isDataEmpty(data.toString()) &&
       BigNumber.from(value).isZero()
     );
   }
@@ -324,6 +326,7 @@ class RelayClient extends EnvelopingEventEmitter {
       relayHubAddress: await relayHub,
       signature: await accountManager.sign(updatedRelayRequest, signerWallet),
       relayMaxNonce,
+      isCustom: options?.isCustom,
     };
     const httpRequest: EnvelopingTxRequest = {
       relayRequest: updatedRelayRequest,
@@ -482,7 +485,8 @@ class RelayClient extends EnvelopingEventEmitter {
     options?: RelayTxOptions
   ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
-      envelopingRequest
+      envelopingRequest,
+      options?.isCustom
     );
 
     //FIXME we should implement the relay selection strategy

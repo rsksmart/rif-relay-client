@@ -603,7 +603,7 @@ describe('utils', function () {
         owner,
         smartWalletIndex: index,
         to: logic,
-        data: '0x0',
+        data: '0x00',
         isCustom: true,
       });
 

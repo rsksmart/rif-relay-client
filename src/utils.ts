@@ -42,7 +42,7 @@ import type { HttpClient } from './api/common';
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 18500; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION = 10500;
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
-const SHA3_NULL_S = utils.keccak256('0x');
+const SHA3_NULL_S = utils.keccak256('0x00');
 const FACTOR = 0.25;
 const GAS_VERIFICATION_ATTEMPTS = 4;
 
@@ -65,7 +65,7 @@ const estimateInternalCallGas = async ({
 
   const data = await estimateGasParams.data;
 
-  if (['', '0x', '0x00'].includes(data.toString())) {
+  if (isDataEmpty(data.toString())) {
     internalEstimationCorrection =
       INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION;
   }
@@ -77,6 +77,7 @@ const estimateInternalCallGas = async ({
 
   return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
 };
+
 const estimatePaymentGas = async ({
   internalEstimationCorrection,
   estimatedGasCorrectionFactor,
@@ -217,7 +218,7 @@ const getSmartWalletAddress = async ({
 
   const recovererAddress = recoverer ?? constants.AddressZero;
 
-  const logicParamsHash = data ?? SHA3_NULL_S;
+  const logicParamsHash = data ? utils.keccak256(data) : SHA3_NULL_S;
 
   const logic = to ?? constants.AddressZero;
 
@@ -437,6 +438,10 @@ const applyFactor = (value: BigNumberish, factor: number) => {
   );
 };
 
+const isDataEmpty = (data: string) => {
+  return ['', '0x', '0x00'].includes(data);
+};
+
 export {
   estimateInternalCallGas,
   estimatePaymentGas,
@@ -452,4 +457,5 @@ export {
   useEnveloping,
   getRelayClientGenerator,
   maxPossibleGasVerification,
+  isDataEmpty,
 };
