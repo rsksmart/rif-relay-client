@@ -1,17 +1,19 @@
 import { BigNumber, utils } from 'ethers';
-import { getSmartWalletAddress, estimatePaymentGas } from '../utils';
+import {
+  getSmartWalletAddress,
+  estimatePaymentGas,
+  isCustomSmartWalletDeployment,
+} from '../utils';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import {
   standardMaxPossibleGasEstimation,
   linearFitMaxPossibleGasEstimation,
 } from './utils';
-import type { RelayTxOptions } from 'src/common';
 
 const estimateRelayMaxPossibleGas = async (
   envelopingRequest: EnvelopingTxRequest,
-  relayWorkerAddress: string,
-  options?: RelayTxOptions
+  relayWorkerAddress: string
 ): Promise<BigNumber> => {
   const {
     relayRequest,
@@ -24,9 +26,10 @@ const estimateRelayMaxPossibleGas = async (
 
   const smartWalletIndex = await index;
 
-  const callForwarder = relayRequest.relayData.callForwarder.toString();
+  const callForwarder = await relayRequest.relayData.callForwarder;
 
-  const isCustom = options?.isCustom;
+  const isCustom = await isCustomSmartWalletDeployment(relayRequest);
+
   const preDeploySWAddress = isSmartWalletDeploy
     ? await getSmartWalletAddress({
         owner: await from,

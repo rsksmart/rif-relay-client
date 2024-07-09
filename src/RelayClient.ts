@@ -61,6 +61,7 @@ import {
   estimateInternalCallGas,
   estimatePaymentGas,
   getSmartWalletAddress,
+  isCustomSmartWalletDeployment,
   isDataEmpty,
   maxPossibleGasVerification,
   validateRelayResponse,
@@ -93,8 +94,7 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   private _getEnvelopingRequestDetails = async (
-    envelopingRequest: UserDefinedEnvelopingRequest,
-    isCustom = false
+    envelopingRequest: UserDefinedEnvelopingRequest
   ): Promise<EnvelopingRequest> => {
     const isDeployment: boolean = isDeployRequest(
       envelopingRequest as EnvelopingRequest
@@ -133,10 +133,6 @@ class RelayClient extends EnvelopingEventEmitter {
     const value = (await envelopingRequest.request.value) ?? constants.Zero;
     const tokenAmount =
       (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
-
-    if (!isCustom && this._isContractCallInvalid(to, data, value)) {
-      throw new Error('Contract execution needs data or value to be sent.');
-    }
 
     const { index } = request as UserDefinedDeployRequestBody;
 
@@ -302,10 +298,23 @@ class RelayClient extends EnvelopingEventEmitter {
       throw new Error('FeesReceiver has to be a valid non-zero address');
     }
 
+    // At this point all the properties from the envelopingRequest were validated and awaited.
+    const isCustom = await isCustomSmartWalletDeployment(envelopingRequest);
+
+    const { to, data, value } = envelopingRequest.request as {
+      to: string;
+      data: string;
+      value: BigNumberish;
+    };
+
+    if (!isCustom && this._isContractCallInvalid(to, data, value)) {
+      throw new Error('Contract execution needs data or value to be sent.');
+    }
+
     const tokenGas = await this._prepareTokenGas(
       feesReceiver,
       envelopingRequest,
-      options?.isCustom
+      isCustom
     );
 
     const updatedRelayRequest: EnvelopingRequest = {
@@ -326,7 +335,6 @@ class RelayClient extends EnvelopingEventEmitter {
       relayHubAddress: await relayHub,
       signature: await accountManager.sign(updatedRelayRequest, signerWallet),
       relayMaxNonce,
-      isCustom: options?.isCustom,
     };
     const httpRequest: EnvelopingTxRequest = {
       relayRequest: updatedRelayRequest,
@@ -346,11 +354,10 @@ class RelayClient extends EnvelopingEventEmitter {
     return httpRequest;
   }
 
-  // At this point all the properties from the envelopingRequest were validated and awaited.
   private async _prepareTokenGas(
     feesReceiver: string,
     envelopingRequest: EnvelopingRequest,
-    isCustom?: boolean
+    isCustom: boolean
   ): Promise<BigNumber> {
     const {
       request: { tokenGas, tokenAmount },
@@ -485,8 +492,7 @@ class RelayClient extends EnvelopingEventEmitter {
     options?: RelayTxOptions
   ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
-      envelopingRequest,
-      options?.isCustom
+      envelopingRequest
     );
 
     //FIXME we should implement the relay selection strategy
