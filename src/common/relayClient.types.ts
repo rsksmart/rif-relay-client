@@ -32,7 +32,7 @@ type PaymentGasEstimationParams = Pick<EnvelopingTxRequest, 'relayRequest'> &
 
 //FIXME name standardization
 /**
- * @deprecated The type was replaced by {@link PaymentGasEstimationParams}
+ * @deprecated The method was replaced by {@link PaymentGasEstimationParams}
  */
 type TokenGasEstimationParams = Pick<EnvelopingTxRequest, 'relayRequest'> &
   Pick<
@@ -65,6 +65,7 @@ type IgnoreVerifications = 'relayHub' | 'workerBalance' | 'verifiers';
 type RelayTxOptions = {
   signerWallet?: Wallet;
   ignoreVerifications?: Array<IgnoreVerifications>;
+  isCustom?: boolean;
 };
 
 type SmartWalletAddressTxOptions = {

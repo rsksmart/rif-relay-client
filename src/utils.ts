@@ -8,7 +8,6 @@ import {
 } from 'ethers';
 import { BigNumber as BigNumberJs } from 'bignumber.js';
 import {
-  DestinationContractHandler__factory,
   ICustomSmartWalletFactory__factory,
   IERC20__factory,
   ISmartWalletFactory__factory,
@@ -31,7 +30,6 @@ import type {
   DeployRequest,
   RelayRequest,
   PaymentGasEstimationParams,
-  EnvelopingRequest,
 } from './common';
 import {
   MISSING_SMART_WALLET_ADDRESS,
@@ -41,7 +39,7 @@ import {
 import RelayClient from './RelayClient';
 import type { HttpClient } from './api/common';
 
-const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 19500; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
+const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 18500; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
 const INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION = 10500;
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x00');
@@ -290,7 +288,7 @@ const applyInternalEstimationCorrection = (
  * requested transaction and validate its signature.
  */
 const validateRelayResponse = (
-  envelopingRequest: EnvelopingTxRequest,
+  request: EnvelopingTxRequest,
   transaction: Transaction,
   relayWorkerAddress: string
 ): void => {
@@ -303,7 +301,7 @@ const validateRelayResponse = (
   const {
     metadata: { signature, relayMaxNonce },
     relayRequest,
-  } = envelopingRequest;
+  } = request;
   const requestMaxNonce = BigNumber.from(relayMaxNonce).toNumber();
   log.debug('validateRelayResponse - Transaction is', transaction);
 
@@ -315,7 +313,7 @@ const validateRelayResponse = (
     throw Error('Transaction has no signer');
   }
 
-  const isDeploy = isDeployTransaction(envelopingRequest);
+  const isDeploy = isDeployTransaction(request);
 
   const provider = getProvider();
   const envelopingConfig = getEnvelopingConfig();
@@ -444,37 +442,6 @@ const isDataEmpty = (data: string) => {
   return ['', '0x', '0x00'].includes(data);
 };
 
-const isCustomSmartWalletDeployment = async ({
-  request,
-  relayData,
-}: EnvelopingRequest): Promise<boolean> => {
-  const index = await request.index;
-  if (!index) {
-    return false;
-  }
-
-  const to = await request.to;
-  if (to == constants.AddressZero) {
-    return false;
-  }
-
-  try {
-    const callVerifier = await relayData.callVerifier;
-    const provider = getProvider();
-    const verifier = DestinationContractHandler__factory.connect(
-      callVerifier,
-      provider
-    );
-    await verifier.acceptsContract(to);
-
-    return false;
-  } catch (error) {
-    log.warn(error);
-  }
-
-  return true;
-};
-
 export {
   estimateInternalCallGas,
   estimatePaymentGas,
@@ -491,5 +458,4 @@ export {
   getRelayClientGenerator,
   maxPossibleGasVerification,
   isDataEmpty,
-  isCustomSmartWalletDeployment,
 };

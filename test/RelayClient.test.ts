@@ -152,7 +152,7 @@ describe('RelayClient', function () {
       _prepareTokenGas: (
         feesReceiver: string,
         envelopingRequest: EnvelopingRequest,
-        isCustom: boolean
+        isCustom?: boolean
       ) => Promise<BigNumber>;
       _calculateGasPrice(): Promise<BigNumber>;
       _getEnvelopingRequestDetails: (
@@ -424,8 +424,6 @@ describe('RelayClient', function () {
     });
 
     describe('_prepareTokenGas', function () {
-      const isCustom = false;
-
       it('should return zero if token amount is zero', async function () {
         const tokenGas = await relayClient._prepareTokenGas(
           FAKE_HUB_INFO.feesReceiver,
@@ -435,8 +433,7 @@ describe('RelayClient', function () {
               ...FAKE_RELAY_REQUEST.request,
               tokenAmount: constants.Zero,
             },
-          },
-          isCustom
+          }
         );
 
         expect(tokenGas).to.be.eql(constants.Zero);
@@ -446,8 +443,7 @@ describe('RelayClient', function () {
         const request = { ...FAKE_RELAY_REQUEST };
         const tokenGas = await relayClient._prepareTokenGas(
           FAKE_HUB_INFO.feesReceiver,
-          request,
-          isCustom
+          request
         );
 
         const {
@@ -461,17 +457,13 @@ describe('RelayClient', function () {
         const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
         const estimationStub = sandbox.stub(relayUtils, 'estimatePaymentGas');
 
-        await relayClient._prepareTokenGas(
-          FAKE_HUB_INFO.feesReceiver,
-          {
-            ...FAKE_DEPLOY_REQUEST,
-            request: {
-              ...FAKE_DEPLOY_REQUEST.request,
-              tokenGas: constants.Zero,
-            },
+        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
+          ...FAKE_DEPLOY_REQUEST,
+          request: {
+            ...FAKE_DEPLOY_REQUEST.request,
+            tokenGas: constants.Zero,
           },
-          isCustom
-        );
+        });
 
         expect(addressStub).to.be.calledOnce;
         expect(estimationStub).to.be.calledOnce;
@@ -490,8 +482,7 @@ describe('RelayClient', function () {
               ...FAKE_DEPLOY_REQUEST.request,
               tokenGas: constants.Zero,
             },
-          },
-          isCustom
+          }
         );
 
         expect(tokenGas).to.be.equal(expectedValue);

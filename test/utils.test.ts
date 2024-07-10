@@ -10,8 +10,6 @@ import {
 import sinon, { SinonStub, SinonStubbedInstance } from 'sinon';
 import sinonChai from 'sinon-chai';
 import {
-  DestinationContractHandler,
-  DestinationContractHandler__factory,
   EnvelopingTypes,
   ICustomSmartWalletFactory,
   ICustomSmartWalletFactory__factory,
@@ -34,7 +32,6 @@ import {
   maxPossibleGasVerification,
   estimatePaymentGas,
   INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION,
-  isCustomSmartWalletDeployment,
 } from '../src/utils';
 import { FAKE_ENVELOPING_CONFIG } from './config.fakes';
 import {
@@ -46,7 +43,6 @@ import {
 } from './request.fakes';
 import * as clientConfiguration from '../src/common/clientConfigurator';
 import type {
-  EnvelopingRequest,
   PaymentGasEstimationParams,
   TokenGasEstimationParams,
 } from '../src/common';
@@ -974,64 +970,6 @@ describe('utils', function () {
           workerAddress
         )
       ).to.be.rejectedWith(fakeError.message);
-    });
-  });
-
-  describe('isCustomSmartWalletDeployment', function () {
-    it('should return false if relay request', async function () {
-      const envelopingRequest: EnvelopingRequest = {
-        ...FAKE_RELAY_REQUEST,
-      };
-
-      const isCustom = await isCustomSmartWalletDeployment(envelopingRequest);
-
-      expect(isCustom).to.be.false;
-    });
-
-    it('should return false if `to` is zero address', async function () {
-      const envelopingRequest: EnvelopingRequest = {
-        ...FAKE_RELAY_REQUEST,
-        request: {
-          ...FAKE_RELAY_REQUEST.request,
-          to: constants.AddressZero,
-        },
-      };
-
-      const isCustom = await isCustomSmartWalletDeployment(envelopingRequest);
-
-      expect(isCustom).to.be.false;
-    });
-
-    it('should return false if verifier is BoltzDeployVerifier', async function () {
-      const verifierStub = <DestinationContractHandler>{};
-      verifierStub.acceptsContract = sinon.stub().resolves(true);
-      sinon
-        .stub(DestinationContractHandler__factory, 'connect')
-        .returns(verifierStub);
-
-      const envelopingRequest: EnvelopingRequest = {
-        ...FAKE_RELAY_REQUEST,
-      };
-
-      const isCustom = await isCustomSmartWalletDeployment(envelopingRequest);
-
-      expect(isCustom).to.be.false;
-    });
-
-    it('should return true if is CustomSmartWallet deployment', async function () {
-      const verifierStub = <DestinationContractHandler>{};
-      verifierStub.acceptsContract = sinon.stub().rejects();
-      sinon
-        .stub(DestinationContractHandler__factory, 'connect')
-        .returns(verifierStub);
-
-      const envelopingRequest: EnvelopingRequest = {
-        ...FAKE_DEPLOY_REQUEST,
-      };
-
-      const isCustom = await isCustomSmartWalletDeployment(envelopingRequest);
-
-      expect(isCustom).to.be.true;
     });
   });
 });
