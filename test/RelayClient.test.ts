@@ -29,7 +29,7 @@ import type {
   TransactionResponse,
   TransactionReceipt,
 } from '@ethersproject/providers';
-import { solidityKeccak256 } from 'ethers/lib/utils';
+import { BytesLike, solidityKeccak256 } from 'ethers/lib/utils';
 import { SinonStub, SinonStubbedInstance, createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import { HttpClient } from '../src/api/common';
@@ -185,6 +185,11 @@ describe('RelayClient', function () {
         maxPossibleGas: BigNumber
       ) => Promise<void>;
       _getRelayServer: () => Promise<RelayInfo>;
+      _isCallInvalid: (
+        to: string,
+        data: BytesLike,
+        value: BigNumberish
+      ) => boolean;
     } & {
       [key in keyof RelayClient]: RelayClient[key];
     };
@@ -1858,6 +1863,50 @@ describe('RelayClient', function () {
 
           expect(actualUrl).to.equal(expectedUrl);
         });
+      });
+    });
+
+    describe('_isCallInvalid', function () {
+      let to: string;
+      let data: BytesLike;
+      let value: BigNumberish;
+
+      beforeEach(function () {
+        to = createRandomAddress();
+        data = '0x00';
+        value = constants.Zero;
+      });
+
+      it('should return true if the call is valid', function () {
+        const result = relayClient._isCallInvalid(to, data, value);
+
+        expect(result).to.be.true;
+      });
+
+      it('should return false if address is zero', function () {
+        const result = relayClient._isCallInvalid(
+          constants.AddressZero,
+          data,
+          value
+        );
+
+        expect(result).to.be.false;
+      });
+
+      it('should return false if data is not empty', function () {
+        const result = relayClient._isCallInvalid(
+          to,
+          'FAKE_REQUEST_DATA',
+          value
+        );
+
+        expect(result).to.be.false;
+      });
+
+      it('should return false if value is not zero', function () {
+        const result = relayClient._isCallInvalid(to, data, constants.Two);
+
+        expect(result).to.be.false;
       });
     });
   });

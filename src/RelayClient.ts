@@ -134,7 +134,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const tokenAmount =
       (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
 
-    if (!isCustom && this._isContractCallInvalid(to, data, value)) {
+    if (!isCustom && this._isCallInvalid(to, data, value)) {
       throw new Error('Contract execution needs data or value to be sent.');
     }
 
@@ -266,7 +266,7 @@ class RelayClient extends EnvelopingEventEmitter {
     return completeRequest;
   };
 
-  private _isContractCallInvalid(
+  private _isCallInvalid(
     to: string,
     data: BytesLike,
     value: BigNumberish
