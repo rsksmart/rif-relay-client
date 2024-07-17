@@ -1,5 +1,5 @@
 import { BigNumber, utils } from 'ethers';
-import { getSmartWalletAddress, estimateTokenTransferGas } from '../utils';
+import { getSmartWalletAddress, estimatePaymentGas } from '../utils';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import {
@@ -39,7 +39,7 @@ const estimateRelayMaxPossibleGas = async (
       })
     : undefined;
 
-  const tokenEstimation = await estimateTokenTransferGas({
+  const tokenEstimation = await estimatePaymentGas({
     relayRequest: {
       ...relayRequest,
       request: {

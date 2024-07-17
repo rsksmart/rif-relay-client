@@ -30,6 +30,7 @@ type EnvelopingMetadata = {
   relayHubAddress: RelayRequestBody['relayHub'];
   relayMaxNonce: number;
   signature: string;
+  isCustom?: boolean;
 };
 
 export type { HubInfo, EnvelopingMetadata, RelayInfo, RelayManagerData };

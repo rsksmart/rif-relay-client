@@ -59,8 +59,9 @@ import EnvelopingEventEmitter, {
 import { standardMaxPossibleGasEstimation } from './gasEstimator';
 import {
   estimateInternalCallGas,
-  estimateTokenTransferGas,
+  estimatePaymentGas,
   getSmartWalletAddress,
+  isDataEmpty,
   maxPossibleGasVerification,
   validateRelayResponse,
 } from './utils';
@@ -92,7 +93,8 @@ class RelayClient extends EnvelopingEventEmitter {
   }
 
   private _getEnvelopingRequestDetails = async (
-    envelopingRequest: UserDefinedEnvelopingRequest
+    envelopingRequest: UserDefinedEnvelopingRequest,
+    isCustom = false
   ): Promise<EnvelopingRequest> => {
     const isDeployment: boolean = isDeployRequest(
       envelopingRequest as EnvelopingRequest
@@ -132,7 +134,7 @@ class RelayClient extends EnvelopingEventEmitter {
     const tokenAmount =
       (await envelopingRequest.request.tokenAmount) ?? constants.Zero;
 
-    if (this._isContractCallInvalid(to, data, value)) {
+    if (!isCustom && this._isCallInvalid(to, data, value)) {
       throw new Error('Contract execution needs data or value to be sent.');
     }
 
@@ -264,14 +266,14 @@ class RelayClient extends EnvelopingEventEmitter {
     return completeRequest;
   };
 
-  private _isContractCallInvalid(
+  private _isCallInvalid(
     to: string,
     data: BytesLike,
     value: BigNumberish
   ): boolean {
     return (
       to != constants.AddressZero &&
-      data === '0x00' &&
+      isDataEmpty(data.toString()) &&
       BigNumber.from(value).isZero()
     );
   }
@@ -324,6 +326,7 @@ class RelayClient extends EnvelopingEventEmitter {
       relayHubAddress: await relayHub,
       signature: await accountManager.sign(updatedRelayRequest, signerWallet),
       relayMaxNonce,
+      isCustom: options?.isCustom,
     };
     const httpRequest: EnvelopingTxRequest = {
       relayRequest: updatedRelayRequest,
@@ -350,8 +353,8 @@ class RelayClient extends EnvelopingEventEmitter {
     isCustom?: boolean
   ): Promise<BigNumber> {
     const {
-      request: { tokenGas, tokenAmount, tokenContract },
-      relayData: { gasPrice, callForwarder },
+      request: { tokenGas, tokenAmount },
+      relayData: { callForwarder },
     } = envelopingRequest;
 
     const currentTokenAmount = BigNumber.from(tokenAmount);
@@ -387,25 +390,16 @@ class RelayClient extends EnvelopingEventEmitter {
         })
       : await callForwarder;
 
-    const isNativePayment = (await tokenContract) === constants.AddressZero;
-
-    return isNativePayment
-      ? await estimateInternalCallGas({
-          from: origin,
-          to,
-          gasPrice,
-          data,
-        })
-      : await estimateTokenTransferGas({
-          relayRequest: {
-            ...envelopingRequest,
-            relayData: {
-              ...envelopingRequest.relayData,
-              feesReceiver,
-            },
-          },
-          preDeploySWAddress: origin,
-        });
+    return await estimatePaymentGas({
+      relayRequest: {
+        ...envelopingRequest,
+        relayData: {
+          ...envelopingRequest.relayData,
+          feesReceiver,
+        },
+      },
+      preDeploySWAddress: origin,
+    });
   }
 
   private async _calculateGasPrice(): Promise<BigNumber> {
@@ -491,7 +485,8 @@ class RelayClient extends EnvelopingEventEmitter {
     options?: RelayTxOptions
   ): Promise<HubEnvelopingTx> {
     const envelopingRequestDetails = await this._getEnvelopingRequestDetails(
-      envelopingRequest
+      envelopingRequest,
+      options?.isCustom
     );
 
     //FIXME we should implement the relay selection strategy

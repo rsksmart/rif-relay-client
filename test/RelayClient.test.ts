@@ -29,7 +29,7 @@ import type {
   TransactionResponse,
   TransactionReceipt,
 } from '@ethersproject/providers';
-import { solidityKeccak256 } from 'ethers/lib/utils';
+import { BytesLike, solidityKeccak256 } from 'ethers/lib/utils';
 import { SinonStub, SinonStubbedInstance, createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import { HttpClient } from '../src/api/common';
@@ -185,6 +185,11 @@ describe('RelayClient', function () {
         maxPossibleGas: BigNumber
       ) => Promise<void>;
       _getRelayServer: () => Promise<RelayInfo>;
+      _isCallInvalid: (
+        to: string,
+        data: BytesLike,
+        value: BigNumberish
+      ) => boolean;
     } & {
       [key in keyof RelayClient]: RelayClient[key];
     };
@@ -229,7 +234,7 @@ describe('RelayClient', function () {
       beforeEach(function () {
         fakeTokenGasEstimation = constants.Two;
         sandbox
-          .stub(relayUtils, 'estimateTokenTransferGas')
+          .stub(relayUtils, 'estimatePaymentGas')
           .returns(Promise.resolve(fakeTokenGasEstimation));
         accountManagerStub = {
           sign: sandbox
@@ -439,7 +444,7 @@ describe('RelayClient', function () {
         expect(tokenGas).to.be.eql(constants.Zero);
       });
 
-      it('should return given tokenGas if its request', async function () {
+      it('should return given tokenGas if it is in the request', async function () {
         const request = { ...FAKE_RELAY_REQUEST };
         const tokenGas = await relayClient._prepareTokenGas(
           FAKE_HUB_INFO.feesReceiver,
@@ -455,36 +460,13 @@ describe('RelayClient', function () {
 
       it('should call getSmartWalletAddress in deploy request', async function () {
         const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
-        const estimationStub = sandbox.stub(
-          relayUtils,
-          'estimateTokenTransferGas'
-        );
+        const estimationStub = sandbox.stub(relayUtils, 'estimatePaymentGas');
 
         await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
           ...FAKE_DEPLOY_REQUEST,
           request: {
             ...FAKE_DEPLOY_REQUEST.request,
             tokenGas: constants.Zero,
-          },
-        });
-
-        expect(addressStub).to.be.calledOnce;
-        expect(estimationStub).to.be.calledOnce;
-      });
-
-      it('should call estimateInternalCallGas in deploy request with native token', async function () {
-        const addressStub = sandbox.stub(relayUtils, 'getSmartWalletAddress');
-        const estimationStub = sandbox.stub(
-          relayUtils,
-          'estimateInternalCallGas'
-        );
-
-        await relayClient._prepareTokenGas(FAKE_HUB_INFO.feesReceiver, {
-          ...FAKE_DEPLOY_REQUEST,
-          request: {
-            ...FAKE_DEPLOY_REQUEST.request,
-            tokenGas: constants.Zero,
-            tokenContract: constants.AddressZero,
           },
         });
 
@@ -495,9 +477,7 @@ describe('RelayClient', function () {
       it('should return expected value', async function () {
         sandbox.stub(relayUtils, 'getSmartWalletAddress');
         const expectedValue = constants.Two;
-        sandbox
-          .stub(relayUtils, 'estimateTokenTransferGas')
-          .resolves(expectedValue);
+        sandbox.stub(relayUtils, 'estimatePaymentGas').resolves(expectedValue);
 
         const tokenGas = await relayClient._prepareTokenGas(
           FAKE_HUB_INFO.feesReceiver,
@@ -1883,6 +1863,50 @@ describe('RelayClient', function () {
 
           expect(actualUrl).to.equal(expectedUrl);
         });
+      });
+    });
+
+    describe('_isCallInvalid', function () {
+      let to: string;
+      let data: BytesLike;
+      let value: BigNumberish;
+
+      beforeEach(function () {
+        to = createRandomAddress();
+        data = '0x00';
+        value = constants.Zero;
+      });
+
+      it('should return true if the call is valid', function () {
+        const result = relayClient._isCallInvalid(to, data, value);
+
+        expect(result).to.be.true;
+      });
+
+      it('should return false if address is zero', function () {
+        const result = relayClient._isCallInvalid(
+          constants.AddressZero,
+          data,
+          value
+        );
+
+        expect(result).to.be.false;
+      });
+
+      it('should return false if data is not empty', function () {
+        const result = relayClient._isCallInvalid(
+          to,
+          'FAKE_REQUEST_DATA',
+          value
+        );
+
+        expect(result).to.be.false;
+      });
+
+      it('should return false if value is not zero', function () {
+        const result = relayClient._isCallInvalid(to, data, constants.Two);
+
+        expect(result).to.be.false;
       });
     });
   });

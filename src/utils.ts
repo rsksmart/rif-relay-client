@@ -29,6 +29,7 @@ import type {
   EnvelopingTxRequest,
   DeployRequest,
   RelayRequest,
+  PaymentGasEstimationParams,
 } from './common';
 import {
   MISSING_SMART_WALLET_ADDRESS,
@@ -38,9 +39,10 @@ import {
 import RelayClient from './RelayClient';
 import type { HttpClient } from './api/common';
 
-const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 20000; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
+const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 18500; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
+const INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION = 10500;
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
-const SHA3_NULL_S = utils.keccak256('0x');
+const SHA3_NULL_S = utils.keccak256('0x00');
 const FACTOR = 0.25;
 const GAS_VERIFICATION_ATTEMPTS = 4;
 
@@ -61,6 +63,13 @@ const estimateInternalCallGas = async ({
 
   let estimation: BigNumber = await provider.estimateGas(estimateGasParams);
 
+  const data = await estimateGasParams.data;
+
+  if (isDataEmpty(data.toString())) {
+    internalEstimationCorrection =
+      INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION;
+  }
+
   estimation = applyInternalEstimationCorrection(
     estimation,
     internalEstimationCorrection
@@ -69,6 +78,73 @@ const estimateInternalCallGas = async ({
   return applyGasCorrectionFactor(estimation, estimatedGasCorrectionFactor);
 };
 
+const estimatePaymentGas = async ({
+  internalEstimationCorrection,
+  estimatedGasCorrectionFactor,
+  preDeploySWAddress,
+  relayRequest,
+}: PaymentGasEstimationParams): Promise<BigNumber> => {
+  const {
+    request: { tokenContract, tokenAmount, to },
+    relayData: { callForwarder, gasPrice, feesReceiver },
+  } = relayRequest;
+
+  if (tokenAmount.toString() === '0') {
+    return constants.Zero;
+  }
+
+  let tokenOrigin: PromiseOrValue<string> | undefined;
+
+  if (isDeployRequest(relayRequest)) {
+    tokenOrigin = preDeploySWAddress;
+
+    // If it is a deploy and tokenGas was not defined, then the smartwallet address
+    // is required to estimate the token gas. This value should be calculated prior to
+    // the call to this function
+    if (!tokenOrigin || tokenOrigin === constants.AddressZero) {
+      throw Error(MISSING_SMART_WALLET_ADDRESS);
+    }
+  } else {
+    tokenOrigin = callForwarder;
+
+    if (tokenOrigin === constants.AddressZero) {
+      throw Error(MISSING_CALL_FORWARDER);
+    }
+  }
+
+  const isNativePayment = (await tokenContract) === constants.AddressZero;
+
+  if (isNativePayment) {
+    return await estimateInternalCallGas({
+      from: tokenOrigin,
+      to,
+      gasPrice,
+      value: tokenAmount,
+      data: '0x',
+    });
+  }
+
+  const provider = getProvider();
+  const erc20 = IERC20__factory.connect(await tokenContract, provider);
+  const gasCost = await erc20.estimateGas.transfer(feesReceiver, tokenAmount, {
+    from: tokenOrigin,
+    gasPrice,
+  });
+
+  const internalCallCost = applyInternalEstimationCorrection(
+    gasCost,
+    internalEstimationCorrection
+  );
+
+  return applyGasCorrectionFactor(
+    internalCallCost,
+    estimatedGasCorrectionFactor
+  );
+};
+
+/**
+ * @deprecated The method was replaced by {@link estimatePaymentGas}
+ */
 const estimateTokenTransferGas = async ({
   internalEstimationCorrection,
   estimatedGasCorrectionFactor,
@@ -142,7 +218,7 @@ const getSmartWalletAddress = async ({
 
   const recovererAddress = recoverer ?? constants.AddressZero;
 
-  const logicParamsHash = data ?? SHA3_NULL_S;
+  const logicParamsHash = data ? utils.keccak256(data) : SHA3_NULL_S;
 
   const logic = to ?? constants.AddressZero;
 
@@ -362,17 +438,24 @@ const applyFactor = (value: BigNumberish, factor: number) => {
   );
 };
 
+const isDataEmpty = (data: string) => {
+  return ['', '0x', '0x00'].includes(data);
+};
+
 export {
   estimateInternalCallGas,
+  estimatePaymentGas,
   estimateTokenTransferGas,
   getSmartWalletAddress,
   applyGasCorrectionFactor,
   applyInternalEstimationCorrection,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+  INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   SHA3_NULL_S,
   validateRelayResponse,
   useEnveloping,
   getRelayClientGenerator,
   maxPossibleGasVerification,
+  isDataEmpty,
 };

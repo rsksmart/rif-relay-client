@@ -21,7 +21,19 @@ type RequestConfig = {
   estimatedGasCorrectionFactor?: BigNumberish;
 };
 
+type PaymentGasEstimationParams = Pick<EnvelopingTxRequest, 'relayRequest'> &
+  Pick<
+    RequestConfig,
+    | 'isSmartWalletDeploy'
+    | 'preDeploySWAddress'
+    | 'internalEstimationCorrection'
+    | 'estimatedGasCorrectionFactor'
+  >;
+
 //FIXME name standardization
+/**
+ * @deprecated The type was replaced by {@link PaymentGasEstimationParams}
+ */
 type TokenGasEstimationParams = Pick<EnvelopingTxRequest, 'relayRequest'> &
   Pick<
     RequestConfig,
@@ -36,6 +48,7 @@ type EstimateInternalGasParams = Pick<
   RelayRequestBody,
   'data' | 'to' | 'from'
 > &
+  Partial<Pick<RelayRequestBody, 'value'>> &
   Pick<EnvelopingRequestData, 'gasPrice'> &
   Pick<
     RequestConfig,
@@ -67,6 +80,7 @@ type SmartWalletAddressTxOptions = {
 
 export type {
   RequestConfig,
+  PaymentGasEstimationParams,
   TokenGasEstimationParams,
   EstimateInternalGasParams,
   HubEnvelopingTx,
