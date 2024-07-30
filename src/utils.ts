@@ -85,7 +85,7 @@ const estimatePaymentGas = async ({
   relayRequest,
 }: PaymentGasEstimationParams): Promise<BigNumber> => {
   const {
-    request: { tokenContract, tokenAmount, to },
+    request: { tokenContract, tokenAmount },
     relayData: { callForwarder, gasPrice, feesReceiver },
   } = relayRequest;
 
@@ -117,7 +117,7 @@ const estimatePaymentGas = async ({
   if (isNativePayment) {
     return await estimateInternalCallGas({
       from: tokenOrigin,
-      to,
+      to: feesReceiver,
       gasPrice,
       value: tokenAmount,
       data: '0x',
