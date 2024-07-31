@@ -115,8 +115,13 @@ const estimatePaymentGas = async ({
   const isNativePayment = (await tokenContract) === constants.AddressZero;
 
   if (isNativePayment) {
+    // Ideally we should set `from` with the tokenOrigin address,
+    // but the tokenOrigin may not have funds, hence the estimation will fail
+    // so we set the feesReceiver as the `from` address.
+    // This may be wrong in case the feesReceiver performs some operations using
+    // the msg.sender address in the fallback/receive function.
     return await estimateInternalCallGas({
-      from: tokenOrigin,
+      from: feesReceiver,
       to: feesReceiver,
       gasPrice,
       value: tokenAmount,
