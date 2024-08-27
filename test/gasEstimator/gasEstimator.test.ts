@@ -4,7 +4,6 @@ import sinonChai from 'sinon-chai';
 import { createSandbox, SinonStubbedInstance } from 'sinon';
 import { BigNumber, providers, Wallet } from 'ethers';
 import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
-import { BigNumber as BigNumberJs } from 'bignumber.js';
 
 import {
   FAKE_DEPLOY_REQUEST,
@@ -12,20 +11,21 @@ import {
   FAKE_RELAY_REQUEST,
   FAKE_RELAY_TRANSACTION_REQUEST,
 } from '../request.fakes';
-import { estimateRelayMaxPossibleGas } from '../../src/gasEstimator/gasEstimator';
-import type { EnvelopingTxRequest } from '../../src/common/relayTransaction.types';
-import type { EnvelopingMetadata } from '../../src/common/relayHub.types';
 import {
-  estimateMaxPossibleWithLinearFit,
-  linearFitMaxPossibleGasEstimation,
+  estimateRelayMaxPossibleGas,
+  estimateRelayMaxPossibleGasNoSignature,
+} from '../../src/gasEstimator/gasEstimator';
+import {
+  PRE_RELAY_GAS_COST,
+  resolveSmartWalletAddress,
   standardMaxPossibleGasEstimation,
 } from '../../src/gasEstimator/utils';
-import { ESTIMATED_GAS_CORRECTION_FACTOR } from '../../src/utils';
-
 import { createRandomAddress } from '../utils';
+import type { EnvelopingTxRequest } from '../../src';
 import * as gasEstimatorUtils from '../../src/gasEstimator/utils';
 import * as clientConfiguration from '../../src/common/clientConfigurator';
 import * as relayUtils from '../../src/utils';
+import * as signerUtils from '../../src/signer';
 
 use(sinonChai);
 use(chaiAsPromised);
@@ -36,42 +36,60 @@ const randomBigNumber = (max: number) =>
   BigNumber.from((Math.random() * max).toFixed(0));
 
 describe('GasEstimator', function () {
-  afterEach(function () {
-    sandbox.restore();
+  let relayTransactionRequest: EnvelopingTxRequest;
+  let deployTransactionRequest: EnvelopingTxRequest;
+
+  before(function () {
+    relayTransactionRequest = {
+      ...FAKE_RELAY_TRANSACTION_REQUEST,
+      relayRequest: {
+        ...FAKE_RELAY_TRANSACTION_REQUEST.relayRequest,
+        request: {
+          ...FAKE_RELAY_TRANSACTION_REQUEST.relayRequest.request,
+          tokenAmount: 0,
+        },
+      },
+    };
+    deployTransactionRequest = {
+      ...FAKE_DEPLOY_TRANSACTION_REQUEST,
+      relayRequest: {
+        ...FAKE_DEPLOY_TRANSACTION_REQUEST.relayRequest,
+        request: {
+          ...FAKE_DEPLOY_TRANSACTION_REQUEST.relayRequest.request,
+          tokenAmount: 0,
+        },
+      },
+    };
   });
 
   describe('estimateRelayMaxPossibleGas', function () {
     let fakeTokenGas: BigNumber;
     let fakeDeployEstimation: BigNumber;
     let fakeRelayEstimation: BigNumber;
-    let fakeFitRelayEstimation: BigNumber;
     let relayWorker: string;
 
     beforeEach(function () {
       fakeTokenGas = randomBigNumber(10000);
       fakeDeployEstimation = randomBigNumber(10000);
       fakeRelayEstimation = randomBigNumber(10000);
-      fakeFitRelayEstimation = randomBigNumber(10000);
       relayWorker = Wallet.createRandom().address;
-      sandbox
-        .stub(relayUtils, 'estimatePaymentGas')
-        .returns(Promise.resolve(fakeTokenGas));
+      sandbox.stub(relayUtils, 'estimatePaymentGas').resolves(fakeTokenGas);
       sandbox
         .stub(relayUtils, 'getSmartWalletAddress')
-        .returns(Promise.resolve(createRandomAddress()));
+        .resolves(createRandomAddress());
     });
 
     afterEach(function () {
       sandbox.restore();
     });
 
-    it('should estimate the relay transaction(standard)', async function () {
+    it('should estimate the relay transaction', async function () {
       sandbox
         .stub(gasEstimatorUtils, 'standardMaxPossibleGasEstimation')
-        .returns(Promise.resolve(fakeRelayEstimation));
+        .resolves(fakeRelayEstimation);
 
       const estimation = await estimateRelayMaxPossibleGas(
-        FAKE_RELAY_TRANSACTION_REQUEST,
+        relayTransactionRequest,
         relayWorker
       );
 
@@ -83,13 +101,13 @@ describe('GasEstimator', function () {
       ).to.be.true;
     });
 
-    it('should estimate the deploy transaction(standard)', async function () {
+    it('should estimate the deploy transaction', async function () {
       sandbox
         .stub(gasEstimatorUtils, 'standardMaxPossibleGasEstimation')
-        .returns(Promise.resolve(fakeDeployEstimation));
+        .resolves(fakeDeployEstimation);
 
       const estimation = await estimateRelayMaxPossibleGas(
-        FAKE_DEPLOY_TRANSACTION_REQUEST,
+        deployTransactionRequest,
         relayWorker
       );
 
@@ -101,45 +119,10 @@ describe('GasEstimator', function () {
       ).to.be.true;
     });
 
-    it('should estimate the relay transaction(linearFit)', async function () {
-      sandbox
-        .stub(gasEstimatorUtils, 'linearFitMaxPossibleGasEstimation')
-        .returns(Promise.resolve(fakeFitRelayEstimation));
-
-      const relayTransaction: EnvelopingTxRequest = {
-        ...FAKE_RELAY_TRANSACTION_REQUEST,
-        metadata: {
-          signature: '0',
-        } as EnvelopingMetadata,
-      };
-
-      const estimation = await estimateRelayMaxPossibleGas(
-        relayTransaction,
-        relayWorker
-      );
-
-      expect(
-        estimation.eq(fakeFitRelayEstimation),
-        `${estimation.toString()} should equal ${fakeFitRelayEstimation.toString()}`
-      ).to.be.true;
-    });
-
-    it('should estimate the deploy transaction(linearFit)', async function () {
-      const error = 'LinearFit estimation not implemented for deployments';
-
-      const relayTransaction: EnvelopingTxRequest = {
-        ...FAKE_DEPLOY_TRANSACTION_REQUEST,
-        metadata: {
-          signature: '0',
-        } as EnvelopingMetadata,
-      };
-
-      const estimation = estimateRelayMaxPossibleGas(
-        relayTransaction,
-        relayWorker
-      );
-
-      await expect(estimation).to.be.rejectedWith(error);
+    it('should fail if token amount is 0', async function () {
+      await expect(
+        estimateRelayMaxPossibleGas(FAKE_RELAY_TRANSACTION_REQUEST, relayWorker)
+      ).to.be.rejectedWith('Token amount needs to be 0');
     });
   });
 
@@ -172,7 +155,7 @@ describe('GasEstimator', function () {
     });
 
     it('should estimate the relay transaction', async function () {
-      providerStub.estimateGas.returns(Promise.resolve(fakeRelayGas));
+      providerStub.estimateGas.resolves(fakeRelayGas);
 
       const estimation = await standardMaxPossibleGasEstimation(
         FAKE_RELAY_TRANSACTION_REQUEST,
@@ -186,7 +169,7 @@ describe('GasEstimator', function () {
     });
 
     it('should estimate the deploy transaction', async function () {
-      providerStub.estimateGas.returns(Promise.resolve(fakeDeployGas));
+      providerStub.estimateGas.resolves(fakeDeployGas);
 
       const estimation = await standardMaxPossibleGasEstimation(
         FAKE_DEPLOY_TRANSACTION_REQUEST,
@@ -200,126 +183,110 @@ describe('GasEstimator', function () {
     });
   });
 
-  describe('linearFitMaxPossibleGasEstimation', function () {
+  describe('estimateRelayMaxPossibleGasNoSignature', function () {
     let fakeTokenGas: BigNumber;
+    let fakeInternalGas: BigNumber;
+    let relayWorker: Wallet;
 
     beforeEach(function () {
       fakeTokenGas = randomBigNumber(10000);
+      fakeInternalGas = randomBigNumber(10000);
+
+      relayWorker = Wallet.createRandom();
+      sandbox.stub(relayUtils, 'estimatePaymentGas').resolves(fakeTokenGas);
+      sandbox
+        .stub(relayUtils, 'estimateInternalCallGas')
+        .resolves(fakeInternalGas);
     });
 
     afterEach(function () {
       sandbox.restore();
     });
 
-    it('should fail to estimate a deploy transaction', async function () {
-      const estimation = linearFitMaxPossibleGasEstimation(
-        FAKE_DEPLOY_REQUEST,
-        fakeTokenGas
+    it('should estimate the relay request', async function () {
+      sandbox
+        .stub(gasEstimatorUtils, 'resolveSmartWalletAddress')
+        .resolves(
+          await relayTransactionRequest.relayRequest.relayData.callForwarder
+        );
+
+      const estimation = await estimateRelayMaxPossibleGasNoSignature(
+        relayTransactionRequest.relayRequest,
+        relayWorker
       );
 
-      await expect(estimation).to.be.rejectedWith(
-        'LinearFit estimation not implemented for deployments'
+      const expectedEstimation = BigNumber.from(PRE_RELAY_GAS_COST)
+        .add(fakeTokenGas)
+        .add(fakeInternalGas)
+        .add(gasEstimatorUtils.POST_RELAY_GAS_COST);
+
+      expect(estimation).eqls(
+        expectedEstimation,
+        `${estimation.toString()} should equal ${expectedEstimation.toString()}`
       );
     });
 
-    it('should estimate the relay transaction', async function () {
-      const internalGas = randomBigNumber(10000);
+    it('should estimate the deploy request', async function () {
+      const fakeDeployEstimation = randomBigNumber(10000);
 
       sandbox
-        .stub(relayUtils, 'estimateInternalCallGas')
-        .returns(Promise.resolve(internalGas));
+        .stub(gasEstimatorUtils, 'resolveSmartWalletAddress')
+        .resolves(createRandomAddress());
 
-      const estimation = await linearFitMaxPossibleGasEstimation(
-        FAKE_RELAY_REQUEST,
-        fakeTokenGas
+      sandbox.stub(signerUtils, 'signEnvelopingRequest').resolves('signature');
+      const providerStub = sandbox.createStubInstance(providers.BaseProvider);
+      sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
+
+      const relayHubStub = {
+        estimateGas: {
+          deployCall: () => Promise.resolve(fakeDeployEstimation),
+        },
+      } as unknown as RelayHub;
+
+      sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+
+      const estimation = await estimateRelayMaxPossibleGasNoSignature(
+        deployTransactionRequest.relayRequest,
+        relayWorker
       );
 
-      const expectedEstimation = estimateMaxPossibleWithLinearFit(
-        internalGas,
-        fakeTokenGas
-      );
+      const expectedEstimation = fakeDeployEstimation
+        .add(fakeTokenGas)
+        .add(fakeInternalGas)
+        .add(gasEstimatorUtils.POST_DEPLOY_GAS_COST);
 
-      expect(
-        estimation.eq(expectedEstimation),
+      expect(estimation).eqls(
+        expectedEstimation,
         `${estimation.toString()} should equal ${expectedEstimation.toString()}`
-      ).to.be.true;
+      );
     });
   });
 
-  describe('estimateMaxPossibleWithLinearFit', function () {
-    it('should estimate a subsidized case', function () {
-      const relayCallGasLimit = 40000;
-      const tokenPaymentGas = 0;
-      const estimatedGasCorrectionFactor = 1;
-      const A0 = BigNumberJs('85090.977');
-      const A1 = BigNumberJs('1.067');
-      const expectedCost = A1.multipliedBy(relayCallGasLimit).plus(A0);
-
-      const actualCost = estimateMaxPossibleWithLinearFit(
-        relayCallGasLimit,
-        tokenPaymentGas,
-        estimatedGasCorrectionFactor
-      );
-
-      expect(actualCost.toString()).to.equal(expectedCost.toFixed(0));
+  describe('resolveSmartWalletAddress', function () {
+    afterEach(function () {
+      sandbox.restore();
     });
 
-    it('should estimate a not subsidized case', function () {
-      const relayCallGasLimit = 40000;
-      const tokenPaymentGas = 5000;
-      const estimatedGasCorrectionFactor = 1;
-      const A0 = BigNumberJs('72530.9611');
-      const A1 = BigNumberJs('1.1114');
-      const expectedCost = A1.multipliedBy(
-        BigNumberJs(relayCallGasLimit).plus(tokenPaymentGas)
-      ).plus(A0);
-
-      const actualCost = estimateMaxPossibleWithLinearFit(
-        relayCallGasLimit,
-        tokenPaymentGas,
-        estimatedGasCorrectionFactor
+    it('should return callforwarder as smart wallet address if relay request', async function () {
+      const smartWalletAddress = await resolveSmartWalletAddress(
+        FAKE_RELAY_REQUEST
       );
 
-      expect(actualCost.toString()).to.equal(expectedCost.toFixed(0));
+      expect(smartWalletAddress).to.be.equal(
+        FAKE_RELAY_REQUEST.relayData.callForwarder
+      );
     });
 
-    it('should apply gas correction factor', function () {
-      const relayCallGasLimit = 40000;
-      const tokenPaymentGas = 5000;
-      const estimatedGasCorrectionFactor = 1.5;
-      const A0 = BigNumberJs('72530.9611');
-      const A1 = BigNumberJs('1.1114');
-      let expectedCost = A1.multipliedBy(
-        BigNumberJs(relayCallGasLimit).plus(tokenPaymentGas)
-      ).plus(A0);
-      expectedCost = expectedCost.multipliedBy(estimatedGasCorrectionFactor);
-
-      const actualCost = estimateMaxPossibleWithLinearFit(
-        relayCallGasLimit,
-        tokenPaymentGas,
-        estimatedGasCorrectionFactor
+    it('should get smart wallet address from factory if deploy request', async function () {
+      const expectedSmartWalletAddress = createRandomAddress();
+      sandbox
+        .stub(relayUtils, 'getSmartWalletAddress')
+        .resolves(expectedSmartWalletAddress);
+      const smartWalletAddress = await resolveSmartWalletAddress(
+        FAKE_DEPLOY_REQUEST
       );
 
-      expect(actualCost.toString()).to.equal(expectedCost.toFixed(0));
-    });
-
-    it('should use by-default gas correction value when not sent as parameters', function () {
-      const relayCallGasLimit = 40000;
-      const tokenPaymentGas = 5000;
-      const estimatedGasCorrectionFactor = ESTIMATED_GAS_CORRECTION_FACTOR;
-      const A0 = BigNumberJs('72530.9611');
-      const A1 = BigNumberJs('1.1114');
-      let expectedCost = A1.multipliedBy(
-        BigNumberJs(relayCallGasLimit).plus(tokenPaymentGas)
-      ).plus(A0);
-      expectedCost = expectedCost.multipliedBy(estimatedGasCorrectionFactor);
-
-      const actualCost = estimateMaxPossibleWithLinearFit(
-        relayCallGasLimit,
-        tokenPaymentGas
-      );
-
-      expect(actualCost.toString()).to.equal(expectedCost.toFixed(0));
+      expect(smartWalletAddress).to.be.equal(expectedSmartWalletAddress);
     });
   });
 });

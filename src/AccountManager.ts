@@ -1,14 +1,8 @@
-import { providers, Wallet, utils } from 'ethers';
-import { getAddress, _TypedDataEncoder } from 'ethers/lib/utils';
-import { getProvider, isDeployRequest } from './common';
+import { Wallet } from 'ethers';
+import { getAddress } from 'ethers/lib/utils';
+import { getProvider } from './common';
 import type { EnvelopingRequest } from './common';
-import {
-  deployRequestType,
-  EnvelopingMessageTypes,
-  getEnvelopingRequestDataV4Field,
-  relayRequestType,
-  TypedMessage,
-} from './typedRequestData.utils';
+import { signEnvelopingRequest } from './signer';
 
 export default class AccountManager {
   private static instance: AccountManager;
@@ -56,10 +50,7 @@ export default class AccountManager {
     envelopingRequest: EnvelopingRequest,
     signerWalletOnTheFly?: Wallet
   ): Promise<string> {
-    const callForwarder = envelopingRequest.relayData.callForwarder.toString();
-    const provider = getProvider();
-    const { chainId } = await provider.getNetwork();
-    const fromAddress = getAddress(envelopingRequest.request.from.toString());
+    const fromAddress = getAddress(await envelopingRequest.request.from);
 
     const signerWallet =
       signerWalletOnTheFly ||
@@ -67,96 +58,6 @@ export default class AccountManager {
         (account) => getAddress(account.address) === fromAddress
       );
 
-    const data = getEnvelopingRequestDataV4Field({
-      chainId,
-      verifier: callForwarder,
-      envelopingRequest,
-      requestTypes: isDeployRequest(envelopingRequest)
-        ? deployRequestType
-        : relayRequestType,
-    });
-
-    const { signature, recoveredAddr } = await this._getSignatureFromTypedData(
-      data,
-      fromAddress,
-      signerWallet
-    ).catch((error) => {
-      throw new Error(
-        `Failed to sign relayed transaction for ${fromAddress}: ${
-          error as string
-        }`
-      );
-    });
-
-    if (recoveredAddr !== fromAddress) {
-      throw new Error(
-        `Internal RelayClient exception: signature is not correct: sender=${fromAddress}, recovered=${recoveredAddr}`
-      );
-    }
-
-    return signature;
-  }
-
-  private async _getSignatureFromTypedData(
-    data: TypedMessage<EnvelopingMessageTypes>,
-    from: string,
-    wallet?: Wallet
-  ): Promise<{ signature: string; recoveredAddr: string }> {
-    const signature: string = wallet
-      ? await this._signWithWallet(wallet, data)
-      : await this._signWithProvider(from, data);
-    const recoveredAddr = this._recoverSignature(data, signature);
-
-    return { signature, recoveredAddr };
-  }
-
-  private _recoverSignature(
-    data: TypedMessage<EnvelopingMessageTypes>,
-    signature: string
-  ) {
-    const { domain, types, value } = data;
-
-    return utils.verifyTypedData(domain, types, value, signature);
-  }
-
-  private async _signWithProvider<T>(
-    from: string,
-    data: TypedMessage<EnvelopingMessageTypes>,
-    signatureVersion = 'v4',
-    jsonStringify = true
-  ): Promise<T> {
-    const provider = getProvider() as providers.JsonRpcProvider;
-    if (!provider.send) {
-      throw new Error(`Not an RPC provider`);
-    }
-
-    const { domain, types, value } = data;
-
-    let encondedData: TypedMessage<EnvelopingMessageTypes> | string;
-    if (jsonStringify) {
-      encondedData = JSON.stringify(
-        _TypedDataEncoder.getPayload(domain, types, value)
-      );
-    } else {
-      encondedData = _TypedDataEncoder.getPayload(
-        domain,
-        types,
-        value
-      ) as TypedMessage<EnvelopingMessageTypes>;
-    }
-
-    return (await provider.send(`eth_signTypedData_${signatureVersion}`, [
-      from,
-      encondedData,
-    ])) as T;
-  }
-
-  private async _signWithWallet(
-    wallet: Wallet,
-    data: TypedMessage<EnvelopingMessageTypes>
-  ): Promise<string> {
-    const { domain, types, value } = data;
-
-    return await wallet._signTypedData(domain, types, value);
+    return signEnvelopingRequest(envelopingRequest, fromAddress, signerWallet);
   }
 }

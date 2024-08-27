@@ -80,7 +80,7 @@ import * as etherUtils from '@ethersproject/transactions';
 import * as clientConfiguration from '../src/common/clientConfigurator';
 import * as relayUtils from '../src/utils';
 import * as gasEstimator from '../src/gasEstimator/utils';
-import type { RelayEstimation } from 'src';
+import { SERVER_SIGNATURE_REQUIRED, type RelayEstimation } from '../src';
 import { createRandomAddress, createRandomBigNumber } from './utils';
 
 use(sinonChai);
@@ -373,6 +373,21 @@ describe('RelayClient', function () {
 
         expect(signStub).to.have.been.called;
         expect(signStub).to.have.been.calledWith(expectedRelayRequestData);
+      });
+
+      it('should set `SERVER_SIGNATURE_REQUIRED` constant in the request', async function () {
+        forwarderStub.nonce.resolves(constants.Two);
+        const {
+          metadata: { signature },
+        } = await relayClient._prepareHttpRequest(
+          FAKE_HUB_INFO,
+          FAKE_RELAY_REQUEST,
+          {
+            serverSignature: true,
+          }
+        );
+
+        expect(signature).to.be.equal(SERVER_SIGNATURE_REQUIRED);
       });
 
       it(`should emit sign request '${EVENT_SIGN_REQUEST}'`, async function () {
@@ -1032,6 +1047,17 @@ describe('RelayClient', function () {
         );
 
         expect(transaction).to.be.equals(transaction);
+      });
+
+      it('should throw if the transaction required a server signature', async function () {
+        const error = new Error(
+          'Transactions can only be relayed with client signature'
+        );
+        const transaction = relayClient.relayTransaction(envelopingRequest, {
+          serverSignature: true,
+        });
+
+        await expect(transaction).to.be.rejectedWith(error.message);
       });
 
       it('should throw if the transaction cannot be build with any hub', async function () {

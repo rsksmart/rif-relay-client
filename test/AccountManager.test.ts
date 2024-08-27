@@ -2,48 +2,20 @@ import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { providers, Wallet } from 'ethers';
 import type { Network } from '@ethersproject/providers';
-import { _TypedDataEncoder } from 'ethers/lib/utils';
-import Sinon, { createSandbox } from 'sinon';
+import { _TypedDataEncoder, getAddress } from 'ethers/lib/utils';
+import { createSandbox } from 'sinon';
 import sinonChai from 'sinon-chai';
 import AccountManager from '../src/AccountManager';
-import * as typedDataUtils from '../src/typedRequestData.utils';
-import * as common from '../src/common/relayRequest.utils';
 import * as clientConfigurator from '../src/common/clientConfigurator';
+import * as signer from '../src/signer/signer';
+import { createRandomAddress } from './utils';
+import { FAKE_RELAY_REQUEST } from './request.fakes';
+import sinon from 'sinon';
 
 use(sinonChai);
 use(chaiAsPromised);
 
 const sandbox = createSandbox();
-
-const createRandomAddress = () => Wallet.createRandom().address;
-
-const relayOrDeployRequest = {
-  relayData: {
-    callForwarder: createRandomAddress(),
-    callVerifier: createRandomAddress(),
-    feesReceiver: createRandomAddress(),
-    gasPrice: Math.random() * 1000,
-  },
-  request: {
-    data: '',
-    from: createRandomAddress(),
-    nonce: Math.random() * 1e16,
-    relayHub: createRandomAddress(),
-    to: createRandomAddress(),
-    tokenAmount: Math.random() * 1e16,
-    tokenContract: createRandomAddress(),
-    tokenGas: Math.random() * 1000,
-    value: Math.random() * 1e16,
-    validUntilTime: 0,
-  },
-};
-const relayRequest = {
-  ...relayOrDeployRequest,
-  request: {
-    ...relayOrDeployRequest.request,
-    gas: Math.random() * 1000,
-  },
-};
 
 const ACCOUNTS_INITIAL_LENGTH = 3;
 const randomAccounts = Array(ACCOUNTS_INITIAL_LENGTH)
@@ -149,174 +121,56 @@ describe('AccountManager', function () {
     });
 
     describe('sign', function () {
-      it('should check the type of request', async function () {
-        const stubIsDeployRequest = sandbox.stub(common, 'isDeployRequest');
-        await accountManager.sign(relayRequest).catch(() => undefined);
+      let wallet: Wallet;
 
-        expect(stubIsDeployRequest).to.be.calledWith(relayRequest);
+      beforeEach(function () {
+        wallet = Wallet.createRandom();
+        accountManager.addAccount(wallet);
       });
 
-      it('should construct typed message', async function () {
-        const expectedMessage = {
-          types: {
-            RelayRequest: typedDataUtils.relayRequestType,
-            RelayData: typedDataUtils.relayDataType,
+      it('Should sign with local account', async function () {
+        const stub = sandbox
+          .stub(signer, 'signEnvelopingRequest')
+          .resolves('signature');
+
+        const relayRequest = {
+          ...FAKE_RELAY_REQUEST,
+          request: {
+            ...FAKE_RELAY_REQUEST.request,
+            from: wallet.address,
           },
-          primaryType: 'RelayRequest',
-          domain: typedDataUtils.getDomainSeparator(
-            relayRequest.relayData.callForwarder,
-            1
-          ),
-          value: {
-            ...relayRequest.request,
-            relayData: relayRequest.relayData,
+        };
+        await accountManager.sign(relayRequest);
+
+        expect(stub).to.be.calledWith(
+          relayRequest,
+          getAddress(wallet.address),
+          sinon.match({ address: wallet.address })
+        );
+      });
+
+      it('Should sign with wallet sent as parameter', async function () {
+        const stub = sandbox
+          .stub(signer, 'signEnvelopingRequest')
+          .resolves('signature');
+
+        const newWallet = Wallet.createRandom();
+
+        const relayRequest = {
+          ...FAKE_RELAY_REQUEST,
+          request: {
+            ...FAKE_RELAY_REQUEST.request,
+            from: newWallet.address,
           },
         };
 
-        const stubRecoverSignature = sandbox
-          .stub(
-            accountManager as unknown as {
-              _recoverSignature: () => string;
-            },
-            '_recoverSignature'
-          )
-          .callsFake(() => relayRequest.request.from.toString());
-        await accountManager.sign(relayRequest);
+        await accountManager.sign(relayRequest, newWallet);
 
-        expect(stubRecoverSignature).to.be.calledWith(
-          expectedMessage,
-          sandbox.match.any
+        expect(stub).to.be.calledWith(
+          relayRequest,
+          getAddress(newWallet.address),
+          sinon.match({ address: newWallet.address })
         );
-      });
-
-      it('should verify the request originator address against recovered typed signature', async function () {
-        sandbox
-          .stub(
-            accountManager as unknown as {
-              _recoverSignature: () => string;
-            },
-            '_recoverSignature'
-          )
-          .callsFake(() => createRandomAddress());
-
-        await expect(
-          accountManager.sign(relayRequest)
-        ).to.eventually.be.rejectedWith('signature is not correct');
-      });
-
-      it('should return signature', async function () {
-        const expectedSignature = createRandomAddress();
-        sandbox
-          .stub(
-            accountManager as unknown as {
-              _recoverSignature: () => string;
-            },
-            '_recoverSignature'
-          )
-          .callsFake(() => relayRequest.request.from.toString());
-        sandbox
-          .stub(
-            accountManager as unknown as {
-              _signWithProvider: () => string;
-            },
-            '_signWithProvider'
-          )
-          .callsFake(() => expectedSignature);
-        const actualSignature = await accountManager.sign(relayRequest);
-
-        expect(actualSignature).to.eq(expectedSignature);
-      });
-
-      it('should sign with provider if no local wallet of the relay originator exists', async function () {
-        sandbox
-          .stub(
-            accountManager as unknown as {
-              _recoverSignature: () => string;
-            },
-            '_recoverSignature'
-          )
-          .callsFake(() => relayRequest.request.from.toString());
-        const stubSignWithProvider = sandbox.stub(
-          accountManager as unknown as {
-            _signWithProvider: () => string;
-          },
-          '_signWithProvider'
-        );
-        await accountManager.sign(relayRequest);
-
-        expect(stubSignWithProvider).to.be.called;
-      });
-
-      it('should sign with wallet if one exists locally', async function () {
-        (accountManager as unknown as { _accounts: Wallet[] })._accounts.push({
-          ...Wallet.createRandom(),
-          address: relayRequest.request.from.toString(),
-        } as Wallet);
-        sandbox
-          .stub(
-            accountManager as unknown as {
-              _recoverSignature: () => string;
-            },
-            '_recoverSignature'
-          )
-          .callsFake(() => relayRequest.request.from.toString());
-        const stubSignWithWallet = sandbox.stub(
-          accountManager as unknown as {
-            _signWithWallet: () => string;
-          },
-          '_signWithWallet'
-        );
-        await accountManager.sign(relayRequest);
-
-        expect(stubSignWithWallet).to.be.called;
-      });
-
-      describe('When the wallet used for signature is sent as parameter', function () {
-        let signerWallet: Wallet;
-        let stubSignWithWallet: Sinon.SinonStub;
-
-        beforeEach(function () {
-          signerWallet = Wallet.createRandom();
-
-          stubSignWithWallet = sandbox.stub(
-            accountManager as unknown as {
-              _signWithWallet: () => string;
-            },
-            '_signWithWallet'
-          );
-        });
-
-        it('Should sign with wallet sent as parameter', async function () {
-          sandbox
-            .stub(
-              accountManager as unknown as {
-                _recoverSignature: () => string;
-              },
-              '_recoverSignature'
-            )
-            .callsFake(() => relayRequest.request.from.toString());
-
-          await accountManager.sign(relayRequest, signerWallet);
-
-          expect(stubSignWithWallet).to.be.calledWith(signerWallet);
-        });
-
-        it('Should fail if the from in request does not correspond to wallet sent as parameter', async function () {
-          sandbox
-            .stub(
-              accountManager as unknown as {
-                _recoverSignature: () => string;
-              },
-              '_recoverSignature'
-            )
-            .callsFake(() => signerWallet.address);
-
-          await expect(
-            accountManager.sign(relayRequest, signerWallet)
-          ).to.be.rejectedWith(
-            'Internal RelayClient exception: signature is not correct:'
-          );
-        });
       });
     });
   });

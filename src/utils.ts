@@ -45,6 +45,7 @@ const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x00');
 const FACTOR = 0.25;
 const GAS_VERIFICATION_ATTEMPTS = 4;
+const SERVER_SIGNATURE_REQUIRED = 'SERVER_SIGNATURE_REQUIRED';
 
 const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
@@ -121,7 +122,7 @@ const estimatePaymentGas = async ({
     // This may be wrong in case the feesReceiver performs some operations using
     // the msg.sender address in the fallback/receive function.
     return await estimateInternalCallGas({
-      from: feesReceiver,
+      from: tokenOrigin,
       to: feesReceiver,
       gasPrice,
       value: tokenAmount,
@@ -458,6 +459,7 @@ export {
   INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   SHA3_NULL_S,
+  SERVER_SIGNATURE_REQUIRED,
   validateRelayResponse,
   useEnveloping,
   getRelayClientGenerator,
