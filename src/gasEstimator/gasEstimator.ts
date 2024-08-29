@@ -65,10 +65,10 @@ const estimateRelayMaxPossibleGas = async (
  *    - paymentEstimation: the gas required for the payment
  *    - internalEstimation: the gas required for the internal call
  *    - postEnvelopedTxEstimation: the gas required after the internal call.
- * @param relayRequest 
- * @param signer 
- * @param options 
- * @returns 
+ * @param relayRequest
+ * @param signer
+ * @param options
+ * @returns
  */
 const estimateRelayMaxPossibleGasNoSignature = async (
   relayRequest: EnvelopingRequest,
