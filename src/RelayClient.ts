@@ -482,8 +482,7 @@ class RelayClient extends EnvelopingEventEmitter {
     log.debug(
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
-
-    console.log(envelopingTx.metadata);
+    log.debug('Relay Client - Request metadata:', envelopingTx.metadata);
 
     return await this._httpClient.estimateMaxPossibleGas(
       url.toString(),
