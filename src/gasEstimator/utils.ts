@@ -10,10 +10,9 @@ import { applyGasCorrectionFactor, getSmartWalletAddress } from '../utils';
 import { getProvider } from '../common/clientConfigurator';
 import type { RelayTxOptions } from '../common';
 
-const PRE_RELAY_GAS_COST = 70_500;
-const POST_RELAY_GAS_COST = 36_800;
-const POST_DEPLOY_GAS_COST = 33_300;
-const POST_DEPLOY_GAS_COST_NO_EXECUTION = 4_000;
+const PRE_RELAY_GAS_COST = 74_000;
+const POST_RELAY_DEPLOY_GAS_COST = 33_500;
+const POST_DEPLOY_EXECUTION_FACTOR = 500;
 
 const standardMaxPossibleGasEstimation = async (
   { relayRequest, metadata: { signature } }: EnvelopingTxRequest,
@@ -81,7 +80,6 @@ export {
   standardMaxPossibleGasEstimation,
   resolveSmartWalletAddress,
   PRE_RELAY_GAS_COST,
-  POST_RELAY_GAS_COST,
-  POST_DEPLOY_GAS_COST,
-  POST_DEPLOY_GAS_COST_NO_EXECUTION,
+  POST_RELAY_DEPLOY_GAS_COST,
+  POST_DEPLOY_EXECUTION_FACTOR,
 };

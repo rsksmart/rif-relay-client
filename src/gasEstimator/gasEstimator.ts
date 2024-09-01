@@ -3,10 +3,9 @@ import { estimatePaymentGas, estimateInternalCallGas } from '../utils';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import {
-  POST_RELAY_GAS_COST,
-  POST_DEPLOY_GAS_COST,
+  POST_RELAY_DEPLOY_GAS_COST,
   PRE_RELAY_GAS_COST,
-  POST_DEPLOY_GAS_COST_NO_EXECUTION,
+  POST_DEPLOY_EXECUTION_FACTOR,
   resolveSmartWalletAddress,
   standardMaxPossibleGasEstimation,
 } from './utils';
@@ -56,7 +55,7 @@ const estimateRelayMaxPossibleGas = async (
 };
 
 /**
- * We try to estimation the maximum possible gas that the transaction will consume
+ * We try to estimate the maximum possible gas that the transaction will consume
  * without requiring the signature of the user. The idea is to apply 2 different strategies
  * according to the type of request:
  * - deploy: the server signs the request and estimates the gas of the deployment with a static call
@@ -64,7 +63,10 @@ const estimateRelayMaxPossibleGas = async (
  *    - preEnvelopedTxEstimation: the gas required without the payment and the internal call
  *    - paymentEstimation: the gas required for the payment
  *    - internalEstimation: the gas required for the internal call
- *    - postEnvelopedTxEstimation: the gas required after the internal call.
+ *    - POST_DEPLOY_NO_EXECUTION: when there is no execution in deployment, an additional 4_000 are needed. In the default
+ *      we need to subtract 3500 to avoid over estimating the tx
+ *    - POST_RELAY_DEPLOY_GAS_COST: transfer back cost is always included since we cannot know if the smart wallet is going
+ *      to have some balance after the execution
  * @param relayRequest
  * @param signer
  * @param options
@@ -81,14 +83,17 @@ const estimateRelayMaxPossibleGasNoSignature = async (
     throw Error('Token amount needs to be 0');
   }
 
+  if (options?.isCustom) {
+    throw Error('CustomSmartWallet is not supported');
+  }
+
   const {
     request,
     relayData: { gasPrice },
   } = relayRequest;
 
-  const isDeploy = isDeployRequest(relayRequest);
   let preEnvelopedTxEstimation = BigNumber.from(PRE_RELAY_GAS_COST);
-  let postEnvelopedTxEstimation = POST_RELAY_GAS_COST;
+  const isDeploy = isDeployRequest(relayRequest);
   if (isDeploy) {
     const from = signer.address;
     const updatedRelayRequest = {
@@ -113,9 +118,6 @@ const estimateRelayMaxPossibleGasNoSignature = async (
       signature,
       { gasPrice, from }
     );
-
-    // TODO: Are we sure we need this?
-    postEnvelopedTxEstimation = POST_DEPLOY_GAS_COST;
   }
 
   const smartWalletAddress = await resolveSmartWalletAddress(
@@ -134,23 +136,31 @@ const estimateRelayMaxPossibleGasNoSignature = async (
     preDeploySWAddress: smartWalletAddress,
   });
 
-  const { to, data } = relayRequest.request;
   let internalEstimation = BigNumber.from(0);
+  const to = await relayRequest.request.to;
   if (to != constants.AddressZero) {
     internalEstimation = await estimateInternalCallGas({
-      data,
+      data: relayRequest.request.data,
       from: smartWalletAddress,
       to,
       gasPrice,
     });
-  } else if (isDeploy) {
-    internalEstimation = BigNumber.from(POST_DEPLOY_GAS_COST_NO_EXECUTION);
+  }
+
+  let missingGas = 0;
+  if (isDeploy) {
+    if (to == constants.AddressZero) {
+      missingGas = POST_DEPLOY_EXECUTION_FACTOR * 8;
+    } else {
+      missingGas = POST_DEPLOY_EXECUTION_FACTOR * 3;
+    }
   }
 
   return preEnvelopedTxEstimation
     .add(paymentEstimation)
     .add(internalEstimation)
-    .add(postEnvelopedTxEstimation);
+    .add(POST_RELAY_DEPLOY_GAS_COST) // Since we don't have a way to know if the smart wallet is going to have some balance after the execution, we always include this value.
+    .add(missingGas); // In the deploy tx, there is some missing gas that needs to be included if there is no execution or it is paid with native token
 };
 
 export { estimateRelayMaxPossibleGas, estimateRelayMaxPossibleGasNoSignature };
