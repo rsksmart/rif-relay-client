@@ -128,7 +128,13 @@ const estimatePaymentGas = async ({
     // the msg.sender address in the fallback/receive function.
     // In RSKj the transaction is estimated even if the `tokenOrigin` address has no funds.
     const chainId = (await getProvider().getNetwork()).chainId;
-    const from = [MAINNET_CHAIN_ID, TESTNET_CHAIN_ID, REGTEST_CHAIN_ID].includes(chainId) ? tokenOrigin : feesReceiver;
+    const from = [
+      MAINNET_CHAIN_ID,
+      TESTNET_CHAIN_ID,
+      REGTEST_CHAIN_ID,
+    ].includes(chainId)
+      ? tokenOrigin
+      : feesReceiver;
 
     return await estimateInternalCallGas({
       from,
