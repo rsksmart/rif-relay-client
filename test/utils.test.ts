@@ -190,6 +190,9 @@ describe('utils', function () {
         providers.Provider
       );
       providerStub.estimateGas = sinon.stub().resolves(FAKE_GAS_COST);
+      providerStub.getNetwork = sinon.stub().resolves({
+        chainId: 31,
+      });
       sinon.stub(clientConfiguration, 'getProvider').returns(providerStub);
 
       const request: PaymentGasEstimationParams = {

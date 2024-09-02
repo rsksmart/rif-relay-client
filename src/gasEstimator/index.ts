@@ -1,5 +1,9 @@
-export { estimateRelayMaxPossibleGas } from './gasEstimator';
+export {
+  estimateRelayMaxPossibleGas,
+  estimateRelayMaxPossibleGasNoSignature,
+} from './gasEstimator';
 export {
   standardMaxPossibleGasEstimation,
-  linearFitMaxPossibleGasEstimation,
+  PRE_RELAY_GAS_COST,
+  POST_RELAY_DEPLOY_GAS_COST,
 } from './utils';

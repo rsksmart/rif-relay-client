@@ -8,6 +8,7 @@ export * from './pricer';
 export * from './utils';
 export * from './common';
 export * from './typedRequestData.utils';
+export * from './signer';
 export * from './events/EnvelopingEventEmitter';
 
 export { AccountManager, RelayClient };

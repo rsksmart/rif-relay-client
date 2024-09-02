@@ -39,12 +39,18 @@ import {
 import RelayClient from './RelayClient';
 import type { HttpClient } from './api/common';
 
-const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 18500; // When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
-const INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION = 10500;
+// When estimating the gas an internal call is going to spend, we need to substract some gas inherent to send the parameters to the blockchain
+const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION = 18_500;
+const INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION = 10_500;
 const ESTIMATED_GAS_CORRECTION_FACTOR = 1;
 const SHA3_NULL_S = utils.keccak256('0x00');
 const FACTOR = 0.25;
 const GAS_VERIFICATION_ATTEMPTS = 4;
+const SERVER_SIGNATURE_REQUIRED = 'SERVER_SIGNATURE_REQUIRED';
+
+export const REGTEST_CHAIN_ID = 33;
+export const TESTNET_CHAIN_ID = 31;
+export const MAINNET_CHAIN_ID = 30;
 
 const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
@@ -120,8 +126,18 @@ const estimatePaymentGas = async ({
     // so we set the feesReceiver as the `from` address.
     // This may be wrong in case the feesReceiver performs some operations using
     // the msg.sender address in the fallback/receive function.
+    // In RSKj the transaction is estimated even if the `tokenOrigin` address has no funds.
+    const chainId = (await getProvider().getNetwork()).chainId;
+    const from = [
+      MAINNET_CHAIN_ID,
+      TESTNET_CHAIN_ID,
+      REGTEST_CHAIN_ID,
+    ].includes(chainId)
+      ? tokenOrigin
+      : feesReceiver;
+
     return await estimateInternalCallGas({
-      from: feesReceiver,
+      from,
       to: feesReceiver,
       gasPrice,
       value: tokenAmount,
@@ -458,6 +474,7 @@ export {
   INTERNAL_TRANSACTION_NATIVE_ESTIMATED_CORRECTION,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   SHA3_NULL_S,
+  SERVER_SIGNATURE_REQUIRED,
   validateRelayResponse,
   useEnveloping,
   getRelayClientGenerator,

@@ -66,6 +66,7 @@ type RelayTxOptions = {
   signerWallet?: Wallet;
   ignoreVerifications?: Array<IgnoreVerifications>;
   isCustom?: boolean;
+  serverSignature?: boolean;
 };
 
 type SmartWalletAddressTxOptions = {

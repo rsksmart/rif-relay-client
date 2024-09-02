@@ -63,6 +63,7 @@ import {
   getSmartWalletAddress,
   isDataEmpty,
   maxPossibleGasVerification,
+  SERVER_SIGNATURE_REQUIRED,
   validateRelayResponse,
 } from './utils';
 
@@ -322,9 +323,13 @@ class RelayClient extends EnvelopingEventEmitter {
     const accountManager = AccountManager.getInstance();
 
     const signerWallet = options?.signerWallet;
+    const serverSignature = options?.serverSignature;
+
     const metadata: EnvelopingMetadata = {
       relayHubAddress: await relayHub,
-      signature: await accountManager.sign(updatedRelayRequest, signerWallet),
+      signature: serverSignature
+        ? SERVER_SIGNATURE_REQUIRED
+        : await accountManager.sign(updatedRelayRequest, signerWallet),
       relayMaxNonce,
       isCustom: options?.isCustom,
     };
@@ -354,7 +359,7 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<BigNumber> {
     const {
       request: { tokenGas, tokenAmount },
-      relayData: { callForwarder },
+      relayData,
     } = envelopingRequest;
 
     const currentTokenAmount = BigNumber.from(tokenAmount);
@@ -379,6 +384,7 @@ class RelayClient extends EnvelopingEventEmitter {
       data: string;
     };
 
+    const callForwarder = await relayData.callForwarder;
     const origin = isDeployment
       ? await getSmartWalletAddress({
           owner: from,
@@ -387,8 +393,9 @@ class RelayClient extends EnvelopingEventEmitter {
           to,
           data,
           isCustom,
+          factoryAddress: callForwarder,
         })
-      : await callForwarder;
+      : callForwarder;
 
     return await estimatePaymentGas({
       relayRequest: {
@@ -438,6 +445,10 @@ class RelayClient extends EnvelopingEventEmitter {
     envelopingRequest: UserDefinedEnvelopingRequest,
     options?: RelayTxOptions
   ): Promise<Transaction> {
+    if (options?.serverSignature) {
+      throw new Error('Transactions can only be relayed with client signature');
+    }
+
     const { envelopingTx, activeRelay } = await this._getHubEnvelopingTx(
       envelopingRequest,
       options
@@ -473,6 +484,7 @@ class RelayClient extends EnvelopingEventEmitter {
     log.debug(
       `Relay Client - Relay Hub:${envelopingTx.metadata.relayHubAddress.toString()}`
     );
+    log.debug('Relay Client - Request metadata:', envelopingTx.metadata);
 
     return await this._httpClient.estimateMaxPossibleGas(
       url.toString(),
