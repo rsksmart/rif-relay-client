@@ -48,6 +48,10 @@ const FACTOR = 0.25;
 const GAS_VERIFICATION_ATTEMPTS = 4;
 const SERVER_SIGNATURE_REQUIRED = 'SERVER_SIGNATURE_REQUIRED';
 
+export const REGTEST_CHAIN_ID = 33;
+export const TESTNET_CHAIN_ID = 31;
+export const MAINNET_CHAIN_ID = 30;
+
 const getRelayClientGenerator = function* (httpClient?: HttpClient) {
   const { preferredRelays } = getEnvelopingConfig();
 
@@ -122,8 +126,12 @@ const estimatePaymentGas = async ({
     // so we set the feesReceiver as the `from` address.
     // This may be wrong in case the feesReceiver performs some operations using
     // the msg.sender address in the fallback/receive function.
+    // In RSKj the transaction is estimated even if the `tokenOrigin` address has no funds.
+    const chainId = (await getProvider().getNetwork()).chainId;
+    const from = [MAINNET_CHAIN_ID, TESTNET_CHAIN_ID, REGTEST_CHAIN_ID].includes(chainId) ? tokenOrigin : feesReceiver;
+
     return await estimateInternalCallGas({
-      from: tokenOrigin,
+      from,
       to: feesReceiver,
       gasPrice,
       value: tokenAmount,
