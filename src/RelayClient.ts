@@ -359,7 +359,7 @@ class RelayClient extends EnvelopingEventEmitter {
   ): Promise<BigNumber> {
     const {
       request: { tokenGas, tokenAmount },
-      relayData: { callForwarder },
+      relayData,
     } = envelopingRequest;
 
     const currentTokenAmount = BigNumber.from(tokenAmount);
@@ -384,6 +384,7 @@ class RelayClient extends EnvelopingEventEmitter {
       data: string;
     };
 
+    const callForwarder = await relayData.callForwarder;
     const origin = isDeployment
       ? await getSmartWalletAddress({
           owner: from,
@@ -392,8 +393,9 @@ class RelayClient extends EnvelopingEventEmitter {
           to,
           data,
           isCustom,
+          factoryAddress: callForwarder,
         })
-      : await callForwarder;
+      : callForwarder;
 
     return await estimatePaymentGas({
       relayRequest: {
