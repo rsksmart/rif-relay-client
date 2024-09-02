@@ -90,7 +90,7 @@
     "typescript": "4.8.2"
   },
   "peerDependencies": {
-    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#estimation-no-signature",
+    "@rsksmart/rif-relay-contracts": "2.1.1-beta.1",
     "ethers": "^5.7.0"
   },
   "publishConfig": {
