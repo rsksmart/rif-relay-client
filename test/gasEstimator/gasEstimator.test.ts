@@ -3,7 +3,12 @@ import chaiAsPromised from 'chai-as-promised';
 import sinonChai from 'sinon-chai';
 import { createSandbox, SinonStubbedInstance } from 'sinon';
 import { BigNumber, constants, providers, Wallet } from 'ethers';
-import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import {
+  BaseSmartWalletFactory__factory,
+  RelayHub,
+  RelayHub__factory,
+  SmartWalletFactory,
+} from '@rsksmart/rif-relay-contracts';
 
 import {
   FAKE_DEPLOY_REQUEST,
@@ -47,6 +52,7 @@ describe('GasEstimator', function () {
         request: {
           ...FAKE_RELAY_TRANSACTION_REQUEST.relayRequest.request,
           tokenAmount: 0,
+          nonce: constants.Zero,
         },
       },
     };
@@ -57,6 +63,7 @@ describe('GasEstimator', function () {
         request: {
           ...FAKE_DEPLOY_TRANSACTION_REQUEST.relayRequest.request,
           tokenAmount: 0,
+          nonce: constants.Zero,
         },
       },
     };
@@ -300,7 +307,14 @@ describe('GasEstimator', function () {
           },
         } as unknown as RelayHub;
 
+        const factoryStub = {
+          nonce: () => Promise.resolve(constants.One),
+        } as unknown as SmartWalletFactory;
+
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        sandbox
+          .stub(BaseSmartWalletFactory__factory, 'connect')
+          .returns(factoryStub);
       });
 
       describe('with contract execution', function () {
@@ -314,7 +328,7 @@ describe('GasEstimator', function () {
             .add(fakeTokenGas)
             .add(fakeInternalGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 3);
+            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -338,7 +352,7 @@ describe('GasEstimator', function () {
             .add(fakeTokenGas)
             .add(fakeInternalGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 3);
+            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -370,7 +384,7 @@ describe('GasEstimator', function () {
           const expectedEstimation = deployEstimation
             .add(fakeTokenGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 8);
+            .add(gasEstimatorUtils.POST_DEPLOY_NO_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -393,7 +407,7 @@ describe('GasEstimator', function () {
           const expectedEstimation = deployEstimation
             .add(fakeTokenGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 8);
+            .add(gasEstimatorUtils.POST_DEPLOY_NO_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
