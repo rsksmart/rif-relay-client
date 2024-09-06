@@ -24,6 +24,7 @@ import {
   PRE_RELAY_GAS_COST,
   resolveSmartWalletAddress,
   standardMaxPossibleGasEstimation,
+  touchedAccount,
 } from '../../src/gasEstimator/utils';
 import { createRandomAddress } from '../utils';
 import type { EnvelopingTxRequest } from '../../src';
@@ -443,6 +444,42 @@ describe('GasEstimator', function () {
       );
 
       expect(smartWalletAddress).to.be.equal(expectedSmartWalletAddress);
+    });
+  });
+
+  describe('touchedAccount', function () {
+    let providerStub: SinonStubbedInstance<providers.BaseProvider>;
+
+    beforeEach(function () {
+      providerStub = sandbox.createStubInstance(providers.BaseProvider);
+      sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
+      providerStub.getBalance.resolves(BigNumber.from(1));
+      providerStub.getTransactionCount.resolves(1);
+    });
+
+    afterEach(function () {
+      sandbox.restore();
+    });
+
+    it('should return true if balance is not zero', async function () {
+      const touched = await touchedAccount(createRandomAddress());
+
+      expect(touched).to.be.true;
+    });
+
+    it('should return true if transaction count is greater than 0', async function () {
+      const touched = await touchedAccount(createRandomAddress());
+
+      expect(touched).to.be.true;
+    });
+
+    it('should return false if balance is zero and transaction count is 0', async function () {
+      providerStub.getBalance.resolves(BigNumber.from(0));
+      providerStub.getTransactionCount.resolves(0);
+
+      const touched = await touchedAccount(createRandomAddress());
+
+      expect(touched).to.be.false;
     });
   });
 });

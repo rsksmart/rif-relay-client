@@ -79,9 +79,18 @@ const resolveSmartWalletAddress = async (
     : callForwarder;
 };
 
+const touchedAccount = async (address: string) => {
+  const provider = getProvider();
+  const ownerBalance = await provider.getBalance(address);
+  const ownerTx = await provider.getTransactionCount(address);
+
+  return !ownerBalance.isZero() || ownerTx > 0;
+};
+
 export {
   standardMaxPossibleGasEstimation,
   resolveSmartWalletAddress,
+  touchedAccount,
   PRE_RELAY_GAS_COST,
   POST_RELAY_DEPLOY_GAS_COST,
   POST_DEPLOY_EXECUTION,

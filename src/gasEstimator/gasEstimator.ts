@@ -76,7 +76,7 @@ const estimateRelayMaxPossibleGas = async (
  *      the costs are included in all of them. These costs can be subtract by using the following constants:
  *      - POST_RELAY_DEPLOY_GAS_COST: transfer back cost is always included since we cannot know if the smart wallet is going
  *        to have some balance after the execution
- *      - OWNER_ALREADY_TOUCHED: Owner already touched, while we are doing the transfer back the owner may or not be a new account
+ *      - OWNER_ALREADY_TOUCHED: Owner already touched, the owner of the smart wallet was previously touched
  * @param relayRequest
  * @param signer
  * @param options
