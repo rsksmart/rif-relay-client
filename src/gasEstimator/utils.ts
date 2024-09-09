@@ -15,7 +15,7 @@ const POST_RELAY_DEPLOY_GAS_COST = 33_500;
 const POST_DEPLOY_EXECUTION = 1_500;
 const POST_DEPLOY_NO_EXECUTION = 4_000;
 const STORAGE_REFUND = 15_000;
-const OWNER_ALREADY_TOUCHED = 25_000;
+const ACCOUNT_ALREADY_CREATED = 25_000;
 
 const standardMaxPossibleGasEstimation = async (
   { relayRequest, metadata: { signature } }: EnvelopingTxRequest,
@@ -79,7 +79,7 @@ const resolveSmartWalletAddress = async (
     : callForwarder;
 };
 
-const touchedAccount = async (address: string) => {
+const isAccountCreated = async (address: string) => {
   const provider = getProvider();
   const ownerBalance = await provider.getBalance(address);
   const ownerTx = await provider.getTransactionCount(address);
@@ -90,11 +90,11 @@ const touchedAccount = async (address: string) => {
 export {
   standardMaxPossibleGasEstimation,
   resolveSmartWalletAddress,
-  touchedAccount,
+  isAccountCreated,
   PRE_RELAY_GAS_COST,
   POST_RELAY_DEPLOY_GAS_COST,
   POST_DEPLOY_EXECUTION,
   POST_DEPLOY_NO_EXECUTION,
   STORAGE_REFUND,
-  OWNER_ALREADY_TOUCHED,
+  ACCOUNT_ALREADY_CREATED,
 };

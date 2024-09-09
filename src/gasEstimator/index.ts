@@ -4,8 +4,8 @@ export {
 } from './gasEstimator';
 export {
   standardMaxPossibleGasEstimation,
-  touchedAccount,
+  isAccountCreated,
   PRE_RELAY_GAS_COST,
   POST_RELAY_DEPLOY_GAS_COST,
-  OWNER_ALREADY_TOUCHED,
+  ACCOUNT_ALREADY_CREATED,
 } from './utils';

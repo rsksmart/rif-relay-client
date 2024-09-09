@@ -24,7 +24,7 @@ import {
   PRE_RELAY_GAS_COST,
   resolveSmartWalletAddress,
   standardMaxPossibleGasEstimation,
-  touchedAccount,
+  isAccountCreated,
 } from '../../src/gasEstimator/utils';
 import { createRandomAddress } from '../utils';
 import type { EnvelopingTxRequest } from '../../src';
@@ -447,7 +447,7 @@ describe('GasEstimator', function () {
     });
   });
 
-  describe('touchedAccount', function () {
+  describe('isAccountCreated', function () {
     let providerStub: SinonStubbedInstance<providers.BaseProvider>;
 
     beforeEach(function () {
@@ -462,13 +462,13 @@ describe('GasEstimator', function () {
     });
 
     it('should return true if balance is not zero', async function () {
-      const touched = await touchedAccount(createRandomAddress());
+      const touched = await isAccountCreated(createRandomAddress());
 
       expect(touched).to.be.true;
     });
 
     it('should return true if transaction count is greater than 0', async function () {
-      const touched = await touchedAccount(createRandomAddress());
+      const touched = await isAccountCreated(createRandomAddress());
 
       expect(touched).to.be.true;
     });
@@ -477,7 +477,7 @@ describe('GasEstimator', function () {
       providerStub.getBalance.resolves(BigNumber.from(0));
       providerStub.getTransactionCount.resolves(0);
 
-      const touched = await touchedAccount(createRandomAddress());
+      const touched = await isAccountCreated(createRandomAddress());
 
       expect(touched).to.be.false;
     });
