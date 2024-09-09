@@ -5,16 +5,21 @@ import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import {
   POST_RELAY_DEPLOY_GAS_COST,
   PRE_RELAY_GAS_COST,
-  POST_DEPLOY_EXECUTION_FACTOR,
   resolveSmartWalletAddress,
   standardMaxPossibleGasEstimation,
+  STORAGE_REFUND,
+  POST_DEPLOY_EXECUTION,
+  POST_DEPLOY_NO_EXECUTION,
 } from './utils';
 import {
   getProvider,
   type EnvelopingRequest,
   type RelayTxOptions,
 } from '../common';
-import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import {
+  BaseSmartWalletFactory__factory,
+  RelayHub__factory,
+} from '@rsksmart/rif-relay-contracts';
 import { signEnvelopingRequest } from '../signer';
 
 const estimateRelayMaxPossibleGas = async (
@@ -63,10 +68,16 @@ const estimateRelayMaxPossibleGas = async (
  *    - preEnvelopedTxEstimation: the gas required without the payment and the internal call
  *    - paymentEstimation: the gas required for the payment
  *    - internalEstimation: the gas required for the internal call
- *    - POST_DEPLOY_NO_EXECUTION: when there is no execution in deployment, an additional 4_000 are needed. In the default
- *      we need to subtract 3500 to avoid over estimating the tx
- *    - POST_RELAY_DEPLOY_GAS_COST: transfer back cost is always included since we cannot know if the smart wallet is going
- *      to have some balance after the execution
+ *    - POST_DEPLOY_NO_EXECUTION: when there is no execution in deployment, an additional 4_000 are needed
+ *    - POST_DEPLOY_EXECUTION: when there is execution in deployment, an additional 1_500 are needed
+ *    - STORAGE_REFUND: After the nonces were already touched by a smart wallet deployment or smart wallet execution, we need to subtract 15_000
+ * - Manually subtract:
+ *    - Without signature, we cannot analyze if some of the gas costs should be included or not, to avoid underestimating the relay transaction
+ *      the costs are included in all of them. These costs can be subtract by using the following constants:
+ *      - POST_RELAY_DEPLOY_GAS_COST: The transfer back cost is always included since we cannot know if the smart wallet is going
+ *        to have some balance after the execution
+ *      - ACCOUNT_ALREADY_CREATED: The owner address of the smart wallet was previously created. A utility function was included to check
+ *        if the owner address of smart wallet was already created
  * @param relayRequest
  * @param signer
  * @param options
@@ -96,18 +107,24 @@ const estimateRelayMaxPossibleGasNoSignature = async (
   const isDeploy = isDeployRequest(relayRequest);
   if (isDeploy) {
     const from = signer.address;
+    const provider = getProvider();
+    const factory = BaseSmartWalletFactory__factory.connect(
+      await relayRequest.relayData.callForwarder,
+      provider
+    );
+    const nonce = await factory.nonce(from);
     const updatedRelayRequest = {
       request: {
         ...relayRequest.request,
         from,
         to: constants.AddressZero,
+        nonce,
       },
       relayData: {
         ...relayRequest.relayData,
       },
     };
     const signature = signEnvelopingRequest(updatedRelayRequest, from, signer);
-    const provider = getProvider();
     const relayHub = RelayHub__factory.connect(
       await request.relayHub,
       provider
@@ -150,10 +167,15 @@ const estimateRelayMaxPossibleGasNoSignature = async (
   let missingGas = 0;
   if (isDeploy) {
     if (to == constants.AddressZero) {
-      missingGas = POST_DEPLOY_EXECUTION_FACTOR * 8;
+      missingGas = POST_DEPLOY_NO_EXECUTION;
     } else {
-      missingGas = POST_DEPLOY_EXECUTION_FACTOR * 3;
+      missingGas = POST_DEPLOY_EXECUTION;
     }
+  }
+
+  const nonce = BigNumber.from(await request.nonce);
+  if (!nonce.isZero()) {
+    missingGas -= STORAGE_REFUND;
   }
 
   return preEnvelopedTxEstimation

@@ -3,7 +3,12 @@ import chaiAsPromised from 'chai-as-promised';
 import sinonChai from 'sinon-chai';
 import { createSandbox, SinonStubbedInstance } from 'sinon';
 import { BigNumber, constants, providers, Wallet } from 'ethers';
-import { RelayHub, RelayHub__factory } from '@rsksmart/rif-relay-contracts';
+import {
+  BaseSmartWalletFactory__factory,
+  RelayHub,
+  RelayHub__factory,
+  SmartWalletFactory,
+} from '@rsksmart/rif-relay-contracts';
 
 import {
   FAKE_DEPLOY_REQUEST,
@@ -19,6 +24,7 @@ import {
   PRE_RELAY_GAS_COST,
   resolveSmartWalletAddress,
   standardMaxPossibleGasEstimation,
+  isAccountCreated,
 } from '../../src/gasEstimator/utils';
 import { createRandomAddress } from '../utils';
 import type { EnvelopingTxRequest } from '../../src';
@@ -47,6 +53,7 @@ describe('GasEstimator', function () {
         request: {
           ...FAKE_RELAY_TRANSACTION_REQUEST.relayRequest.request,
           tokenAmount: 0,
+          nonce: constants.Zero,
         },
       },
     };
@@ -57,6 +64,7 @@ describe('GasEstimator', function () {
         request: {
           ...FAKE_DEPLOY_TRANSACTION_REQUEST.relayRequest.request,
           tokenAmount: 0,
+          nonce: constants.Zero,
         },
       },
     };
@@ -300,7 +308,14 @@ describe('GasEstimator', function () {
           },
         } as unknown as RelayHub;
 
+        const factoryStub = {
+          nonce: () => Promise.resolve(constants.One),
+        } as unknown as SmartWalletFactory;
+
         sandbox.stub(RelayHub__factory, 'connect').returns(relayHubStub);
+        sandbox
+          .stub(BaseSmartWalletFactory__factory, 'connect')
+          .returns(factoryStub);
       });
 
       describe('with contract execution', function () {
@@ -314,7 +329,7 @@ describe('GasEstimator', function () {
             .add(fakeTokenGas)
             .add(fakeInternalGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 3);
+            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -338,7 +353,7 @@ describe('GasEstimator', function () {
             .add(fakeTokenGas)
             .add(fakeInternalGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 3);
+            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -370,7 +385,7 @@ describe('GasEstimator', function () {
           const expectedEstimation = deployEstimation
             .add(fakeTokenGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 8);
+            .add(gasEstimatorUtils.POST_DEPLOY_NO_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -393,7 +408,7 @@ describe('GasEstimator', function () {
           const expectedEstimation = deployEstimation
             .add(fakeTokenGas)
             .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
-            .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION_FACTOR * 8);
+            .add(gasEstimatorUtils.POST_DEPLOY_NO_EXECUTION);
 
           expect(estimation).eqls(
             expectedEstimation,
@@ -429,6 +444,42 @@ describe('GasEstimator', function () {
       );
 
       expect(smartWalletAddress).to.be.equal(expectedSmartWalletAddress);
+    });
+  });
+
+  describe('isAccountCreated', function () {
+    let providerStub: SinonStubbedInstance<providers.BaseProvider>;
+
+    beforeEach(function () {
+      providerStub = sandbox.createStubInstance(providers.BaseProvider);
+      sandbox.stub(clientConfiguration, 'getProvider').returns(providerStub);
+      providerStub.getBalance.resolves(BigNumber.from(1));
+      providerStub.getTransactionCount.resolves(1);
+    });
+
+    afterEach(function () {
+      sandbox.restore();
+    });
+
+    it('should return true if balance is not zero', async function () {
+      const touched = await isAccountCreated(createRandomAddress());
+
+      expect(touched).to.be.true;
+    });
+
+    it('should return true if transaction count is greater than 0', async function () {
+      const touched = await isAccountCreated(createRandomAddress());
+
+      expect(touched).to.be.true;
+    });
+
+    it('should return false if balance is zero and transaction count is 0', async function () {
+      providerStub.getBalance.resolves(BigNumber.from(0));
+      providerStub.getTransactionCount.resolves(0);
+
+      const touched = await isAccountCreated(createRandomAddress());
+
+      expect(touched).to.be.false;
     });
   });
 });
