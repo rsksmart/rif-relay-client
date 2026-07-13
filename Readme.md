@@ -25,7 +25,7 @@ This project works as a dependency and needs to be installed in order to be used
 
 ### Pre-requisites
 
-- Node version 12.18
+- Node version 18.12 or later
 
 ### Dependencies
 

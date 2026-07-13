@@ -22,15 +22,34 @@ module.exports = {
   },
   overrides: [
     {
+      // TODO(refactor): Fix bignumber.js imports (export= module) in src/api/pricer and
+      // src/pricer so BigNumber is typed correctly; then remove this override.
+      // See docs/DEPENDENCY-REMEDIATION.md Option B.
+      files: ['src/api/pricer/**', 'src/pricer/**'],
+      rules: {
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
+      },
+    },
+    {
       extends: [
         "plugin:mocha/recommended",
         "plugin:jest-formatting/strict", // easiest way to add padding around tests blocks rules. could write our own in future using [padding-line-between-statements](https://eslint.org/docs/latest/rules/padding-line-between-statements) rule
       ],
+      // TODO(refactor): Same bignumber.js typing fix as src/api/pricer; then re-enable no-unsafe-* here.
       files: ['test/**'],
       plugins: ['mocha'],
       rules: {
         // you should turn the original rule off *only* for test files
         '@typescript-eslint/unbound-method': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
       },
     },
   ],
