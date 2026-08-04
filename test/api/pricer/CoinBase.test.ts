@@ -4,36 +4,41 @@ import { HttpWrapper } from '../../../src/api/common';
 
 import CoinBase, { CoinBaseResponse } from '../../../src/api/pricer/CoinBase';
 
+type CoinBaseWithProtected = {
+  _getCurrencyName(tokenSymbol: string): string;
+};
+
 describe('CoinBase', function () {
-  type CoinBaseExposed = {
-    _getCurrencyName(tokenSymbol: string): string;
-  } & {
-    [key in keyof CoinBase]: CoinBase[key];
-  };
-  let coinBase: CoinBaseExposed;
+  let coinBase: CoinBase;
+  let coinBaseWithProtected: CoinBaseWithProtected;
   const sourceCurrency = 'RIF';
   const targetCurrency = 'USD';
   const xRateRifUsd = '0.07770028890144696';
 
   beforeEach(function () {
-    coinBase = new CoinBase() as unknown as CoinBaseExposed;
+    coinBase = new CoinBase();
+    coinBaseWithProtected = coinBase as unknown as CoinBaseWithProtected;
   });
 
   describe('_getCurrencyName', function () {
     it('should return mapped token name', function () {
-      expect(coinBase._getCurrencyName('RIF')).to.be.equal(sourceCurrency);
+      expect(coinBaseWithProtected._getCurrencyName('RIF')).to.be.equal(
+        sourceCurrency
+      );
     });
 
     it('should return mapped token(lowercase) name', function () {
-      expect(coinBase._getCurrencyName('rif')).to.be.equal(sourceCurrency);
+      expect(coinBaseWithProtected._getCurrencyName('rif')).to.be.equal(
+        sourceCurrency
+      );
     });
 
     it('should return token if token is not mapped', function () {
-      expect(coinBase._getCurrencyName('btc')).to.be.equal('btc');
+      expect(coinBaseWithProtected._getCurrencyName('btc')).to.be.equal('btc');
     });
 
     it('should fail if token symbol is empty', function () {
-      expect(() => coinBase._getCurrencyName('')).to.throw(
+      expect(() => coinBaseWithProtected._getCurrencyName('')).to.throw(
         'CoinBase API cannot map a token with a null/empty value'
       );
     });

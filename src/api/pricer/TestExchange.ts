@@ -1,4 +1,4 @@
-import { BigNumber as BigNumberJs } from 'bignumber.js';
+import BigNumberJs from 'bignumber.js';
 import BaseExchangeApi, { CurrencyMapping } from './BaseExchangeApi';
 
 type RateRecord = Record<string, string>;

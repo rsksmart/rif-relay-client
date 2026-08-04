@@ -1,5 +1,5 @@
 import type { ResponseError } from 'superagent';
-import { BigNumber as BigNumberJs } from 'bignumber.js';
+import BigNumberJs from 'bignumber.js';
 import BaseExchangeApi from './BaseExchangeApi';
 import HttpWrapper from '../common/HttpWrapper';
 

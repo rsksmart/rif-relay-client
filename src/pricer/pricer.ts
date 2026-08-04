@@ -1,4 +1,4 @@
-import { BigNumber as BigNumberJs } from 'bignumber.js';
+import BigNumberJs from 'bignumber.js';
 import log from 'loglevel';
 import {
   ExchangeApiName,

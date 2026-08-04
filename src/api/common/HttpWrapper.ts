@@ -63,7 +63,7 @@ const interceptors = {
 };
 
 export default class HttpWrapper {
-  private readonly _httpClient;
+  private readonly _httpClient: SuperAgent.SuperAgentStatic;
 
   private timeout;
 
@@ -78,7 +78,7 @@ export default class HttpWrapper {
     logger.setLevel(logLevel);
   }
 
-  public get httpClient() {
+  public get httpClient(): SuperAgent.SuperAgentStatic {
     return this._httpClient;
   }
 

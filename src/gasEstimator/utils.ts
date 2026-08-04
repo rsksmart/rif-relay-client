@@ -66,17 +66,23 @@ const resolveSmartWalletAddress = async (
   const isSmartWalletDeploy = isDeployRequest(relayRequest);
   const isCustom = options?.isCustom;
 
-  return isSmartWalletDeploy
-    ? await getSmartWalletAddress({
-        owner: await from,
-        smartWalletIndex: smartWalletIndex!,
-        recoverer: await recoverer,
-        to: await to,
-        data: await data,
-        factoryAddress: callForwarder,
-        isCustom,
-      })
-    : callForwarder;
+  if (!isSmartWalletDeploy) {
+    return callForwarder;
+  }
+
+  if (smartWalletIndex === undefined) {
+    throw new Error('Deploy request is missing smart wallet index');
+  }
+
+  return await getSmartWalletAddress({
+    owner: await from,
+    smartWalletIndex,
+    recoverer: await recoverer,
+    to: await to,
+    data: await data,
+    factoryAddress: callForwarder,
+    isCustom,
+  });
 };
 
 const isAccountCreated = async (address: string) => {

@@ -6,7 +6,7 @@ import {
   spy,
   replace,
 } from 'sinon';
-import { BigNumber as BigNumberJs } from 'bignumber.js';
+import BigNumber from 'bignumber.js';
 import { getExchangeRate } from '../../src/pricer/pricer';
 import {
   CoinCodex,
@@ -21,18 +21,18 @@ import type { ExchangeApi } from 'src/api/pricer/BaseExchangeApi';
 describe('pricer', function () {
   describe('getExchangeRate', function () {
     let coinGeckoStub: SinonStubbedInstance<CoinGecko>;
-    let fakeRifUsd: BigNumberJs;
-    let fakeRbtcUsd: BigNumberJs;
-    let fakeRbtcRif: BigNumberJs;
-    let fakeRifRbtc: BigNumberJs;
+    let fakeRifUsd: InstanceType<typeof BigNumber>;
+    let fakeRbtcUsd: InstanceType<typeof BigNumber>;
+    let fakeRbtcRif: InstanceType<typeof BigNumber>;
+    let fakeRifRbtc: InstanceType<typeof BigNumber>;
     const RIF_SYMBOL = 'RIF';
     const RBTC_SYMBOL = 'RBTC';
     let fakeBuilder: Map<ExchangeApiName, ExchangeApi>;
 
     beforeEach(function () {
       coinGeckoStub = createStubInstance(CoinGecko);
-      fakeRifUsd = randomBigNumberJs(25000);
-      fakeRbtcUsd = randomBigNumberJs(25000);
+      fakeRifUsd = randomBigNumber(25000);
+      fakeRbtcUsd = randomBigNumber(25000);
       fakeRbtcRif = fakeRbtcUsd.dividedBy(fakeRifUsd);
       fakeRifRbtc = fakeRifUsd.dividedBy(fakeRbtcUsd);
       fakeBuilder = new Map();
@@ -50,8 +50,8 @@ describe('pricer', function () {
       restore();
     });
 
-    function randomBigNumberJs(max: number) {
-      return BigNumberJs(Math.random() * max);
+    function randomBigNumber(max: number) {
+      return BigNumber(Math.random() * max);
     }
 
     it('should return exchange rate', async function () {

@@ -6,7 +6,7 @@ import {
   utils,
   PopulatedTransaction,
 } from 'ethers';
-import { BigNumber as BigNumberJs } from 'bignumber.js';
+import Decimal from 'bignumber.js';
 import {
   ICustomSmartWalletFactory__factory,
   IERC20__factory,
@@ -281,8 +281,8 @@ const applyGasCorrectionFactor = (
   esimatedGasCorrectFactor: BigNumberish = ESTIMATED_GAS_CORRECTION_FACTOR
 ): BigNumber => {
   if (esimatedGasCorrectFactor.toString() !== '1') {
-    const bigGasCorrection = BigNumberJs(esimatedGasCorrectFactor.toString());
-    let bigEstimation = BigNumberJs(estimation.toString());
+    const bigGasCorrection = Decimal(esimatedGasCorrectFactor.toString());
+    let bigEstimation = Decimal(estimation.toString());
     bigEstimation = bigEstimation.multipliedBy(bigGasCorrection);
 
     return BigNumber.from(bigEstimation.toFixed());
@@ -449,12 +449,12 @@ const maxPossibleGasVerification = async (
 };
 
 const applyFactor = (value: BigNumberish, factor: number) => {
-  const bigFactor = BigNumberJs(1).plus(factor);
+  const bigFactor = Decimal(1).plus(factor);
 
   return BigNumber.from(
     bigFactor
       .multipliedBy(value.toString())
-      .dp(0, BigNumberJs.ROUND_DOWN)
+      .dp(0, Decimal.ROUND_DOWN)
       .toString()
   );
 };

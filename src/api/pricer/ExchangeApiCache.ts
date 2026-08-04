@@ -1,6 +1,6 @@
 import log from 'loglevel';
 import type { ExchangeApi } from './BaseExchangeApi';
-import type { BigNumber as BigNumberJs } from 'bignumber.js';
+import type BigNumberJs from 'bignumber.js';
 
 export type RateWithExpiration = {
   rate: BigNumberJs;

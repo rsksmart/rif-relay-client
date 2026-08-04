@@ -6,7 +6,7 @@ import {
   PromiseOrValue,
   IWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { BigNumber as BigNumberJs } from 'bignumber.js';
+import Decimal from 'bignumber.js';
 import { BigNumber, BigNumberish, constants, Transaction } from 'ethers';
 import {
   BytesLike,
@@ -414,7 +414,7 @@ class RelayClient extends EnvelopingEventEmitter {
 
     const provider = getProvider();
 
-    const networkGasPrice = new BigNumberJs(
+    const networkGasPrice = new Decimal(
       (await provider.getGasPrice()).toString()
     );
 

@@ -1,40 +1,44 @@
 import { expect } from 'chai';
 import RdocExchange from '../../../src/api/pricer/RdocExchange';
 
+type RdocExchangeWithProtected = {
+  _getCurrencyName(tokenSymbol: string): string;
+};
+
 describe('RdocExchange', function () {
-  type RdocExchangeExposed = {
-    _getCurrencyName(tokenSymbol: string): string;
-  } & {
-    [key in keyof RdocExchange]: RdocExchange[key];
-  };
-  let rdocExchange: RdocExchangeExposed;
+  let rdocExchange: RdocExchange;
+  let rdocExchangeWithProtected: RdocExchangeWithProtected;
   const SOURCE_CURRENCY = 'RDOC';
   const TARGET_CURRENCY = 'USD';
   const X_RATE_RDOC_USD = '1';
 
   beforeEach(function () {
-    rdocExchange = new RdocExchange() as unknown as RdocExchangeExposed;
+    rdocExchange = new RdocExchange();
+    rdocExchangeWithProtected =
+      rdocExchange as unknown as RdocExchangeWithProtected;
   });
 
   describe('_getCurrencyName', function () {
     it('should return mapped token name', function () {
-      expect(rdocExchange._getCurrencyName('RDOC')).to.be.equal(
+      expect(rdocExchangeWithProtected._getCurrencyName('RDOC')).to.be.equal(
         SOURCE_CURRENCY
       );
     });
 
     it('should return mapped token(lowercase) name', function () {
-      expect(rdocExchange._getCurrencyName('rdoc')).to.be.equal(
+      expect(rdocExchangeWithProtected._getCurrencyName('rdoc')).to.be.equal(
         SOURCE_CURRENCY
       );
     });
 
     it('should return token if token is not mapped', function () {
-      expect(rdocExchange._getCurrencyName('btc')).to.be.equal('btc');
+      expect(rdocExchangeWithProtected._getCurrencyName('btc')).to.be.equal(
+        'btc'
+      );
     });
 
     it('should fail if token symbol is empty', function () {
-      expect(() => rdocExchange._getCurrencyName('')).to.throw(
+      expect(() => rdocExchangeWithProtected._getCurrencyName('')).to.throw(
         'RDocExchange API cannot map a token with a null/empty value'
       );
     });

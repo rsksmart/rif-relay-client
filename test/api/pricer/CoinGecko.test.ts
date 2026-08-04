@@ -11,30 +11,31 @@ import CoinGecko, {
 
 use(chaiAsPromised);
 
+type CoinGeckoWithProtected = {
+  _getCurrencyName(tokenSymbol: string): string;
+};
+
 describe('CoinGecko', function () {
-  type CoinGeckoExposed = {
-    _getCurrencyName(tokenSymbol: string): string;
-  } & {
-    [key in keyof CoinGecko]: CoinGecko[key];
-  };
-  let coinGecko: CoinGeckoExposed;
+  let coinGecko: CoinGecko;
+  let coinGeckoWithProtected: CoinGeckoWithProtected;
   const targetCurrency = 'USD';
   const xRateRifUsd = '0.07770028890144696';
 
   beforeEach(function () {
-    coinGecko = new CoinGecko() as unknown as CoinGeckoExposed;
+    coinGecko = new CoinGecko();
+    coinGeckoWithProtected = coinGecko as unknown as CoinGeckoWithProtected;
   });
 
   describe('_getCurrencyName', function () {
     describe('using RIF', function () {
       it('should return mapped token name', function () {
-        expect(coinGecko._getCurrencyName('RIF')).to.be.equal(
+        expect(coinGeckoWithProtected._getCurrencyName('RIF')).to.be.equal(
           COINGECKO_RIF_TOKEN_ID
         );
       });
 
       it('should return mapped token(lowercase) name', function () {
-        expect(coinGecko._getCurrencyName('rif')).to.be.equal(
+        expect(coinGeckoWithProtected._getCurrencyName('rif')).to.be.equal(
           COINGECKO_RIF_TOKEN_ID
         );
       });
@@ -42,24 +43,24 @@ describe('CoinGecko', function () {
 
     describe('using RBTC', function () {
       it('should return mapped token name', function () {
-        expect(coinGecko._getCurrencyName('RBTC')).to.be.equal(
+        expect(coinGeckoWithProtected._getCurrencyName('RBTC')).to.be.equal(
           COINGECKO_RBTC_ID
         );
       });
 
       it('should return mapped token(lowercase) name', function () {
-        expect(coinGecko._getCurrencyName('rbtc')).to.be.equal(
+        expect(coinGeckoWithProtected._getCurrencyName('rbtc')).to.be.equal(
           COINGECKO_RBTC_ID
         );
       });
     });
 
     it('should return token if token is not mapped', function () {
-      expect(coinGecko._getCurrencyName('btc')).to.be.equal('btc');
+      expect(coinGeckoWithProtected._getCurrencyName('btc')).to.be.equal('btc');
     });
 
     it('should fail if token symbol is empty', function () {
-      expect(() => coinGecko._getCurrencyName('')).to.throw(
+      expect(() => coinGeckoWithProtected._getCurrencyName('')).to.throw(
         'CoinGecko API cannot map a token with a null/empty value'
       );
     });
