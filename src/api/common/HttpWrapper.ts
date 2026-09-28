@@ -4,6 +4,9 @@ import log, { LogLevelDesc } from 'loglevel';
 const logger = log.getLogger('HttpWrapper');
 const LOGMAXLEN = 120;
 const DEFAULT_TIMEOUT = 30000;
+// Some price APIs (e.g. CoinGecko) reject requests with no User-Agent header;
+// superagent doesn't set one by default
+const USER_AGENT = 'rif-relay-client';
 
 type HttpWrapperOpts = {
   timeout?: number;
@@ -75,6 +78,7 @@ export default class HttpWrapper {
     this._httpClient = SuperAgent.agent()
       .timeout(this.timeout)
       .type('json')
+      .set('User-Agent', USER_AGENT)
       .on('response', interceptors.logRequest.onResponse)
       .on('error', interceptors.logRequest.onError);
 
