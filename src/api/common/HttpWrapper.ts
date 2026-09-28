@@ -63,7 +63,10 @@ const interceptors = {
 };
 
 export default class HttpWrapper {
-  private readonly _httpClient: SuperAgent.SuperAgentStatic;
+  // SuperAgent.agent() returns an Agent instance, not the SuperAgentStatic
+  // module object - they're structurally different (SuperAgentStatic carries
+  // extra static members like Request/Response/agent/protocols)
+  private readonly _httpClient: SuperAgent.Agent;
 
   private timeout;
 
@@ -78,7 +81,7 @@ export default class HttpWrapper {
     logger.setLevel(logLevel);
   }
 
-  public get httpClient(): SuperAgent.SuperAgentStatic {
+  public get httpClient(): SuperAgent.Agent {
     return this._httpClient;
   }
 
