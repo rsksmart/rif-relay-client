@@ -34,6 +34,13 @@ describe('HttpWrapper', function () {
       expect(httpWrapper).to.be.instanceOf(HttpWrapper);
     });
 
+    it('should configure the User-Agent header', function () {
+      const setHeaderSpy = sandbox.spy(agent.prototype, 'set');
+      new HttpWrapper();
+
+      expect(setHeaderSpy).to.be.calledWith('User-Agent', 'rif-relay-client');
+    });
+
     it('should set logging level', function () {
       const setLogLevelsSpy = sandbox.spy(
         log.getLogger('HttpWrapper'),
