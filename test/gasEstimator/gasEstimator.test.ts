@@ -1,7 +1,7 @@
 import { use, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinonChai from 'sinon-chai';
-import { createSandbox, SinonStubbedInstance } from 'sinon';
+import { createSandbox, SinonStub, SinonStubbedInstance } from 'sinon';
 import { BigNumber, constants, providers, Wallet } from 'ethers';
 import {
   BaseSmartWalletFactory__factory,
@@ -195,6 +195,7 @@ describe('GasEstimator', function () {
     let fakeTokenGas: BigNumber;
     let fakeInternalGas: BigNumber;
     let relayWorker: Wallet;
+    let isAccountCreatedStub: SinonStub;
 
     beforeEach(function () {
       fakeTokenGas = randomBigNumber(10000);
@@ -205,6 +206,9 @@ describe('GasEstimator', function () {
       sandbox
         .stub(relayUtils, 'estimateInternalCallGas')
         .resolves(fakeInternalGas);
+      isAccountCreatedStub = sandbox
+        .stub(gasEstimatorUtils, 'isAccountCreated')
+        .resolves(false);
     });
 
     afterEach(function () {
@@ -288,6 +292,52 @@ describe('GasEstimator', function () {
       });
     });
 
+    describe('when the owner account already exists', function () {
+      beforeEach(async function () {
+        isAccountCreatedStub.resolves(true);
+        sandbox
+          .stub(gasEstimatorUtils, 'resolveSmartWalletAddress')
+          .resolves(
+            await relayTransactionRequest.relayRequest.relayData.callForwarder
+          );
+      });
+
+      it('should check the owner of the request', async function () {
+        await estimateRelayMaxPossibleGasNoSignature(
+          relayTransactionRequest.relayRequest,
+          relayWorker
+        );
+
+        expect(isAccountCreatedStub).to.be.calledOnceWith(
+          await relayTransactionRequest.relayRequest.request.from
+        );
+      });
+
+      it('should not include the account creation cost', async function () {
+        const estimation = await estimateRelayMaxPossibleGasNoSignature(
+          {
+            ...relayTransactionRequest.relayRequest,
+            request: {
+              ...relayTransactionRequest.relayRequest.request,
+              tokenContract: constants.AddressZero,
+            },
+          },
+          relayWorker
+        );
+
+        const expectedEstimation = BigNumber.from(PRE_RELAY_GAS_COST)
+          .add(fakeTokenGas)
+          .add(fakeInternalGas)
+          .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
+          .sub(gasEstimatorUtils.ACCOUNT_ALREADY_CREATED);
+
+        expect(estimation).eqls(
+          expectedEstimation,
+          `${estimation.toString()} should equal ${expectedEstimation.toString()}`
+        );
+      });
+    });
+
     describe('should estimate the deploy request', function () {
       let deployEstimation: BigNumber;
 
@@ -360,6 +410,27 @@ describe('GasEstimator', function () {
             `${estimation.toString()} should equal ${expectedEstimation.toString()}`
           );
         });
+      });
+
+      it('without the account creation cost when the owner account exists', async function () {
+        isAccountCreatedStub.resolves(true);
+
+        const estimation = await estimateRelayMaxPossibleGasNoSignature(
+          deployTransactionRequest.relayRequest,
+          relayWorker
+        );
+
+        const expectedEstimation = deployEstimation
+          .add(fakeTokenGas)
+          .add(fakeInternalGas)
+          .add(gasEstimatorUtils.POST_RELAY_DEPLOY_GAS_COST)
+          .add(gasEstimatorUtils.POST_DEPLOY_EXECUTION)
+          .sub(gasEstimatorUtils.ACCOUNT_ALREADY_CREATED);
+
+        expect(estimation).eqls(
+          expectedEstimation,
+          `${estimation.toString()} should equal ${expectedEstimation.toString()}`
+        );
       });
 
       describe('without contract execution', function () {
