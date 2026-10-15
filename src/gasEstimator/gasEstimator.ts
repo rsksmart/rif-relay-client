@@ -3,6 +3,8 @@ import { estimatePaymentGas, estimateInternalCallGas } from '../utils';
 import { isDeployRequest } from '../common/relayRequest.utils';
 import type { EnvelopingTxRequest } from '../common/relayTransaction.types';
 import {
+  ACCOUNT_ALREADY_CREATED,
+  isAccountCreated,
   POST_RELAY_DEPLOY_GAS_COST,
   PRE_RELAY_GAS_COST,
   resolveSmartWalletAddress,
@@ -71,13 +73,13 @@ const estimateRelayMaxPossibleGas = async (
  *    - POST_DEPLOY_NO_EXECUTION: when there is no execution in deployment, an additional 4_000 are needed
  *    - POST_DEPLOY_EXECUTION: when there is execution in deployment, an additional 1_500 are needed
  *    - STORAGE_REFUND: After the nonces were already touched by a smart wallet deployment or smart wallet execution, we need to subtract 15_000
+ *    - ACCOUNT_ALREADY_CREATED: POST_RELAY_DEPLOY_GAS_COST includes creating the owner account when the smart wallet sends its balance back;
+ *      when the owner account already exists (see isAccountCreated) that part is subtracted
  * - Manually subtract:
  *    - Without signature, we cannot analyze if some of the gas costs should be included or not, to avoid underestimating the relay transaction
  *      the costs are included in all of them. These costs can be subtract by using the following constants:
  *      - POST_RELAY_DEPLOY_GAS_COST: The transfer back cost is always included since we cannot know if the smart wallet is going
  *        to have some balance after the execution
- *      - ACCOUNT_ALREADY_CREATED: The owner address of the smart wallet was previously created. A utility function was included to check
- *        if the owner address of smart wallet was already created
  * @param relayRequest
  * @param signer
  * @param options
@@ -176,6 +178,10 @@ const estimateRelayMaxPossibleGasNoSignature = async (
   const nonce = BigNumber.from(await request.nonce);
   if (!nonce.isZero()) {
     missingGas -= STORAGE_REFUND;
+  }
+
+  if (await isAccountCreated(await request.from)) {
+    missingGas -= ACCOUNT_ALREADY_CREATED;
   }
 
   return preEnvelopedTxEstimation

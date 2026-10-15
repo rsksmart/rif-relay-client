@@ -214,15 +214,19 @@ class RelayClient extends EnvelopingEventEmitter {
     // tokenGas can be zero here and is going to be calculated while attempting to relay the transaction.
     const tokenGas = (await request.tokenGas) ?? constants.Zero;
 
-    const gasLimit = await ((
-      envelopingRequest.request as UserDefinedRelayRequestBody
-    ).gas ??
-      estimateInternalCallGas({
-        data,
-        from: callForwarder,
-        to,
-        gasPrice,
-      }));
+    // Only relay requests carry `gas`. In a deploy the destination call is made by the
+    // new smart wallet, not by the factory (callForwarder), so estimating it from the
+    // factory fails for calls bound to msg.sender (e.g. an HTLC claim), and a deploy
+    // request would discard the value anyway.
+    const gasLimit = isDeployment
+      ? constants.Zero
+      : await ((envelopingRequest.request as UserDefinedRelayRequestBody).gas ??
+          estimateInternalCallGas({
+            data,
+            from: callForwarder,
+            to,
+            gasPrice,
+          }));
 
     if (!isDeployment && (!gasLimit || BigNumber.from(gasLimit).isZero())) {
       throw new Error(

@@ -893,6 +893,45 @@ describe('RelayClient', function () {
         );
       });
 
+      it('should not estimate the destination call for a deploy request', async function () {
+        const estimationStub = sandbox.stub(
+          relayUtils,
+          'estimateInternalCallGas'
+        );
+
+        await relayClient._getEnvelopingRequestDetails({
+          ...FAKE_DEPLOY_REQUEST,
+          request: {
+            ...FAKE_DEPLOY_REQUEST.request,
+            gas: undefined,
+          },
+        });
+
+        expect(estimationStub).not.to.be.called;
+      });
+
+      it('should estimate the destination call from the callForwarder for a relay request without gas', async function () {
+        const expectedGas = BigNumber.from(50_000);
+        const estimationStub = sandbox
+          .stub(relayUtils, 'estimateInternalCallGas')
+          .resolves(expectedGas);
+
+        const {
+          request: { gas: actualGas },
+        } = (await relayClient._getEnvelopingRequestDetails({
+          ...FAKE_RELAY_REQUEST,
+          request: {
+            ...FAKE_RELAY_REQUEST_BODY,
+            gas: undefined,
+          },
+        })) as RelayRequest;
+
+        expect(actualGas).to.equal(expectedGas);
+        expect(estimationStub).to.be.calledWithMatch({
+          from: FAKE_RELAY_REQUEST.relayData.callForwarder,
+        });
+      });
+
       it('should not throw if no gas limit given to deploy request or forceGasLimit to request config', async function () {
         const call = relayClient._getEnvelopingRequestDetails({
           ...FAKE_DEPLOY_REQUEST,
