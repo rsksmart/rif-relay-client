@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // only the ambient types the sources need: tsc would otherwise load every
+    // @types package, and a stub like @types/minimatch@6 breaks the build
+    "types": ["node"]
+  },
   "exclude": [
     "test",
     "dist"
